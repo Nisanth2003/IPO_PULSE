@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T23:07:15",
+  "generated_at": "2026-08-10T23:56:40",
   "ipo": {
     "slug": "dhoot-transmission",
     "company": "Dhoot Transmission Limited",
     "initials": "",
     "board": "Mainboard",
-    "sector": "",
+    "sector": "Electrical and electronics components for automotive and non-automotive applications",
     "issue": {
       "fresh_cr": 0.0,
       "ofs_cr": 0.0,
@@ -33,16 +33,24 @@
     },
     "financials": {
       "years": [
-        "FY23",
-        "FY24",
-        "FY25"
+        "2024",
+        "2025",
+        "2026"
       ],
-      "revenue": [],
+      "revenue": [
+        2797.73,
+        3444.86,
+        4524.95
+      ],
       "ebitda": [],
-      "pat": [],
+      "pat": [
+        298.75,
+        353.89,
+        396.84
+      ],
       "net_worth": [],
       "total_debt": [],
-      "eps": 0.0,
+      "eps": 21.06,
       "pe_peer_avg": 0.0
     },
     "gmp_history": [
@@ -73,12 +81,21 @@
       }
     ],
     "analysis": {
-      "overview": [],
-      "green_flags": [],
-      "red_flags": [],
-      "growth": "",
-      "valuation": "",
-      "risk": "",
+      "overview": [
+        "Makes electrical and electronics components.",
+        "Serves both automotive and non-automotive sectors."
+      ],
+      "green_flags": [
+        "Revenue CAGR of 27.2 percent.",
+        "PAT CAGR of 15.3 percent.",
+        "PAT margin of 8.8 percent."
+      ],
+      "red_flags": [
+        "Low subscription of 0.63 times."
+      ],
+      "growth": "Revenue grew at 27.2 percent CAGR.",
+      "valuation": "P/E is 41.4.",
+      "risk": "Low subscription rate of 0.63.",
       "growth_tone": "good",
       "valuation_tone": "warn",
       "score": 0.0,
@@ -97,7 +114,8 @@
     "i18n": {},
     "benchmarks": {},
     "sources": {
-      "gmp": "https://www.investorgain.com/report/live-ipo-gmp/331/"
+      "gmp": "https://www.investorgain.com/report/live-ipo-gmp/331/",
+      "issue": "https://groww.in/ipo/dhoot-transmission-ipo"
     },
     "notes": ""
   },
@@ -168,8 +186,147 @@
       ]
     },
     "financials": {
-      "has_data": false,
-      "rows": []
+      "has_data": true,
+      "rows": [
+        {
+          "year": "2024",
+          "revenue": 2797.73,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 298.75,
+          "pat_margin": 10.7,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "2025",
+          "revenue": 3444.86,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 353.89,
+          "pat_margin": 10.3,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "2026",
+          "revenue": 4524.95,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 396.84,
+          "pat_margin": 8.8,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        }
+      ],
+      "latest": {
+        "year": "2026",
+        "revenue": 4524.95,
+        "ebitda": 0.0,
+        "ebitda_margin": 0.0,
+        "pat": 396.84,
+        "pat_margin": 8.8,
+        "net_worth": 0.0,
+        "total_debt": 0.0,
+        "ronw": 0.0,
+        "debt_equity": 0.0
+      },
+      "revenue_cagr": 27.2,
+      "ebitda_cagr": 0.0,
+      "pat_cagr": 15.3,
+      "margin_shift_bps": 0,
+      "eps": 21.06,
+      "pe": 41.4,
+      "pe_peer_avg": 0.0,
+      "pe_premium_pct": 0.0,
+      "market_cap_cr": 0.0,
+      "marks": {
+        "ebitda_margin": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "na",
+          "unit": "%",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "pat_margin": {
+          "value": 8.8,
+          "good_at": 8.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 45,
+          "gap_pct": 10.0
+        },
+        "revenue_cagr": {
+          "value": 27.2,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 28,
+          "gap_pct": 81.3
+        },
+        "pat_cagr": {
+          "value": 15.3,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 49,
+          "gap_pct": 2.0
+        },
+        "ronw": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "na",
+          "unit": "%",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "debt_equity": {
+          "value": 0.0,
+          "good_at": 1.0,
+          "higher_is_better": false,
+          "verdict": "na",
+          "unit": "x",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "pe": {
+          "value": 0.0,
+          "good_at": null,
+          "higher_is_better": false,
+          "verdict": "na",
+          "unit": "x",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        }
+      },
+      "score_good": 3,
+      "score_total": 3,
+      "present": {
+        "revenue": true,
+        "ebitda": false,
+        "pat": true,
+        "net_worth": false,
+        "total_debt": false
+      }
     },
     "dates": {
       "announced": null,
@@ -190,54 +347,58 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 6.1,
+      "value": 7.0,
       "components": [
         {
           "key": "grey",
-          "weight": 25,
+          "weight": 25.0,
+          "full_weight": 25,
           "has_data": true,
           "mark": 9.0,
           "detail": "GMP is 29.74% of the ₹871 band"
         },
         {
           "key": "demand",
-          "weight": 20,
+          "weight": 20.0,
+          "full_weight": 20,
           "has_data": true,
           "mark": 2.5,
           "detail": "0.63x overall on day 1"
         },
         {
           "key": "fundamentals",
-          "weight": 30,
-          "has_data": false,
-          "mark": null,
-          "detail": "no financials entered"
+          "weight": 12.9,
+          "full_weight": 30,
+          "has_data": true,
+          "mark": 10.0,
+          "detail": "3 of 3 benchmarks met (3 of 7 measurable)"
         },
         {
           "key": "valuation",
-          "weight": 15,
+          "weight": 15.0,
+          "full_weight": 15,
           "has_data": false,
           "mark": null,
           "detail": "no EPS / peer P/E"
         },
         {
           "key": "structure",
-          "weight": 10,
+          "weight": 10.0,
+          "full_weight": 10,
           "has_data": false,
           "mark": null,
           "detail": "fresh/OFS split not disclosed"
         }
       ],
-      "covered_pct": 45,
+      "covered_pct": 58,
       "has_data": true,
       "missing": [
-        "fundamentals",
         "valuation",
         "structure"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 6.1
+      "effective": 7.0
     }
   }
 }

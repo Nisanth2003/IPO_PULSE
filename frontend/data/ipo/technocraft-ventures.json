@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T23:07:15",
+  "generated_at": "2026-08-10T23:56:41",
   "ipo": {
     "slug": "technocraft-ventures",
     "company": "Technocraft Ventures Limited",
     "initials": "",
     "board": "Mainboard",
-    "sector": "",
+    "sector": "infrastructure development / EPC",
     "issue": {
       "fresh_cr": 0.0,
       "ofs_cr": 0.0,
@@ -15,8 +15,8 @@
       "price_high": 212.0,
       "lot_size": 70,
       "shares_post_issue_cr": 0.0,
-      "registrar": "KFintech",
-      "registrar_url": "https://kosmic.kfintech.com/ipostatus/",
+      "registrar": "Bigshare Services",
+      "registrar_url": "https://ipo.bigshareonline.com/ipo_status.html",
       "exchanges": [
         "BSE",
         "NSE"
@@ -33,13 +33,21 @@
     },
     "financials": {
       "years": [
-        "FY23",
         "FY24",
-        "FY25"
+        "FY25",
+        "FY26"
       ],
-      "revenue": [],
+      "revenue": [
+        226.1,
+        279.56,
+        345.0
+      ],
       "ebitda": [],
-      "pat": [],
+      "pat": [
+        19.05,
+        28.2,
+        43.31
+      ],
       "net_worth": [],
       "total_debt": [],
       "eps": 0.0,
@@ -73,10 +81,17 @@
       }
     ],
     "analysis": {
-      "overview": [],
-      "green_flags": [],
+      "overview": [
+        "Operates in infrastructure development and EPC sector.",
+        "Mainboard issue sized at 176.32 crores."
+      ],
+      "green_flags": [
+        "Revenue CAGR is a strong 23.5%.",
+        "PAT CAGR stands high at 50.8%.",
+        "PAT margin is healthy at 12.6%."
+      ],
       "red_flags": [],
-      "growth": "",
+      "growth": "Revenue CAGR of 23.5% and PAT CAGR of 50.8%.",
       "valuation": "",
       "risk": "",
       "growth_tone": "good",
@@ -96,7 +111,9 @@
     },
     "i18n": {},
     "benchmarks": {},
-    "sources": {},
+    "sources": {
+      "issue": "https://groww.in/ipo/technocraft-ventures-ipo"
+    },
     "notes": ""
   },
   "derived": {
@@ -166,8 +183,147 @@
       ]
     },
     "financials": {
-      "has_data": false,
-      "rows": []
+      "has_data": true,
+      "rows": [
+        {
+          "year": "FY24",
+          "revenue": 226.1,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 19.05,
+          "pat_margin": 8.4,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "FY25",
+          "revenue": 279.56,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 28.2,
+          "pat_margin": 10.1,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "FY26",
+          "revenue": 345.0,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 43.31,
+          "pat_margin": 12.6,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        }
+      ],
+      "latest": {
+        "year": "FY26",
+        "revenue": 345.0,
+        "ebitda": 0.0,
+        "ebitda_margin": 0.0,
+        "pat": 43.31,
+        "pat_margin": 12.6,
+        "net_worth": 0.0,
+        "total_debt": 0.0,
+        "ronw": 0.0,
+        "debt_equity": 0.0
+      },
+      "revenue_cagr": 23.5,
+      "ebitda_cagr": 0.0,
+      "pat_cagr": 50.8,
+      "margin_shift_bps": 0,
+      "eps": 0.0,
+      "pe": 0.0,
+      "pe_peer_avg": 0.0,
+      "pe_premium_pct": 0.0,
+      "market_cap_cr": 0.0,
+      "marks": {
+        "ebitda_margin": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "na",
+          "unit": "%",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "pat_margin": {
+          "value": 12.6,
+          "good_at": 8.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 32,
+          "gap_pct": 57.5
+        },
+        "revenue_cagr": {
+          "value": 23.5,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 32,
+          "gap_pct": 56.7
+        },
+        "pat_cagr": {
+          "value": 50.8,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 15,
+          "gap_pct": 238.7
+        },
+        "ronw": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "na",
+          "unit": "%",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "debt_equity": {
+          "value": 0.0,
+          "good_at": 1.0,
+          "higher_is_better": false,
+          "verdict": "na",
+          "unit": "x",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "pe": {
+          "value": 0.0,
+          "good_at": null,
+          "higher_is_better": false,
+          "verdict": "na",
+          "unit": "x",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        }
+      },
+      "score_good": 3,
+      "score_total": 3,
+      "present": {
+        "revenue": true,
+        "ebitda": false,
+        "pat": true,
+        "net_worth": false,
+        "total_debt": false
+      }
     },
     "dates": {
       "announced": null,
@@ -188,54 +344,58 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 6.2,
+      "value": 7.0,
       "components": [
         {
           "key": "grey",
-          "weight": 25,
+          "weight": 25.0,
+          "full_weight": 25,
           "has_data": true,
           "mark": 6.0,
           "detail": "GMP is 12.74% of the ₹212 band"
         },
         {
           "key": "demand",
-          "weight": 20,
+          "weight": 20.0,
+          "full_weight": 20,
           "has_data": true,
           "mark": 6.4,
           "detail": "4.73x overall on day 4"
         },
         {
           "key": "fundamentals",
-          "weight": 30,
-          "has_data": false,
-          "mark": null,
-          "detail": "no financials entered"
+          "weight": 12.9,
+          "full_weight": 30,
+          "has_data": true,
+          "mark": 10.0,
+          "detail": "3 of 3 benchmarks met (3 of 7 measurable)"
         },
         {
           "key": "valuation",
-          "weight": 15,
+          "weight": 15.0,
+          "full_weight": 15,
           "has_data": false,
           "mark": null,
           "detail": "no EPS / peer P/E"
         },
         {
           "key": "structure",
-          "weight": 10,
+          "weight": 10.0,
+          "full_weight": 10,
           "has_data": false,
           "mark": null,
           "detail": "fresh/OFS split not disclosed"
         }
       ],
-      "covered_pct": 45,
+      "covered_pct": 58,
       "has_data": true,
       "missing": [
-        "fundamentals",
         "valuation",
         "structure"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 6.2
+      "effective": 7.0
     }
   }
 }

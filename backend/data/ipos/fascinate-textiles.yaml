@@ -2,17 +2,17 @@ slug: fascinate-textiles
 company: Fascinate Textiles Limited
 initials: ''
 board: Mainboard
-sector: ''
+sector: Readymade garment manufacturing
 issue:
   fresh_cr: 0.0
   ofs_cr: 0.0
   total_cr: 66.98
   price_low: 148.0
   price_high: 156.0
-  lot_size: 0
+  lot_size: 800
   shares_post_issue_cr: 0.0
-  registrar: KFintech
-  registrar_url: https://kosmic.kfintech.com/ipostatus/
+  registrar: Cameo Corporate
+  registrar_url: https://ipo.cameoindia.com/
   exchanges:
   - BSE
   - NSE
@@ -29,9 +29,15 @@ financials:
   - FY23
   - FY24
   - FY25
-  revenue: []
+  revenue:
+  - 21.85
+  - 28.88
+  - 60.25
   ebitda: []
-  pat: []
+  pat:
+  - 0.36
+  - 0.48
+  - 5.81
   net_worth: []
   total_debt: []
   eps: 0.0
@@ -44,10 +50,15 @@ gmp_history:
   source: gemini
 subscription: []
 analysis:
-  overview: []
-  green_flags: []
+  overview:
+  - Fascinate Textiles Limited manufactures readymade garments.
+  - It operates on the mainboard stock exchange.
+  green_flags:
+  - Revenue grew at a 66.1 percent CAGR.
+  - PAT grew at a 301.7 percent CAGR.
+  - PAT margin reached a good 9.6 percent in FY25.
   red_flags: []
-  growth: ''
+  growth: Revenue grew at 66.1 percent CAGR with PAT surging.
   valuation: ''
   risk: ''
   growth_tone: good
@@ -65,5 +76,6 @@ allotment:
   steps: []
 i18n: {}
 benchmarks: {}
-sources: {}
+sources:
+  issue: https://groww.in/ipo/fascinate-textiles-ipo
 notes: ''

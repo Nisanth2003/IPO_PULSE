@@ -2,17 +2,17 @@ slug: optimystix-entertainment-india
 company: Optimystix Entertainment India Limited
 initials: ''
 board: Mainboard
-sector: ''
+sector: media and entertainment
 issue:
   fresh_cr: 0.0
   ofs_cr: 0.0
-  total_cr: 0.0
+  total_cr: 108.5
   price_low: 166.0
   price_high: 175.0
-  lot_size: 0
+  lot_size: 800
   shares_post_issue_cr: 0.0
-  registrar: KFintech
-  registrar_url: https://kosmic.kfintech.com/ipostatus/
+  registrar: Maashitla Securities
+  registrar_url: https://maashitla.com/allotment-status/public-issues
   exchanges:
   - BSE
   - NSE
@@ -26,15 +26,21 @@ dates:
   listing: '2026-08-14'
 financials:
   years:
-  - FY23
-  - FY24
-  - FY25
-  revenue: []
+  - '2024'
+  - '2025'
+  - '2026'
+  revenue:
+  - 54.76
+  - 124.39
+  - 134.99
   ebitda: []
-  pat: []
+  pat:
+  - 6.69
+  - 17.24
+  - 24.04
   net_worth: []
   total_debt: []
-  eps: 0.0
+  eps: 13.16
   pe_peer_avg: 0.0
 gmp_history:
 - date: '2026-08-07'
@@ -49,10 +55,15 @@ gmp_history:
   source: gemini
 subscription: []
 analysis:
-  overview: []
-  green_flags: []
+  overview:
+  - It operates in the media and entertainment sector.
+  - It is launching a mainboard IPO with a price band of ₹166-₹175.
+  green_flags:
+  - Revenue CAGR is strong at 57.0 percent.
+  - PAT CAGR is strong at 89.6 percent.
+  - PAT margin is good at 17.8 percent.
   red_flags: []
-  growth: ''
+  growth: Revenue grew from 54.76 crores in 2024 to 134.99 crores in 2026.
   valuation: ''
   risk: ''
   growth_tone: good
@@ -70,5 +81,6 @@ allotment:
   steps: []
 i18n: {}
 benchmarks: {}
-sources: {}
+sources:
+  issue: https://groww.in/ipo/optimystix-entertainment-ipo
 notes: ''

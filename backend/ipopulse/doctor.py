@@ -120,10 +120,16 @@ FILLERS = {
 def gmp_gaps(ipo: Ipo, today: date | None = None) -> list[str]:
     """Days inside the tracking window with no GMP reading.
 
-    A gap is not an error — nobody promises a reading every day, and the grey
-    market genuinely does not quote on weekends. It matters because reel 2's
-    trail is sold as a *daily* series, so a missing Thursday reads as "the
-    premium did not move" rather than "nobody looked".
+    Every calendar day counts, weekends included. The grey market is an
+    informal dealer network rather than an exchange — it quotes through the
+    weekend, the tracking sites publish a value every day, and the `grey` job
+    is scheduled `30 15 * * *`, which fires Saturday and Sunday too. An
+    earlier version of this skipped Sat/Sun, which quietly reclassified two
+    genuinely lost readings per week as "expected", and so hid exactly the
+    data loss it existed to surface.
+
+    It matters because reel 2's trail is billed as a *daily* series: a missing
+    day reads as "the premium held steady" rather than "nobody looked".
     """
     dates = sorted({p.date for p in ipo.gmp_history if p.date})
     if not dates:
@@ -133,7 +139,7 @@ def gmp_gaps(ipo: Ipo, today: date | None = None) -> list[str]:
     end = min(today, ipo.dates.listing or today)
     have, out, day = set(dates), [], dates[0]
     while day <= end:
-        if day.weekday() < 5 and day not in have:
+        if day not in have:
             out.append(day.isoformat())
         day += timedelta(days=1)
     return out
@@ -141,15 +147,24 @@ def gmp_gaps(ipo: Ipo, today: date | None = None) -> list[str]:
 
 def inspect(ipo: Ipo, today: date | None = None) -> dict[str, Any]:
     """Findings for one IPO, ordered worst-first."""
+    from .compute import date_metrics
+
+    status = date_metrics(ipo)["status"]
     missing = []
     for label, getter, who, severity, breaks in CHECKS:
         try:
             ok = bool(getter(ipo))
         except Exception:
             ok = False
-        if not ok:
-            missing.append({"field": label, "who": who,
-                            "severity": severity, "breaks": breaks})
+        if ok:
+            continue
+        # An issue that has not opened has no subscription to report. That is
+        # the calendar, not a hole — flagging it made every upcoming IPO look
+        # defective and buried the gaps that are real.
+        if label == "Subscription" and status == "upcoming":
+            continue
+        missing.append({"field": label, "who": who,
+                        "severity": severity, "breaks": breaks})
     missing.sort(key=lambda m: (m["severity"] != "blank", m["field"]))
     return {
         "slug": ipo.slug,

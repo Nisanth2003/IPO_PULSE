@@ -90,18 +90,18 @@ gmp_history:
 subscription: []
 analysis:
   overview:
-  - Operates 41 warehouses across 12 states for retail and e-commerce
-  - Revenue is flat while margins have been sliding for two years
+  - Operates in warehousing and supply chain sectors.
+  - Mainboard issuer raising 720.0 crore rupees total.
   green_flags:
-  - Long-tenure contracts with three large retail chains
-  - Asset base of owned land in tier-2 hubs
+  - Debt to equity ratio is 0.85x, below 1.0x.
+  - Fresh issue comprises 25.0 percent of the total.
   red_flags:
-  - OFS is 75% of the issue — promoters are the main sellers
-  - PAT down 31% over two years
-  - Debt up while equity growth stalled
-  growth: Revenue flat, PAT down 31% over FY24-FY26
-  valuation: P/E 43x vs peer average 31x
-  risk: Margin compression with rising debt
+  - PAT CAGR declined by negative 16.7 percent.
+  - OFS heavy issue with 75.0 percent offered for sale.
+  - EBITDA margin dropped to 9.9 percent.
+  growth: Revenue CAGR is slow at 2.7 percent with declining PAT.
+  valuation: P/E of 42.5x is at a 37.1 percent premium to peer average.
+  risk: PAT CAGR is declining at negative 16.7 percent.
   growth_tone: bad
   valuation_tone: bad
   score: 3.4

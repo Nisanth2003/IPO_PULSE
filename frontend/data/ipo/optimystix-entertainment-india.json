@@ -1,22 +1,22 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T23:07:15",
+  "generated_at": "2026-08-10T23:56:41",
   "ipo": {
     "slug": "optimystix-entertainment-india",
     "company": "Optimystix Entertainment India Limited",
     "initials": "",
     "board": "Mainboard",
-    "sector": "",
+    "sector": "media and entertainment",
     "issue": {
       "fresh_cr": 0.0,
       "ofs_cr": 0.0,
-      "total_cr": 0.0,
+      "total_cr": 108.5,
       "price_low": 166.0,
       "price_high": 175.0,
-      "lot_size": 0,
+      "lot_size": 800,
       "shares_post_issue_cr": 0.0,
-      "registrar": "KFintech",
-      "registrar_url": "https://kosmic.kfintech.com/ipostatus/",
+      "registrar": "Maashitla Securities",
+      "registrar_url": "https://maashitla.com/allotment-status/public-issues",
       "exchanges": [
         "BSE",
         "NSE"
@@ -33,16 +33,24 @@
     },
     "financials": {
       "years": [
-        "FY23",
-        "FY24",
-        "FY25"
+        "2024",
+        "2025",
+        "2026"
       ],
-      "revenue": [],
+      "revenue": [
+        54.76,
+        124.39,
+        134.99
+      ],
       "ebitda": [],
-      "pat": [],
+      "pat": [
+        6.69,
+        17.24,
+        24.04
+      ],
       "net_worth": [],
       "total_debt": [],
-      "eps": 0.0,
+      "eps": 13.16,
       "pe_peer_avg": 0.0
     },
     "gmp_history": [
@@ -63,10 +71,17 @@
     ],
     "subscription": [],
     "analysis": {
-      "overview": [],
-      "green_flags": [],
+      "overview": [
+        "It operates in the media and entertainment sector.",
+        "It is launching a mainboard IPO with a price band of ₹166-₹175."
+      ],
+      "green_flags": [
+        "Revenue CAGR is strong at 57.0 percent.",
+        "PAT CAGR is strong at 89.6 percent.",
+        "PAT margin is good at 17.8 percent."
+      ],
       "red_flags": [],
-      "growth": "",
+      "growth": "Revenue grew from 54.76 crores in 2024 to 134.99 crores in 2026.",
       "valuation": "",
       "risk": "",
       "growth_tone": "good",
@@ -86,17 +101,19 @@
     },
     "i18n": {},
     "benchmarks": {},
-    "sources": {},
+    "sources": {
+      "issue": "https://groww.in/ipo/optimystix-entertainment-ipo"
+    },
     "notes": ""
   },
   "derived": {
     "initials": "OE",
     "issue": {
-      "total_cr": 0.0,
+      "total_cr": 108.5,
       "has_split": false,
       "fresh_pct": 0.0,
       "ofs_pct": 0.0,
-      "min_investment": 0,
+      "min_investment": 140000,
       "is_fresh_heavy": true
     },
     "gmp": {
@@ -105,7 +122,7 @@
       "delta": 0.0,
       "pct": 2.86,
       "est_listing": 180.0,
-      "gain_per_lot": 0,
+      "gain_per_lot": 4000,
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
@@ -137,8 +154,147 @@
       "days": []
     },
     "financials": {
-      "has_data": false,
-      "rows": []
+      "has_data": true,
+      "rows": [
+        {
+          "year": "2024",
+          "revenue": 54.76,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 6.69,
+          "pat_margin": 12.2,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "2025",
+          "revenue": 124.39,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 17.24,
+          "pat_margin": 13.9,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "2026",
+          "revenue": 134.99,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 24.04,
+          "pat_margin": 17.8,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        }
+      ],
+      "latest": {
+        "year": "2026",
+        "revenue": 134.99,
+        "ebitda": 0.0,
+        "ebitda_margin": 0.0,
+        "pat": 24.04,
+        "pat_margin": 17.8,
+        "net_worth": 0.0,
+        "total_debt": 0.0,
+        "ronw": 0.0,
+        "debt_equity": 0.0
+      },
+      "revenue_cagr": 57.0,
+      "ebitda_cagr": 0.0,
+      "pat_cagr": 89.6,
+      "margin_shift_bps": 0,
+      "eps": 13.16,
+      "pe": 13.3,
+      "pe_peer_avg": 0.0,
+      "pe_premium_pct": 0.0,
+      "market_cap_cr": 0.0,
+      "marks": {
+        "ebitda_margin": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "na",
+          "unit": "%",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "pat_margin": {
+          "value": 17.8,
+          "good_at": 8.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 22,
+          "gap_pct": 122.5
+        },
+        "revenue_cagr": {
+          "value": 57.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 13,
+          "gap_pct": 280.0
+        },
+        "pat_cagr": {
+          "value": 89.6,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 8,
+          "gap_pct": 497.3
+        },
+        "ronw": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "na",
+          "unit": "%",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "debt_equity": {
+          "value": 0.0,
+          "good_at": 1.0,
+          "higher_is_better": false,
+          "verdict": "na",
+          "unit": "x",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "pe": {
+          "value": 0.0,
+          "good_at": null,
+          "higher_is_better": false,
+          "verdict": "na",
+          "unit": "x",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        }
+      },
+      "score_good": 3,
+      "score_total": 3,
+      "present": {
+        "revenue": true,
+        "ebitda": false,
+        "pat": true,
+        "net_worth": false,
+        "total_debt": false
+      }
     },
     "dates": {
       "announced": null,
@@ -159,55 +315,59 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 3.1,
+      "value": 5.4,
       "components": [
         {
           "key": "grey",
-          "weight": 25,
+          "weight": 25.0,
+          "full_weight": 25,
           "has_data": true,
           "mark": 3.1,
           "detail": "GMP is 2.86% of the ₹175 band"
         },
         {
           "key": "demand",
-          "weight": 20,
+          "weight": 20.0,
+          "full_weight": 20,
           "has_data": false,
           "mark": null,
           "detail": "issue has not opened / no subscription read"
         },
         {
           "key": "fundamentals",
-          "weight": 30,
-          "has_data": false,
-          "mark": null,
-          "detail": "no financials entered"
+          "weight": 12.9,
+          "full_weight": 30,
+          "has_data": true,
+          "mark": 10.0,
+          "detail": "3 of 3 benchmarks met (3 of 7 measurable)"
         },
         {
           "key": "valuation",
-          "weight": 15,
+          "weight": 15.0,
+          "full_weight": 15,
           "has_data": false,
           "mark": null,
           "detail": "no EPS / peer P/E"
         },
         {
           "key": "structure",
-          "weight": 10,
+          "weight": 10.0,
+          "full_weight": 10,
           "has_data": false,
           "mark": null,
           "detail": "fresh/OFS split not disclosed"
         }
       ],
-      "covered_pct": 25,
+      "covered_pct": 38,
       "has_data": false,
       "missing": [
         "demand",
-        "fundamentals",
         "valuation",
         "structure"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 3.1
+      "effective": 5.4
     }
   }
 }

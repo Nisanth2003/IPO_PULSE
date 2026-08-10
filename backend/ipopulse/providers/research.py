@@ -29,6 +29,7 @@ changing its date line.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from ..ai import Gemini, AiUnavailable, iso_today, vet_subscription
@@ -42,6 +43,23 @@ from ..ai import Gemini, AiUnavailable, iso_today, vet_subscription
 # investorgain.com publishes `Content-Signal: search=yes, ai-input=yes` and
 # `Allow: /`, which is permission for exactly this use. Pin ipowatch per-IPO
 # with `ipopulse sources <slug> --set gmp=...` if you decide otherwise.
+# A NOTE ON GMP HISTORY, learned the hard way on 2026-08-10.
+#
+# The board URL below carries only TODAY's value per IPO. The dated
+# day-by-day table lives on the per-IPO page instead:
+#
+#     https://www.investorgain.com/gmp/<company>-ipo/<id>/
+#
+# and `<id>` is not derivable from the slug — it has to be read off the board
+# once and pinned with `ipopulse sources <slug> --set gmp=<url>`.
+#
+# Worse, that table is lazy-loaded on scroll. A plain HTTP fetch sees an empty
+# tbody, and so does Gemini's url_context fetcher, which renders JavaScript but
+# does not scroll. Only a real browser produces the rows. So `--what
+# gmp-history` works on sources that render their history server-side and
+# returns nothing here — which is why the CI fix matters more than the
+# backfill: a day lost to a failed job on this source cannot be recovered
+# automatically afterwards.
 SITES: dict[str, list[str]] = {
     "gmp": [
         "https://www.investorgain.com/report/live-ipo-gmp/331/",
@@ -121,6 +139,22 @@ class ResearchProvider:
         }
         return out
 
+    def fetch_gmp_history(self, slug: str, company: str | None = None,
+                          price_high: float = 0.0, ipo: Any = None,
+                          since: str | None = None) -> list[dict[str, Any]]:
+        """The full dated GMP series, for repairing gaps in the trail.
+
+        Points that fail vetting are kept but marked, so the caller can show
+        what was rejected and why rather than silently returning a shorter
+        list than the page had.
+        """
+        name = company or slug.replace("-", " ")
+        rows = self.ai.research_gmp_history(
+            name, price_high=price_high, since=since,
+            urls=self.urls_for("gmp", ipo),
+        )
+        return [r for r in rows if r.get("date")]
+
     def fetch_financials(self, slug: str, company: str | None = None,
                          ipo: Any = None) -> dict[str, Any]:
         """The FY table, vetted for shape before it is offered.
@@ -136,6 +170,16 @@ class ResearchProvider:
                      or ["FY23", "FY24", "FY25"])
         raw = self.ai.research_financials(name, years=years,
                                           urls=self.urls_for("issue", ipo))
+
+        # The source's own year labels win over the scaffold's. `new` defaults
+        # to FY23-FY25, which is simply wrong for an issue coming to market in
+        # 2026 — its RHP shows FY24-FY26. Forcing our labels onto that table
+        # made the model return a null for the year it could not supply, and
+        # the whole read was then rejected as incomplete when it had in fact
+        # found everything.
+        found = [str(y).strip() for y in (raw.get("years") or []) if str(y).strip()]
+        if found:
+            years = found
 
         n = len(years)
         series: dict[str, list[float]] = {}
@@ -156,12 +200,23 @@ class ResearchProvider:
                 problems.append(f"{key}: non-numeric value")
 
         out: dict[str, Any] = {"years": years, **series}
+        note = str(raw.get("note") or "")
+        # Summary pages very often print the PRE-issue EPS, and `eps` here
+        # means post-issue — the P/E on reel 4 is computed straight off it.
+        # Pre-issue EPS is the larger number (fewer shares), so accepting one
+        # silently publishes a P/E that flatters the issue. If the model says
+        # it is pre-IPO, believe it and drop the field.
+        pre_issue_eps = re.search(r"\bpre[- ]?(ipo|issue)\b", note, re.I) is not None
         for key in ("eps", "pe_peer_avg"):
-            if raw.get(key) is not None:
-                try:
-                    out[key] = float(raw[key])
-                except (TypeError, ValueError):
-                    problems.append(f"{key}: non-numeric")
+            if raw.get(key) is None:
+                continue
+            if key == "eps" and pre_issue_eps:
+                problems.append("eps: source reports it pre-issue, not post-issue")
+                continue
+            try:
+                out[key] = float(raw[key])
+            except (TypeError, ValueError):
+                problems.append(f"{key}: non-numeric")
 
         confidence = raw.get("confidence", "low")
         # Financials feed 45% of the score's weight. Anything less than a

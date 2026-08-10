@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T23:07:15",
+  "generated_at": "2026-08-10T23:56:41",
   "ipo": {
     "slug": "molbio-diagnostics",
     "company": "Molbio Diagnostics Limited",
     "initials": "",
     "board": "Mainboard",
-    "sector": "",
+    "sector": "Point-of-care diagnostics",
     "issue": {
       "fresh_cr": 0.0,
       "ofs_cr": 0.0,
@@ -33,25 +33,61 @@
     },
     "financials": {
       "years": [
-        "FY23",
-        "FY24",
-        "FY25"
+        "2024",
+        "2025",
+        "2026"
       ],
-      "revenue": [],
+      "revenue": [
+        836.56,
+        1020.42,
+        1445.69
+      ],
       "ebitda": [],
-      "pat": [],
+      "pat": [
+        83.54,
+        138.58,
+        164.14
+      ],
       "net_worth": [],
       "total_debt": [],
-      "eps": 0.0,
+      "eps": 14.56,
       "pe_peer_avg": 0.0
     },
     "gmp_history": [
+      {
+        "date": "2026-08-05",
+        "gmp": 170.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "investorgain"
+      },
+      {
+        "date": "2026-08-06",
+        "gmp": 220.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "investorgain"
+      },
       {
         "date": "2026-08-07",
         "gmp": 205.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
+      },
+      {
+        "date": "2026-08-08",
+        "gmp": 130.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "investorgain"
+      },
+      {
+        "date": "2026-08-09",
+        "gmp": 132.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "investorgain"
       },
       {
         "date": "2026-08-10",
@@ -73,12 +109,22 @@
       }
     ],
     "analysis": {
-      "overview": [],
-      "green_flags": [],
-      "red_flags": [],
-      "growth": "",
-      "valuation": "",
-      "risk": "",
+      "overview": [
+        "Operates in the point-of-care diagnostics sector.",
+        "Lists on the mainboard with a ₹658.39 cr issue."
+      ],
+      "green_flags": [
+        "Strong revenue CAGR of 31.5% is recorded.",
+        "PAT CAGR stands at a high 40.2%.",
+        "PAT margin is good at 11.4% in latest data."
+      ],
+      "red_flags": [
+        "Total issue size is ₹658.39 cr with no fresh data.",
+        "Subscription level is currently low at 0.83x."
+      ],
+      "growth": "Revenue grew at a 31.5% CAGR with a 40.2% PAT CAGR.",
+      "valuation": "P/E ratio is listed at 55.4 with peer comparison unavailable.",
+      "risk": "Subscription rate is below 1x at 0.83.",
       "growth_tone": "good",
       "valuation_tone": "warn",
       "score": 0.0,
@@ -96,7 +142,10 @@
     },
     "i18n": {},
     "benchmarks": {},
-    "sources": {},
+    "sources": {
+      "gmp": "https://www.investorgain.com/gmp/molbio-diagnostics-ipo/1865/",
+      "issue": "https://groww.in/ipo/molbio-diagnostics-ipo"
+    },
     "notes": ""
   },
   "derived": {
@@ -111,16 +160,32 @@
     },
     "gmp": {
       "gmp": 135.0,
-      "prev": 205.0,
-      "delta": -70.0,
+      "prev": 132.0,
+      "delta": 3.0,
       "pct": 16.73,
       "est_listing": 942.0,
       "gain_per_lot": 2430,
-      "movement": "drop",
+      "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
       "updated": "2026-08-10",
       "series": [
+        {
+          "date": "2026-08-05",
+          "gmp": 170.0,
+          "pct": 21.07,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "investorgain"
+        },
+        {
+          "date": "2026-08-06",
+          "gmp": 220.0,
+          "pct": 27.26,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "investorgain"
+        },
         {
           "date": "2026-08-07",
           "gmp": 205.0,
@@ -128,6 +193,22 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-08",
+          "gmp": 130.0,
+          "pct": 16.11,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "investorgain"
+        },
+        {
+          "date": "2026-08-09",
+          "gmp": 132.0,
+          "pct": 16.36,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "investorgain"
         },
         {
           "date": "2026-08-10",
@@ -138,9 +219,9 @@
           "source": "gemini"
         }
       ],
-      "peak": 205.0,
-      "trough": 135.0,
-      "days_tracked": 2
+      "peak": 220.0,
+      "trough": 130.0,
+      "days_tracked": 6
     },
     "subscription": {
       "has_data": true,
@@ -166,8 +247,147 @@
       ]
     },
     "financials": {
-      "has_data": false,
-      "rows": []
+      "has_data": true,
+      "rows": [
+        {
+          "year": "2024",
+          "revenue": 836.56,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 83.54,
+          "pat_margin": 10.0,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "2025",
+          "revenue": 1020.42,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 138.58,
+          "pat_margin": 13.6,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "2026",
+          "revenue": 1445.69,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 164.14,
+          "pat_margin": 11.4,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        }
+      ],
+      "latest": {
+        "year": "2026",
+        "revenue": 1445.69,
+        "ebitda": 0.0,
+        "ebitda_margin": 0.0,
+        "pat": 164.14,
+        "pat_margin": 11.4,
+        "net_worth": 0.0,
+        "total_debt": 0.0,
+        "ronw": 0.0,
+        "debt_equity": 0.0
+      },
+      "revenue_cagr": 31.5,
+      "ebitda_cagr": 0.0,
+      "pat_cagr": 40.2,
+      "margin_shift_bps": 0,
+      "eps": 14.56,
+      "pe": 55.4,
+      "pe_peer_avg": 0.0,
+      "pe_premium_pct": 0.0,
+      "market_cap_cr": 0.0,
+      "marks": {
+        "ebitda_margin": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "na",
+          "unit": "%",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "pat_margin": {
+          "value": 11.4,
+          "good_at": 8.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 35,
+          "gap_pct": 42.5
+        },
+        "revenue_cagr": {
+          "value": 31.5,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 24,
+          "gap_pct": 110.0
+        },
+        "pat_cagr": {
+          "value": 40.2,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 19,
+          "gap_pct": 168.0
+        },
+        "ronw": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "na",
+          "unit": "%",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "debt_equity": {
+          "value": 0.0,
+          "good_at": 1.0,
+          "higher_is_better": false,
+          "verdict": "na",
+          "unit": "x",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "pe": {
+          "value": 0.0,
+          "good_at": null,
+          "higher_is_better": false,
+          "verdict": "na",
+          "unit": "x",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        }
+      },
+      "score_good": 3,
+      "score_total": 3,
+      "present": {
+        "revenue": true,
+        "ebitda": false,
+        "pat": true,
+        "net_worth": false,
+        "total_debt": false
+      }
     },
     "dates": {
       "announced": null,
@@ -188,54 +408,58 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 5.2,
+      "value": 6.3,
       "components": [
         {
           "key": "grey",
-          "weight": 25,
+          "weight": 25.0,
+          "full_weight": 25,
           "has_data": true,
           "mark": 6.8,
           "detail": "GMP is 16.73% of the ₹807 band"
         },
         {
           "key": "demand",
-          "weight": 20,
+          "weight": 20.0,
+          "full_weight": 20,
           "has_data": true,
           "mark": 3.3,
           "detail": "0.83x overall on day 1"
         },
         {
           "key": "fundamentals",
-          "weight": 30,
-          "has_data": false,
-          "mark": null,
-          "detail": "no financials entered"
+          "weight": 12.9,
+          "full_weight": 30,
+          "has_data": true,
+          "mark": 10.0,
+          "detail": "3 of 3 benchmarks met (3 of 7 measurable)"
         },
         {
           "key": "valuation",
-          "weight": 15,
+          "weight": 15.0,
+          "full_weight": 15,
           "has_data": false,
           "mark": null,
           "detail": "no EPS / peer P/E"
         },
         {
           "key": "structure",
-          "weight": 10,
+          "weight": 10.0,
+          "full_weight": 10,
           "has_data": false,
           "mark": null,
           "detail": "fresh/OFS split not disclosed"
         }
       ],
-      "covered_pct": 45,
+      "covered_pct": 58,
       "has_data": true,
       "missing": [
-        "fundamentals",
         "valuation",
         "structure"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 5.2
+      "effective": 6.3
     }
   }
 }

@@ -1,22 +1,22 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T23:07:15",
+  "generated_at": "2026-08-10T23:56:41",
   "ipo": {
     "slug": "fascinate-textiles",
     "company": "Fascinate Textiles Limited",
     "initials": "",
     "board": "Mainboard",
-    "sector": "",
+    "sector": "Readymade garment manufacturing",
     "issue": {
       "fresh_cr": 0.0,
       "ofs_cr": 0.0,
       "total_cr": 66.98,
       "price_low": 148.0,
       "price_high": 156.0,
-      "lot_size": 0,
+      "lot_size": 800,
       "shares_post_issue_cr": 0.0,
-      "registrar": "KFintech",
-      "registrar_url": "https://kosmic.kfintech.com/ipostatus/",
+      "registrar": "Cameo Corporate",
+      "registrar_url": "https://ipo.cameoindia.com/",
       "exchanges": [
         "BSE",
         "NSE"
@@ -37,9 +37,17 @@
         "FY24",
         "FY25"
       ],
-      "revenue": [],
+      "revenue": [
+        21.85,
+        28.88,
+        60.25
+      ],
       "ebitda": [],
-      "pat": [],
+      "pat": [
+        0.36,
+        0.48,
+        5.81
+      ],
       "net_worth": [],
       "total_debt": [],
       "eps": 0.0,
@@ -56,10 +64,17 @@
     ],
     "subscription": [],
     "analysis": {
-      "overview": [],
-      "green_flags": [],
+      "overview": [
+        "Fascinate Textiles Limited manufactures readymade garments.",
+        "It operates on the mainboard stock exchange."
+      ],
+      "green_flags": [
+        "Revenue grew at a 66.1 percent CAGR.",
+        "PAT grew at a 301.7 percent CAGR.",
+        "PAT margin reached a good 9.6 percent in FY25."
+      ],
       "red_flags": [],
-      "growth": "",
+      "growth": "Revenue grew at 66.1 percent CAGR with PAT surging.",
       "valuation": "",
       "risk": "",
       "growth_tone": "good",
@@ -79,7 +94,9 @@
     },
     "i18n": {},
     "benchmarks": {},
-    "sources": {},
+    "sources": {
+      "issue": "https://groww.in/ipo/fascinate-textiles-ipo"
+    },
     "notes": ""
   },
   "derived": {
@@ -89,7 +106,7 @@
       "has_split": false,
       "fresh_pct": 0.0,
       "ofs_pct": 0.0,
-      "min_investment": 0,
+      "min_investment": 124800,
       "is_fresh_heavy": true
     },
     "gmp": {
@@ -122,8 +139,147 @@
       "days": []
     },
     "financials": {
-      "has_data": false,
-      "rows": []
+      "has_data": true,
+      "rows": [
+        {
+          "year": "FY23",
+          "revenue": 21.85,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 0.36,
+          "pat_margin": 1.6,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "FY24",
+          "revenue": 28.88,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 0.48,
+          "pat_margin": 1.7,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "FY25",
+          "revenue": 60.25,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 5.81,
+          "pat_margin": 9.6,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        }
+      ],
+      "latest": {
+        "year": "FY25",
+        "revenue": 60.25,
+        "ebitda": 0.0,
+        "ebitda_margin": 0.0,
+        "pat": 5.81,
+        "pat_margin": 9.6,
+        "net_worth": 0.0,
+        "total_debt": 0.0,
+        "ronw": 0.0,
+        "debt_equity": 0.0
+      },
+      "revenue_cagr": 66.1,
+      "ebitda_cagr": 0.0,
+      "pat_cagr": 301.7,
+      "margin_shift_bps": 0,
+      "eps": 0.0,
+      "pe": 0.0,
+      "pe_peer_avg": 0.0,
+      "pe_premium_pct": 0.0,
+      "market_cap_cr": 0.0,
+      "marks": {
+        "ebitda_margin": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "na",
+          "unit": "%",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "pat_margin": {
+          "value": 9.6,
+          "good_at": 8.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 42,
+          "gap_pct": 20.0
+        },
+        "revenue_cagr": {
+          "value": 66.1,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 11,
+          "gap_pct": 340.7
+        },
+        "pat_cagr": {
+          "value": 301.7,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "good",
+          "unit": "%",
+          "pos": 50,
+          "mark": 2,
+          "gap_pct": 1911.3
+        },
+        "ronw": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "na",
+          "unit": "%",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "debt_equity": {
+          "value": 0.0,
+          "good_at": 1.0,
+          "higher_is_better": false,
+          "verdict": "na",
+          "unit": "x",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        },
+        "pe": {
+          "value": 0.0,
+          "good_at": null,
+          "higher_is_better": false,
+          "verdict": "na",
+          "unit": "x",
+          "pos": 0,
+          "mark": 0,
+          "gap_pct": 0.0
+        }
+      },
+      "score_good": 3,
+      "score_total": 3,
+      "present": {
+        "revenue": true,
+        "ebitda": false,
+        "pat": true,
+        "net_worth": false,
+        "total_debt": false
+      }
     },
     "dates": {
       "announced": null,
@@ -144,55 +300,59 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 2.0,
+      "value": 4.7,
       "components": [
         {
           "key": "grey",
-          "weight": 25,
+          "weight": 25.0,
+          "full_weight": 25,
           "has_data": true,
           "mark": 2.0,
           "detail": "GMP is 0.0% of the ₹156 band"
         },
         {
           "key": "demand",
-          "weight": 20,
+          "weight": 20.0,
+          "full_weight": 20,
           "has_data": false,
           "mark": null,
           "detail": "issue has not opened / no subscription read"
         },
         {
           "key": "fundamentals",
-          "weight": 30,
-          "has_data": false,
-          "mark": null,
-          "detail": "no financials entered"
+          "weight": 12.9,
+          "full_weight": 30,
+          "has_data": true,
+          "mark": 10.0,
+          "detail": "3 of 3 benchmarks met (3 of 7 measurable)"
         },
         {
           "key": "valuation",
-          "weight": 15,
+          "weight": 15.0,
+          "full_weight": 15,
           "has_data": false,
           "mark": null,
           "detail": "no EPS / peer P/E"
         },
         {
           "key": "structure",
-          "weight": 10,
+          "weight": 10.0,
+          "full_weight": 10,
           "has_data": false,
           "mark": null,
           "detail": "fresh/OFS split not disclosed"
         }
       ],
-      "covered_pct": 25,
+      "covered_pct": 38,
       "has_data": false,
       "missing": [
         "demand",
-        "fundamentals",
         "valuation",
         "structure"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 2.0
+      "effective": 4.7
     }
   }
 }

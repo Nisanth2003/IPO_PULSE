@@ -95,8 +95,13 @@ issue:
   price_high: 0
   lot_size: 0
   shares_post_issue_cr: 0    # optional, only needed for market cap
-  registrar: KFintech
-  registrar_url: https://kosmic.kfintech.com/ipostatus/
+  # Left blank on purpose. This used to default to KFintech with its status
+  # URL, which made every scaffolded IPO *claim* a registrar — and because
+  # sync and research only fill blanks, the wrong one then stuck. Reel 6 sent
+  # viewers to KFintech to check an allotment held by Bigshare or Cameo.
+  # `ipopulse doctor --fix` derives the URL once the name is right.
+  registrar: ""
+  registrar_url: ""
   exchanges: [BSE, NSE]
 
 dates:

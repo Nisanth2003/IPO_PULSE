@@ -2,7 +2,7 @@ slug: dhoot-transmission
 company: Dhoot Transmission Limited
 initials: ''
 board: Mainboard
-sector: ''
+sector: Electrical and electronics components for automotive and non-automotive applications
 issue:
   fresh_cr: 0.0
   ofs_cr: 0.0
@@ -26,15 +26,21 @@ dates:
   listing: '2026-08-17'
 financials:
   years:
-  - FY23
-  - FY24
-  - FY25
-  revenue: []
+  - '2024'
+  - '2025'
+  - '2026'
+  revenue:
+  - 2797.73
+  - 3444.86
+  - 4524.95
   ebitda: []
-  pat: []
+  pat:
+  - 298.75
+  - 353.89
+  - 396.84
   net_worth: []
   total_debt: []
-  eps: 0.0
+  eps: 21.06
   pe_peer_avg: 0.0
 gmp_history:
 - date: '2026-08-07'
@@ -56,12 +62,18 @@ subscription:
   employee: 1.3
   total: 0.63
 analysis:
-  overview: []
-  green_flags: []
-  red_flags: []
-  growth: ''
-  valuation: ''
-  risk: ''
+  overview:
+  - Makes electrical and electronics components.
+  - Serves both automotive and non-automotive sectors.
+  green_flags:
+  - Revenue CAGR of 27.2 percent.
+  - PAT CAGR of 15.3 percent.
+  - PAT margin of 8.8 percent.
+  red_flags:
+  - Low subscription of 0.63 times.
+  growth: Revenue grew at 27.2 percent CAGR.
+  valuation: P/E is 41.4.
+  risk: Low subscription rate of 0.63.
   growth_tone: good
   valuation_tone: warn
   score: 0.0
@@ -79,4 +91,5 @@ i18n: {}
 benchmarks: {}
 sources:
   gmp: https://www.investorgain.com/report/live-ipo-gmp/331/
+  issue: https://groww.in/ipo/dhoot-transmission-ipo
 notes: ''

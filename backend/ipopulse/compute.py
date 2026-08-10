@@ -277,18 +277,47 @@ def financial_metrics(ipo: Ipo) -> dict[str, Any]:
 
     # Each headline metric gets a reference line so the card can show whether
     # it lands on the healthy side, not just what it is.
+    #
+    # A metric is only judged when the series behind it actually exists.
+    # Without this, an absent array reads as a column of zeros: an IPO that
+    # simply had no EBITDA typed in scored a confident "0.0% — poor" against
+    # the 15% line, dragged down the fundamentals half of the score, and the
+    # analysis draft then wrote "EBITDA margin is poor at 0.0 percent" as a
+    # finding about the company. Missing is not zero, and zero is not poor.
+    has_rev, has_pat = bool(f.revenue), bool(f.pat)
+    has_ebitda, has_nw = bool(f.ebitda), bool(f.net_worth)
+    has_debt = bool(f.total_debt)
+
+    def mark(metric: str, value: float, available: bool, **kw) -> dict[str, Any]:
+        if not available:
+            spec = BENCHMARKS.get(metric, {})
+            return {"value": 0.0, "good_at": spec.get("good_at"),
+                    "higher_is_better": bool(spec.get("higher_is_better", True)),
+                    "verdict": "na", "unit": spec.get("unit", ""),
+                    "pos": 0, "mark": 0, "gap_pct": 0.0}
+        return judge(metric, value, overrides=overrides, **kw)
+
     out["marks"] = {
-        "ebitda_margin": judge("ebitda_margin", last["ebitda_margin"], overrides=overrides),
-        "pat_margin":    judge("pat_margin", last["pat_margin"], overrides=overrides),
-        "revenue_cagr":  judge("revenue_cagr", rev_cagr, overrides=overrides),
-        "pat_cagr":      judge("pat_cagr", pat_cagr, overrides=overrides),
-        "ronw":          judge("ronw", last["ronw"], overrides=overrides),
-        "debt_equity":   judge("debt_equity", last["debt_equity"], overrides=overrides),
+        "ebitda_margin": mark("ebitda_margin", last["ebitda_margin"], has_ebitda and has_rev),
+        "pat_margin":    mark("pat_margin", last["pat_margin"], has_pat and has_rev),
+        "revenue_cagr":  mark("revenue_cagr", rev_cagr, has_rev and span > 0),
+        "pat_cagr":      mark("pat_cagr", pat_cagr, has_pat and span > 0),
+        "ronw":          mark("ronw", last["ronw"], has_pat and has_nw),
+        "debt_equity":   mark("debt_equity", last["debt_equity"], has_debt and has_nw),
         # P/E is judged against this IPO's own peer group, not a fixed number
-        "pe":            judge("pe", pe, good_at=f.pe_peer_avg or None, overrides=overrides),
+        "pe":            mark("pe", pe, bool(f.eps and f.pe_peer_avg),
+                              good_at=f.pe_peer_avg or None),
     }
     out["score_good"] = sum(1 for m in out["marks"].values() if m["verdict"] == "good")
     out["score_total"] = sum(1 for m in out["marks"].values() if m["verdict"] != "na")
+    # Which series actually exist, so a table can drop a column instead of
+    # printing a row of zeros under it. The marks already refuse to judge an
+    # absent series; without this the *table* still showed "EBITDA 0 / 0% "
+    # for all three years, which is the same false claim in another place.
+    out["present"] = {
+        "revenue": has_rev, "ebitda": has_ebitda, "pat": has_pat,
+        "net_worth": has_nw, "total_debt": has_debt,
+    }
     return out
 
 
@@ -384,10 +413,20 @@ def score_metrics(ipo: Ipo, d: dict[str, Any]) -> dict[str, Any]:
     gmp, sub, fin, iss = d["gmp"], d["subscription"], d["financials"], d["issue"]
     parts: list[dict[str, Any]] = []
 
-    def add(key: str, has: bool, mark: float, detail: str) -> None:
+    def add(key: str, has: bool, mark: float, detail: str,
+            share: float = 1.0) -> None:
+        """`share` is how much of this component's evidence actually exists.
+
+        Fundamentals is seven benchmarks; when only three of them can be
+        measured, a clean 3/3 is a real 10 out of 10 *on what was measured*,
+        but it is not 30% of the total picture. Carrying a reduced weight
+        keeps the mark honest and stops `covered_pct` claiming a completeness
+        the data does not have.
+        """
         parts.append({
             "key": key,
-            "weight": SCORE_WEIGHTS[key],
+            "weight": round(SCORE_WEIGHTS[key] * (share if has else 1.0), 1),
+            "full_weight": SCORE_WEIGHTS[key],
             "has_data": bool(has),
             "mark": round(max(0.0, min(10.0, mark)), 1) if has else None,
             "detail": detail,
@@ -404,10 +443,14 @@ def score_metrics(ipo: Ipo, d: dict[str, Any]) -> dict[str, Any]:
         if has_demand else "issue has not opened / no subscription read")
 
     has_fun = bool(fin.get("has_data")) and fin.get("score_total", 0) > 0
+    slots = len(fin.get("marks") or {}) or len(BENCHMARKS)
+    measured = fin.get("score_total", 0)
     add("fundamentals", has_fun,
-        10.0 * fin.get("score_good", 0) / (fin.get("score_total") or 1),
-        f"{fin.get('score_good')} of {fin.get('score_total')} benchmarks met"
-        if has_fun else "no financials entered")
+        10.0 * fin.get("score_good", 0) / (measured or 1),
+        f"{fin.get('score_good')} of {measured} benchmarks met"
+        + (f" ({measured} of {slots} measurable)" if measured < slots else "")
+        if has_fun else "no financials entered",
+        share=(measured / slots if slots else 1.0))
 
     has_val = bool(fin.get("has_data")) and fin.get("pe", 0) > 0 and fin.get("pe_peer_avg", 0) > 0
     add("valuation", has_val, _curve(fin.get("pe_premium_pct") or 0.0, VALUE_BAND),
@@ -420,7 +463,7 @@ def score_metrics(ipo: Ipo, d: dict[str, Any]) -> dict[str, Any]:
         else "fresh/OFS split not disclosed")
 
     covered = sum(p["weight"] for p in parts if p["has_data"])
-    total_w = sum(SCORE_WEIGHTS.values())
+    total_w = float(sum(SCORE_WEIGHTS.values()))
     earned = sum(p["weight"] * p["mark"] for p in parts if p["has_data"])
     value = round(earned / covered, 1) if covered else 0.0
     covered_pct = round(covered / total_w * 100)

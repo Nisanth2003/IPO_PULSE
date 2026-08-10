@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T23:07:15",
+  "generated_at": "2026-08-10T23:56:41",
   "ipo": {
     "slug": "pramodini-medicare",
     "company": "Pramodini Medicare Limited",
@@ -56,11 +56,14 @@
     ],
     "subscription": [],
     "analysis": {
-      "overview": [],
+      "overview": [
+        "Pramodini Medicare Limited is launching an IPO.",
+        "The issue size is total 69.04 crore."
+      ],
       "green_flags": [],
       "red_flags": [],
       "growth": "",
-      "valuation": "",
+      "valuation": "The price band is set at ₹110 to ₹118.",
       "risk": "",
       "growth_tone": "good",
       "valuation_tone": "warn",
@@ -148,35 +151,40 @@
       "components": [
         {
           "key": "grey",
-          "weight": 25,
+          "weight": 25.0,
+          "full_weight": 25,
           "has_data": true,
           "mark": 2.0,
           "detail": "GMP is 0.0% of the ₹118 band"
         },
         {
           "key": "demand",
-          "weight": 20,
+          "weight": 20.0,
+          "full_weight": 20,
           "has_data": false,
           "mark": null,
           "detail": "issue has not opened / no subscription read"
         },
         {
           "key": "fundamentals",
-          "weight": 30,
+          "weight": 30.0,
+          "full_weight": 30,
           "has_data": false,
           "mark": null,
           "detail": "no financials entered"
         },
         {
           "key": "valuation",
-          "weight": 15,
+          "weight": 15.0,
+          "full_weight": 15,
           "has_data": false,
           "mark": null,
           "detail": "no EPS / peer P/E"
         },
         {
           "key": "structure",
-          "weight": 10,
+          "weight": 10.0,
+          "full_weight": 10,
           "has_data": false,
           "mark": null,
           "detail": "fresh/OFS split not disclosed"

@@ -400,7 +400,11 @@ def cmd_research(args) -> int:
     if args.what in ("ipo", "both"):
         print(f"Researching issue details for {ipo.company or args.slug}…")
         try:
-            found = provider.fetch_ipo(args.slug, company=ipo.company)
+            # `ipo=ipo` is what makes a pinned `sources.issue` URL take effect.
+            # Without it urls_for falls back to the site defaults, which are
+            # index pages listing every IPO — so a pin was silently ignored
+            # and the lookup read a directory instead of the company's page.
+            found = provider.fetch_ipo(args.slug, company=ipo.company, ipo=ipo)
         except AiUnavailable as exc:
             print(f"  ! {exc}")
             return 1
@@ -454,6 +458,78 @@ def cmd_research(args) -> int:
             else:
                 print("  (not saved — re-run with --write)")
 
+    if args.what in ("gmp-history", "all"):
+        from . import doctor
+
+        gaps = doctor.gmp_gaps(ipo)
+        print(f"\nReading the GMP history for {ipo.company or args.slug}…")
+        print(f"  reading: {', '.join(provider.urls_for('gmp', ipo)[:2])}")
+        if gaps:
+            print(f"  {len(gaps)} day(s) missing: {', '.join(gaps[:8])}")
+        try:
+            rows = provider.fetch_gmp_history(
+                args.slug, company=ipo.company,
+                price_high=ipo.issue.price_high, ipo=ipo,
+                since=(gaps[0] if gaps else None),
+            )
+        except AiUnavailable as exc:
+            print(f"  ! {exc}")
+            return 1
+
+        if not rows:
+            print("  No dated table found. Enter the missing days by hand:")
+            for day in gaps[:5]:
+                print(f"    ipopulse gmp {args.slug} <value> --date {day}")
+        else:
+            have = {p.date.isoformat(): p.gmp for p in ipo.gmp_history if p.date}
+            fresh = [r for r in rows if r["date"] not in have]
+            # A stored value that disagrees with the source is worth more
+            # attention than a missing one: it is already on the card, and it
+            # is wrong there.
+            clashes = [r for r in rows
+                       if r["date"] in have and abs(have[r["date"]] - r["gmp"]) > 0.01]
+            print(f"  {len(rows)} row(s) read, {len(fresh)} new, {len(clashes)} conflicting")
+            for r in rows:
+                if r["date"] in have:
+                    mine = have[r["date"]]
+                    mark = "≠" if abs(mine - r["gmp"]) > 0.01 else "·"
+                    note = f"  (yours: ₹{mine:g})" if mark == "≠" else ""
+                else:
+                    mark = "⚠" if r["needs_review"] else "+"
+                    note = f"  {r['review_reason']}" if r["needs_review"] else ""
+                print(f"    {mark} {r['date']}  ₹{r['gmp']:g}{note}")
+            if clashes:
+                print(f"\n  ≠ {len(clashes)} stored value(s) disagree with the source.")
+                print("    Left alone — a reading taken live on the day is not "
+                      "automatically worse\n    than a page's later memory of it. "
+                      "Overwrite with --force if the\n    source is right.")
+            for u in (rows[0].get("sources") or [])[:3]:
+                print(f"    source: {u}")
+
+            # Only ever fills holes. A researched value must not silently
+            # replace a reading that was taken on the day itself — that one
+            # was live, this one is a page's memory of it.
+            candidates = fresh + (clashes if args.force else [])
+            writable = [r for r in candidates if not r["needs_review"] or args.force]
+            skipped = [r for r in fresh if r["needs_review"] and not args.force]
+            if skipped:
+                flagged = True
+                print(f"\n  ⚠ {len(skipped)} flagged row(s) not written "
+                      f"(re-run with --force to accept)")
+
+            if args.write and writable:
+                raw = store.load(args.slug).to_dict()
+                clean = [{k: r[k] for k in ("date", "gmp", "kostak", "source")}
+                         for r in writable]
+                raw["gmp_history"] = merge_series(raw.get("gmp_history", []), clean)
+                store.save(Ipo.from_dict(raw))
+                print(f"  wrote {len(writable)} new day(s) into the YAML")
+                left = doctor.gmp_gaps(store.load(args.slug))
+                print(f"  {len(left)} gap(s) remaining"
+                      + (f": {', '.join(left[:6])}" if left else ""))
+            elif writable:
+                print(f"  ({len(writable)} new day(s) not saved — re-run with --write)")
+
     if args.what in ("financials", "all"):
         print(f"\nResearching financials for {ipo.company or args.slug}…")
         try:
@@ -482,9 +558,24 @@ def cmd_research(args) -> int:
 
         if args.write and rows and (not meta.get("needs_review") or args.force):
             base = store.load(args.slug).to_dict()
-            base.setdefault("financials", {}).update(fin)
+            block = base.setdefault("financials", {})
+            # Merge field by field, and never let an empty result clear a
+            # populated one. Two runs of the same lookup do not return the
+            # same thing: a re-run of LEAP India came back with rounded
+            # revenue and no PAT at all, and a blanket .update() wrote that
+            # over a precise three-year series it already had. A second
+            # opinion should be able to add, not to erase.
+            kept = []
+            for key, value in fin.items():
+                if isinstance(value, list) and not value and block.get(key):
+                    kept.append(key)
+                    continue
+                block[key] = value
             store.save(Ipo.from_dict(base))
             print("  written to the YAML")
+            if kept:
+                print(f"  kept existing {', '.join(kept)} "
+                      f"(this read returned nothing for them)")
         elif args.write and rows:
             print("  not written (flagged) — re-run with --force to accept")
         elif rows:
@@ -713,10 +804,11 @@ def cmd_doctor(args) -> int:
 
         if gaps:
             shown = ", ".join(gaps[:6]) + (f" … +{len(gaps) - 6}" if len(gaps) > 6 else "")
-            print(f"  ⚠ GMP trail has {len(gaps)} weekday gap(s): {shown}")
+            print(f"  ⚠ GMP trail has {len(gaps)} missing day(s): {shown}")
             print("    The reel 2 trail is billed as daily, so a gap reads as "
                   "'no movement'.")
-            print(f"    Backfill one:  ipopulse gmp {ipo.slug} <value> --date {gaps[0]}")
+            print(f"    Backfill all:  ipopulse research {ipo.slug} --what gmp-history --write")
+            print(f"    Or by hand  :  ipopulse gmp {ipo.slug} <value> --date {gaps[0]}")
 
         if args.fix:
             updated, done = doctor.repair(ipo)
@@ -928,8 +1020,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("research", help="Gemini web lookup for GMP / subscription / issue")
     sp.add_argument("slug")
     sp.add_argument("--what", default="gmp",
-                    choices=["gmp", "sub", "subscription", "ipo", "financials",
-                             "both", "all"])
+                    choices=["gmp", "gmp-history", "sub", "subscription", "ipo",
+                             "financials", "both", "all"])
     sp.add_argument("--url", help="comma-separated pages to read instead of searching")
     sp.add_argument("--write", action="store_true", help="save the result")
     sp.add_argument("--force", action="store_true", help="save even if flagged for review")

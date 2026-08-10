@@ -548,6 +548,73 @@ Return ONLY JSON:
         out.update(vet_gmp(out, price_high))
         return out
 
+    def research_gmp_history(
+        self, company: str, *, price_high: float = 0.0,
+        since: str | None = None, urls: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Read the whole dated GMP table, not just today's row.
+
+        `research_gmp` asks for one figure, which makes a missed day permanently
+        unrecoverable — the number is gone the moment the page updates. The GMP
+        sites publish a dated history per IPO, so a day lost to a failed job can
+        be read back afterwards instead of being a hole in the trail forever.
+
+        Every row is vetted individually by `vet_gmp`, so one bad row in an
+        otherwise good table is dropped rather than poisoning the backfill.
+        """
+        if not self.available():
+            raise AiUnavailable("Gemini not configured; cannot research.")
+
+        hint = f"\nThe IPO's upper price band is ₹{price_high:g}." if price_high else ""
+        window = f"\nOnly rows dated {since} or later are of interest." if since else ""
+        target = ("\nPrefer these sources:\n" + "\n".join(urls)) if urls else ""
+        prompt = f"""Find the FULL dated grey market premium (GMP) history for
+the Indian IPO "{company}" — every day the page lists, not just today.{hint}{window}{target}
+
+This is for a finance channel, so accuracy matters more than completeness.
+
+Rules:
+- One entry per date the source actually prints. Copy the dates exactly as
+  shown; do not fill in days the table does not have.
+- GMP in rupees per share. NOT the Kostak rate, NOT subject-to-sauda. If a row
+  shows several numbers pick the one under the GMP column.
+- Never interpolate a missing day, never carry a value forward into a date the
+  page does not show, and never extend the series past the last printed row.
+  A short list is a correct answer; an invented row is not.
+- If you find no dated table at all, return {{"points": []}}.
+
+Return ONLY JSON:
+{{"points": [{{"as_of": "YYYY-MM-DD", "gmp": <number>, "kostak": <number or null>}}, ...],
+  "confidence": "high" | "medium" | "low",
+  "note": "<which page the table came from, or why none was found>"}}"""
+
+        text, sources = self._generate_grounded(prompt, urls)
+        data = _parse_json(text, default={})
+        confidence = str(data.get("confidence") or "low").lower()
+        note = str(data.get("note") or "").strip()
+
+        out: list[dict[str, Any]] = []
+        for row in (data.get("points") or []):
+            if not isinstance(row, dict):
+                continue
+            gmp = row.get("gmp")
+            if not isinstance(gmp, (int, float)):
+                continue
+            point = {
+                "gmp": float(gmp),
+                "date": row.get("as_of") or None,
+                "kostak": row.get("kostak") if isinstance(row.get("kostak"), (int, float)) else 0,
+                "confidence": confidence,
+                "note": note,
+                "sources": sources,
+                "source": "gemini",
+            }
+            point.update(vet_gmp(point, price_high))
+            out.append(point)
+
+        out.sort(key=lambda p: p["date"] or "")
+        return out
+
     def research_subscription(
         self, company: str, *, urls: list[str] | None = None
     ) -> dict[str, Any]:
@@ -662,23 +729,31 @@ is null unless a page states it outright."""
         prompt = f"""Find the restated financials for the Indian IPO
 "{company}" as disclosed in its RHP / DRHP.{target}
 
-Return one value per financial year, oldest first, for exactly these years:
-{", ".join(span)}. All amounts in RUPEES CRORE.
+Report the THREE most recent complete financial years the source actually
+shows, oldest first, and name them in "years" exactly as the source labels
+them (e.g. ["FY24","FY25","FY26"]). Do not force them to {", ".join(span)} —
+report what is there. All amounts in RUPEES CRORE.
 
 Rules that matter more than completeness:
   * Use only figures stated on pages you actually retrieved.
-  * If a year is missing, put null in that position — do not interpolate,
-    do not shift the other years along, and do not substitute a nine-month
-    or half-year figure for a full year.
-  * If you cannot find the table at all, return every array empty. That is
-    a correct answer.
+  * Every array must be the same length as "years", in the same order.
+  * Do not interpolate a year, do not shift the others along, and never
+    substitute a nine-month or half-year figure for a full year. If a year
+    is genuinely absent, drop it from "years" too rather than padding.
+  * Report each metric independently. A metric you cannot find should be an
+    empty array — that does NOT stop you reporting the ones you can find.
+    Revenue and PAT alone are a useful answer; net worth and total debt are
+    often absent from summary pages and their absence must not suppress the
+    rest.
+  * If you find no financial figures at all, return "years": [] and every
+    array empty. That is a correct answer.
   * "eps" is post-issue diluted EPS for the latest year, in rupees.
   * "pe_peer_avg" is the average P/E of the listed peer group as printed in
     the RHP's "Comparison with listed industry peers" section.
 
 Return ONLY JSON:
-{{"years": {json.dumps(span)},
-  "revenue": [<number or null>, ...],
+{{"years": ["FY..", "FY..", "FY.."],
+  "revenue": [<number>, ...],
   "ebitda": [...], "pat": [...], "net_worth": [...], "total_debt": [...],
   "eps": <number or null>, "pe_peer_avg": <number or null>,
   "confidence": "high" | "medium" | "low",

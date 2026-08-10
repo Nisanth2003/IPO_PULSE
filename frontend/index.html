@@ -731,19 +731,49 @@
               <div class="lbl text-center" x-text="t('financials')+' (₹ '+t('cr')+')'"></div>
               <div class="glass p-2 overflow-hidden" x-show="d.financials.has_data">
                 <table class="dtable">
+                  <!-- Columns appear only for series that exist. Printing a
+                       "0" under an EBITDA heading is a claim about the
+                       company, not a blank. -->
                   <thead><tr>
-                    <th></th><th x-text="t('revenue')"></th><th>EBITDA</th>
-                    <th x-text="t('ebitdaMargin').split(' ')[0]==='EBITDA' ? 'EBITDA %' : '%'"></th>
-                    <th>PAT</th>
+                    <th></th>
+                    <template x-if="d.financials.present.revenue">
+                      <th x-text="t('revenue')"></th>
+                    </template>
+                    <template x-if="d.financials.present.ebitda"><th>EBITDA</th></template>
+                    <template x-if="d.financials.present.ebitda">
+                      <th x-text="t('ebitdaMargin').split(' ')[0]==='EBITDA' ? 'EBITDA %' : '%'"></th>
+                    </template>
+                    <template x-if="d.financials.present.pat"><th>PAT</th></template>
+                    <template x-if="d.financials.present.pat">
+                      <th x-text="t('patMargin').split(' ')[0]==='PAT' ? 'PAT %' : '%'"></th>
+                    </template>
                   </tr></thead>
                   <tbody>
+                    <!-- x-if, not x-show, for every conditional cell. x-show
+                         writes `display:none` into the style attribute and a
+                         `:style` binding on the same element overwrites it —
+                         so the two margin cells reappeared as a stray "0%"
+                         column while their headers stayed hidden. x-if takes
+                         the cell out of the DOM, which is what a dropped
+                         column needs anyway. -->
                     <template x-for="r in d.financials.rows" :key="r.year">
                       <tr>
                         <td class="font-black" x-text="r.year"></td>
-                        <td class="tnum" x-text="fmt(r.revenue)"></td>
-                        <td class="tnum" x-text="fmt(r.ebitda)"></td>
-                        <td class="tnum" :style="`color:${acc}`" x-text="r.ebitda_margin+'%'"></td>
-                        <td class="tnum" x-text="fmt(r.pat)"></td>
+                        <template x-if="d.financials.present.revenue">
+                          <td class="tnum" x-text="fmt(r.revenue)"></td>
+                        </template>
+                        <template x-if="d.financials.present.ebitda">
+                          <td class="tnum" x-text="fmt(r.ebitda)"></td>
+                        </template>
+                        <template x-if="d.financials.present.ebitda">
+                          <td class="tnum" :style="`color:${acc}`" x-text="r.ebitda_margin+'%'"></td>
+                        </template>
+                        <template x-if="d.financials.present.pat">
+                          <td class="tnum" x-text="fmt(r.pat)"></td>
+                        </template>
+                        <template x-if="d.financials.present.pat">
+                          <td class="tnum" :style="`color:${acc}`" x-text="r.pat_margin+'%'"></td>
+                        </template>
                       </tr>
                     </template>
                   </tbody>
@@ -762,7 +792,9 @@
                   <div class="font-black text-lg tnum"
                        x-text="signed(d.financials.pat_cagr,0)+'%'"></div>
                 </div>
-                <div class="glass p-2 text-center"
+                <!-- Margin shift is an EBITDA-margin delta; without EBITDA it
+                     is 0 minus 0 and reads as "margins held flat". -->
+                <div class="glass p-2 text-center" x-show="d.financials.present.ebitda"
                      :class="d.financials.margin_shift_bps>=0?'glass-g':'glass-r'">
                   <div class="lbl" x-text="t('marginShift')"></div>
                   <div class="font-black text-lg tnum"

@@ -170,14 +170,27 @@ function financialMetrics(ipo) {
   const patCagr = round(cagr(first.pat, last.pat, span), 1);
   const ov = ipo.benchmarks || null;
 
+  // Mirror of compute.py: a metric is judged only when its series exists.
+  // An absent array is not a column of zeros, and a zero is not a "poor".
+  const hasRev = !!(f.revenue || []).length, hasPat = !!(f.pat || []).length;
+  const hasEbitda = !!(f.ebitda || []).length, hasNw = !!(f.net_worth || []).length;
+  const hasDebt = !!(f.total_debt || []).length;
+  const mark = (metric, value, available, goodAt = null) => {
+    if (available) return judge(metric, value, goodAt, ov);
+    const spec = BENCHMARKS[metric] || {};
+    return { value: 0, good_at: spec.good_at ?? null,
+             higher_is_better: spec.higher !== false, verdict: 'na',
+             unit: spec.unit || '', pos: 0, mark: 0, gap_pct: 0 };
+  };
+
   const marks = {
-    ebitda_margin: judge('ebitda_margin', last.ebitda_margin, null, ov),
-    pat_margin:    judge('pat_margin', last.pat_margin, null, ov),
-    revenue_cagr:  judge('revenue_cagr', revCagr, null, ov),
-    pat_cagr:      judge('pat_cagr', patCagr, null, ov),
-    ronw:          judge('ronw', last.ronw, null, ov),
-    debt_equity:   judge('debt_equity', last.debt_equity, null, ov),
-    pe:            judge('pe', pe, peer || null, ov),
+    ebitda_margin: mark('ebitda_margin', last.ebitda_margin, hasEbitda && hasRev),
+    pat_margin:    mark('pat_margin', last.pat_margin, hasPat && hasRev),
+    revenue_cagr:  mark('revenue_cagr', revCagr, hasRev && span > 0),
+    pat_cagr:      mark('pat_cagr', patCagr, hasPat && span > 0),
+    ronw:          mark('ronw', last.ronw, hasPat && hasNw),
+    debt_equity:   mark('debt_equity', last.debt_equity, hasDebt && hasNw),
+    pe:            mark('pe', pe, !!(eps && peer), peer || null),
   };
 
   return {
@@ -192,6 +205,10 @@ function financialMetrics(ipo) {
     marks,
     score_good: Object.values(marks).filter((m) => m.verdict === 'good').length,
     score_total: Object.values(marks).filter((m) => m.verdict !== 'na').length,
+    // Mirror of compute.py: lets the table drop a column rather than print a
+    // row of zeros under a heading for data nobody has.
+    present: { revenue: hasRev, ebitda: hasEbitda, pat: hasPat,
+               net_worth: hasNw, total_debt: hasDebt },
   };
 }
 
@@ -251,8 +268,10 @@ function curve(x, pts) {
 function scoreMetrics(ipo, d) {
   const { gmp, subscription: sub, financials: fin, issue: iss } = d;
   const parts = [];
-  const add = (key, has, mark, detail) => parts.push({
-    key, weight: SCORE_WEIGHTS[key], has_data: !!has,
+  // `share` = how much of this component's evidence exists. See compute.py.
+  const add = (key, has, mark, detail, share = 1) => parts.push({
+    key, weight: round(SCORE_WEIGHTS[key] * (has ? share : 1), 1),
+    full_weight: SCORE_WEIGHTS[key], has_data: !!has,
     mark: has ? round(Math.max(0, Math.min(10, mark)), 1) : null, detail,
   });
 
@@ -266,9 +285,13 @@ function scoreMetrics(ipo, d) {
                    : 'issue has not opened / no subscription read');
 
   const hasFun = fin.has_data && fin.score_total > 0;
-  add('fundamentals', hasFun, 10 * (fin.score_good || 0) / (fin.score_total || 1),
-      hasFun ? `${fin.score_good} of ${fin.score_total} benchmarks met`
-             : 'no financials entered');
+  const slots = Object.keys(fin.marks || {}).length || Object.keys(BENCHMARKS).length;
+  const measured = fin.score_total || 0;
+  add('fundamentals', hasFun, 10 * (fin.score_good || 0) / (measured || 1),
+      hasFun ? `${fin.score_good} of ${measured} benchmarks met`
+               + (measured < slots ? ` (${measured} of ${slots} measurable)` : '')
+             : 'no financials entered',
+      slots ? measured / slots : 1);
 
   const hasVal = fin.has_data && fin.pe > 0 && fin.pe_peer_avg > 0;
   add('valuation', hasVal, curve(fin.pe_premium_pct || 0, VALUE_BAND),

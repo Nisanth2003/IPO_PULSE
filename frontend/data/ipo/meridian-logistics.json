@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T23:07:15",
+  "generated_at": "2026-08-10T23:56:41",
   "ipo": {
     "slug": "meridian-logistics",
     "company": "Meridian Logistics Ltd",
@@ -119,21 +119,21 @@
     "subscription": [],
     "analysis": {
       "overview": [
-        "Operates 41 warehouses across 12 states for retail and e-commerce",
-        "Revenue is flat while margins have been sliding for two years"
+        "Operates in warehousing and supply chain sectors.",
+        "Mainboard issuer raising 720.0 crore rupees total."
       ],
       "green_flags": [
-        "Long-tenure contracts with three large retail chains",
-        "Asset base of owned land in tier-2 hubs"
+        "Debt to equity ratio is 0.85x, below 1.0x.",
+        "Fresh issue comprises 25.0 percent of the total."
       ],
       "red_flags": [
-        "OFS is 75% of the issue — promoters are the main sellers",
-        "PAT down 31% over two years",
-        "Debt up while equity growth stalled"
+        "PAT CAGR declined by negative 16.7 percent.",
+        "OFS heavy issue with 75.0 percent offered for sale.",
+        "EBITDA margin dropped to 9.9 percent."
       ],
-      "growth": "Revenue flat, PAT down 31% over FY24-FY26",
-      "valuation": "P/E 43x vs peer average 31x",
-      "risk": "Margin compression with rising debt",
+      "growth": "Revenue CAGR is slow at 2.7 percent with declining PAT.",
+      "valuation": "P/E of 42.5x is at a 37.1 percent premium to peer average.",
+      "risk": "PAT CAGR is declining at negative 16.7 percent.",
       "growth_tone": "bad",
       "valuation_tone": "bad",
       "score": 3.4,
@@ -426,7 +426,14 @@
         }
       },
       "score_good": 1,
-      "score_total": 7
+      "score_total": 7,
+      "present": {
+        "revenue": true,
+        "ebitda": true,
+        "pat": true,
+        "net_worth": true,
+        "total_debt": true
+      }
     },
     "dates": {
       "announced": "2026-08-04",
@@ -451,35 +458,40 @@
       "components": [
         {
           "key": "grey",
-          "weight": 25,
+          "weight": 25.0,
+          "full_weight": 25,
           "has_data": true,
           "mark": 2.6,
           "detail": "GMP is 1.4% of the ₹285 band"
         },
         {
           "key": "demand",
-          "weight": 20,
+          "weight": 20.0,
+          "full_weight": 20,
           "has_data": false,
           "mark": null,
           "detail": "issue has not opened / no subscription read"
         },
         {
           "key": "fundamentals",
-          "weight": 30,
+          "weight": 30.0,
+          "full_weight": 30,
           "has_data": true,
           "mark": 1.4,
           "detail": "1 of 7 benchmarks met"
         },
         {
           "key": "valuation",
-          "weight": 15,
+          "weight": 15.0,
+          "full_weight": 15,
           "has_data": true,
           "mark": 3.2,
           "detail": "P/E 42.5 vs peers 31.0 (+37.1%)"
         },
         {
           "key": "structure",
-          "weight": 10,
+          "weight": 10.0,
+          "full_weight": 10,
           "has_data": true,
           "mark": 4.0,
           "detail": "25.0% fresh issue"

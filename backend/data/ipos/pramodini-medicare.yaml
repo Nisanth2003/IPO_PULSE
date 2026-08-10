@@ -44,11 +44,13 @@ gmp_history:
   source: gemini
 subscription: []
 analysis:
-  overview: []
+  overview:
+  - Pramodini Medicare Limited is launching an IPO.
+  - The issue size is total 69.04 crore.
   green_flags: []
   red_flags: []
   growth: ''
-  valuation: ''
+  valuation: The price band is set at ₹110 to ₹118.
   risk: ''
   growth_tone: good
   valuation_tone: warn

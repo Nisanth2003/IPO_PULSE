@@ -2,7 +2,7 @@ slug: technocraft-ventures
 company: Technocraft Ventures Limited
 initials: ''
 board: Mainboard
-sector: ''
+sector: infrastructure development / EPC
 issue:
   fresh_cr: 0.0
   ofs_cr: 0.0
@@ -11,8 +11,8 @@ issue:
   price_high: 212.0
   lot_size: 70
   shares_post_issue_cr: 0.0
-  registrar: KFintech
-  registrar_url: https://kosmic.kfintech.com/ipostatus/
+  registrar: Bigshare Services
+  registrar_url: https://ipo.bigshareonline.com/ipo_status.html
   exchanges:
   - BSE
   - NSE
@@ -26,12 +26,18 @@ dates:
   listing: '2026-08-14'
 financials:
   years:
-  - FY23
   - FY24
   - FY25
-  revenue: []
+  - FY26
+  revenue:
+  - 226.1
+  - 279.56
+  - 345.0
   ebitda: []
-  pat: []
+  pat:
+  - 19.05
+  - 28.2
+  - 43.31
   net_worth: []
   total_debt: []
   eps: 0.0
@@ -56,10 +62,15 @@ subscription:
   employee: 0.0
   total: 4.73
 analysis:
-  overview: []
-  green_flags: []
+  overview:
+  - Operates in infrastructure development and EPC sector.
+  - Mainboard issue sized at 176.32 crores.
+  green_flags:
+  - Revenue CAGR is a strong 23.5%.
+  - PAT CAGR stands high at 50.8%.
+  - PAT margin is healthy at 12.6%.
   red_flags: []
-  growth: ''
+  growth: Revenue CAGR of 23.5% and PAT CAGR of 50.8%.
   valuation: ''
   risk: ''
   growth_tone: good
@@ -77,5 +88,6 @@ allotment:
   steps: []
 i18n: {}
 benchmarks: {}
-sources: {}
+sources:
+  issue: https://groww.in/ipo/technocraft-ventures-ipo
 notes: ''
