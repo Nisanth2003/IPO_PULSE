@@ -1,0 +1,122 @@
+name: Publish site
+
+# This repo is private, so GitHub Pages cannot serve it — Pages on a private
+# repo needs a paid plan. The split: code and data stay here, and only the
+# contents of frontend/ are mirrored into a public repo whose Pages is set to
+# "Deploy from a branch -> main -> / (root)".
+#
+# Nothing is built on the far side. The frontend is plain HTML/CSS/JS reading
+# JSON that `ipopulse build` already produced, so the public repo only needs
+# to hold files and serve them. That is exactly what branch-deploy is for, and
+# why the old Actions-based pages.yml is gone.
+#
+# Configure once, in this repo:
+#   Variable  SITE_REPO         owner/name of the public repo, e.g. you/ipo-pulse-site
+#   Variable  SITE_BRANCH       optional, defaults to main
+#   Secret    SITE_REPO_TOKEN   fine-grained PAT with Contents: read+write on
+#                               SITE_REPO only. Not a classic token, and not
+#                               scoped to this repo.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'backend/data/ipos/**'      # a data edit changes the published JSON
+      - '.github/workflows/publish.yml'
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: 'Re-run ipopulse build before publishing'
+        type: boolean
+        default: true
+
+concurrency:
+  group: publish-site
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        if: inputs.rebuild != false
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # Regenerate the JSON so the site can never lag the YAML because someone
+      # forgot to run build before committing. No network and no key needed —
+      # build is pure local computation.
+      - name: Build site JSON
+        if: inputs.rebuild != false
+        run: |
+          pip install -r backend/requirements.txt
+          cd backend && python -m ipopulse.cli build
+
+      # THE GATE. This ran in the old pages.yml, and it matters more now, not
+      # less: everything past this point lands in a genuinely public repo. A
+      # scan that runs after publication would be decoration.
+      - name: Fail if a secret leaked into the frontend
+        run: |
+          if grep -rIn --include='*.js' --include='*.html' --include='*.json' \
+               --include='*.css' --include='*.md' -E \
+               'AIza[0-9A-Za-z_-]{20,}|AQ\.[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|(GEMINI_API_KEY|IPOPULSE_TRIGGER_PASSWORD|GOOGLE_SHEETS_ID)[[:space:]]*[:=][[:space:]]*["'\''][^"'\'']+|iam\.gserviceaccount\.com' \
+               frontend/; then
+            echo "::error::Possible secret in frontend/ — refusing to publish."
+            exit 1
+          fi
+          echo "frontend/ is clean."
+
+      - name: Check configuration
+        run: |
+          if [ -z "${{ vars.SITE_REPO }}" ]; then
+            echo "::error::Set the SITE_REPO variable (owner/name of the public repo)."
+            exit 1
+          fi
+          if [ -z "${{ secrets.SITE_REPO_TOKEN }}" ]; then
+            echo "::error::Set the SITE_REPO_TOKEN secret (PAT with Contents write on SITE_REPO)."
+            exit 1
+          fi
+
+      - name: Mirror frontend/ into the public repo
+        env:
+          TOKEN: ${{ secrets.SITE_REPO_TOKEN }}
+          SITE_REPO: ${{ vars.SITE_REPO }}
+          SITE_BRANCH: ${{ vars.SITE_BRANCH }}
+        run: |
+          set -euo pipefail
+          BRANCH="${SITE_BRANCH:-main}"
+
+          git clone --depth 1 --branch "$BRANCH" \
+            "https://x-access-token:${TOKEN}@github.com/${SITE_REPO}.git" site 2>/dev/null \
+            || git clone --depth 1 \
+                 "https://x-access-token:${TOKEN}@github.com/${SITE_REPO}.git" site
+
+          cd site
+          git checkout -B "$BRANCH"
+
+          # Replace the whole tree rather than copying over it, so a file
+          # deleted here disappears there instead of lingering forever.
+          # Everything except .git goes; only frontend/ contents come back.
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          cp -r ../frontend/. .
+
+          # Pages runs Jekyll by default, which silently drops files and
+          # folders beginning with an underscore.
+          touch .nojekyll
+
+          git config user.name  'ipopulse-bot'
+          git config user.email 'ipopulse-bot@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Site already up to date."
+            exit 0
+          fi
+          git commit -m "site: ${GITHUB_SHA:0:7}"
+          git push origin "$BRANCH"
+          echo "Published to ${SITE_REPO}@${BRANCH}"

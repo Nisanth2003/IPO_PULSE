@@ -264,6 +264,43 @@ journalctl -u 'ipopulse@*' -f
 One templated unit (`ipopulse@.service`) plus a timer per job, each pinning
 `Asia/Kolkata` explicitly so the schedule cannot drift with the host clock.
 
+### Triggering a run by hand
+
+Four ways, depending on where you are:
+
+| Where | How |
+|---|---|
+| Terminal | `ipopulse job daily` — or any order: `ipopulse job sync build push` |
+| Browser, locally | `ipopulse serve` → **⚡ Trigger** → Run, or queue a sequence |
+| GitHub, data refresh | Actions → **Scheduled data refresh** → *Run workflow* (takes a `jobs` input, e.g. `sync build push`) |
+| GitHub, publish site | Actions → **Publish site** → *Run workflow* |
+
+Both workflows carry `workflow_dispatch`, so the **Run workflow** button is
+always there — no need to wait for a cron or fake a commit.
+
+### Publishing the site
+
+This repo is private, and Pages on a private repo needs a paid plan, so
+`publish.yml` mirrors **only `frontend/`** into a public repo whose Pages is
+set to *Deploy from a branch → main → / (root)*. Configure it once here:
+
+| Kind | Name | Value |
+|---|---|---|
+| Variable | `SITE_REPO` | `owner/name` of the public repo |
+| Variable | `SITE_BRANCH` | optional, defaults to `main` |
+| Secret | `SITE_REPO_TOKEN` | fine-grained PAT, **Contents: read+write on that repo only** |
+
+It runs on any push touching `frontend/**` or `backend/data/ipos/**`, and on
+demand. Before anything is pushed it re-runs `ipopulse build` (so the site can
+never lag the YAML) and then **scans `frontend/` for secrets and fails the job
+if it finds any** — that gate is the last thing standing between this repo and
+a public one, so it runs before the push, not after.
+
+The mirror replaces the tree rather than copying over it, so a file deleted
+here disappears from the site instead of being served forever, and it writes
+`.nojekyll` because Pages otherwise runs Jekyll and drops anything starting
+with `_`.
+
 **GitHub — Actions** (`.github/workflows/schedule.yml`):
 
 > **GitHub Pages cannot run any of this.** Pages is static file hosting — no

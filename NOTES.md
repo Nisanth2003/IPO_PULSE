@@ -111,6 +111,35 @@ be rotated.
   500 RPD there is no pressure and it complicates the cache. Revisit if the
   IPO count grows a lot.
 
+### Why the site lives in a second repo
+
+This repo is **private**, and GitHub Pages on a private repo needs a paid plan
+— on the free plan Pages only serves public repos. That is what
+`configure-pages` was really reporting when it failed with *"Get Pages site
+failed … Not Found"*: not a misconfiguration, but Pages being unavailable.
+Adding `enablement: true` would not have helped for the same reason.
+
+So: code, data, notes and secrets stay private here; only the contents of
+`frontend/` are mirrored into a small public repo that Pages serves.
+
+That public repo uses **Deploy from a branch**, not GitHub Actions. The
+frontend is plain HTML/CSS/JS reading JSON that `ipopulse build` already
+produced — there is nothing to build on the far side, so an Actions workflow
+there would only copy files to themselves. Branch-deploy is exactly the case
+for pre-built files. `pages.yml` was written for the single-repo Actions model
+and has been deleted.
+
+`publish.yml` does the mirroring, and it keeps the one step worth keeping from
+`pages.yml`: **the secret scan, which now runs before the push rather than
+after.** Everything past that gate lands somewhere genuinely public, so a scan
+that ran afterwards would be decoration. It is verified to block both an
+`AIza…` key and an `AQ.…` one while passing ordinary code.
+
+Two details that bite otherwise: the mirror **replaces** the tree rather than
+copying over it, so deleting a file here deletes it there instead of leaving
+it served forever; and it writes `.nojekyll`, because Pages runs Jekyll by
+default and Jekyll silently drops anything whose name starts with `_`.
+
 ### Known and open
 
 - The two original IPOs (Vertex Aerospace, Meridian Logistics) are **fictional
