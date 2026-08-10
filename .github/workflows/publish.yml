@@ -1,21 +1,17 @@
 name: Publish site
 
-# This repo is private, so GitHub Pages cannot serve it — Pages on a private
-# repo needs a paid plan. The split: code and data stay here, and only the
-# contents of frontend/ are mirrored into a public repo whose Pages is set to
-# "Deploy from a branch -> main -> / (root)".
+# Publishes frontend/ to GitHub Pages as the site root, so the studio is at
+# https://<user>.github.io/<repo>/ rather than one folder down.
 #
-# Nothing is built on the far side. The frontend is plain HTML/CSS/JS reading
-# JSON that `ipopulse build` already produced, so the public repo only needs
-# to hold files and serve them. That is exactly what branch-deploy is for, and
-# why the old Actions-based pages.yml is gone.
+# This needs Pages set to **Source: GitHub Actions** (Settings -> Pages).
+# With "Deploy from a branch" Pages can only serve the repo root or /docs, and
+# the root here is the README — which is why branch-deploy showed the README
+# instead of the studio.
 #
-# Configure once, in this repo:
-#   Variable  SITE_REPO         owner/name of the public repo, e.g. you/ipo-pulse-site
-#   Variable  SITE_BRANCH       optional, defaults to main
-#   Secret    SITE_REPO_TOKEN   fine-grained PAT with Contents: read+write on
-#                               SITE_REPO only. Not a classic token, and not
-#                               scoped to this repo.
+# An earlier version of this mirrored frontend/ into a separate public repo,
+# because Pages cannot serve a private repo on the free plan. That is no longer
+# needed now the repo is public: no second repo, no personal access token, no
+# SITE_REPO variable.
 
 on:
   push:
@@ -31,14 +27,24 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; queue rather than cancel so a data push is not
+# silently dropped by a later docs push.
 concurrency:
-  group: publish-site
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -50,17 +56,18 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       # Regenerate the JSON so the site can never lag the YAML because someone
-      # forgot to run build before committing. No network and no key needed —
-      # build is pure local computation.
+      # forgot to run build before committing. No network, no key — build is
+      # pure local computation.
       - name: Build site JSON
         if: inputs.rebuild != false
         run: |
           pip install -r backend/requirements.txt
           cd backend && python -m ipopulse.cli build
 
-      # THE GATE. This ran in the old pages.yml, and it matters more now, not
-      # less: everything past this point lands in a genuinely public repo. A
-      # scan that runs after publication would be decoration.
+      # THE GATE. The repo is public and so is the site; this is the last thing
+      # standing between a key and the open internet, so it runs before the
+      # deploy, never after. Verified to block AIza... and AQ.... keys while
+      # passing ordinary code.
       - name: Fail if a secret leaked into the frontend
         run: |
           if grep -rIn --include='*.js' --include='*.html' --include='*.json' \
@@ -72,51 +79,12 @@ jobs:
           fi
           echo "frontend/ is clean."
 
-      - name: Check configuration
-        run: |
-          if [ -z "${{ vars.SITE_REPO }}" ]; then
-            echo "::error::Set the SITE_REPO variable (owner/name of the public repo)."
-            exit 1
-          fi
-          if [ -z "${{ secrets.SITE_REPO_TOKEN }}" ]; then
-            echo "::error::Set the SITE_REPO_TOKEN secret (PAT with Contents write on SITE_REPO)."
-            exit 1
-          fi
+      - uses: actions/configure-pages@v5
 
-      - name: Mirror frontend/ into the public repo
-        env:
-          TOKEN: ${{ secrets.SITE_REPO_TOKEN }}
-          SITE_REPO: ${{ vars.SITE_REPO }}
-          SITE_BRANCH: ${{ vars.SITE_BRANCH }}
-        run: |
-          set -euo pipefail
-          BRANCH="${SITE_BRANCH:-main}"
+      # path: frontend makes the studio the site root, not /frontend/.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend
 
-          git clone --depth 1 --branch "$BRANCH" \
-            "https://x-access-token:${TOKEN}@github.com/${SITE_REPO}.git" site 2>/dev/null \
-            || git clone --depth 1 \
-                 "https://x-access-token:${TOKEN}@github.com/${SITE_REPO}.git" site
-
-          cd site
-          git checkout -B "$BRANCH"
-
-          # Replace the whole tree rather than copying over it, so a file
-          # deleted here disappears there instead of lingering forever.
-          # Everything except .git goes; only frontend/ contents come back.
-          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-          cp -r ../frontend/. .
-
-          # Pages runs Jekyll by default, which silently drops files and
-          # folders beginning with an underscore.
-          touch .nojekyll
-
-          git config user.name  'ipopulse-bot'
-          git config user.email 'ipopulse-bot@users.noreply.github.com'
-          git add -A
-          if git diff --cached --quiet; then
-            echo "Site already up to date."
-            exit 0
-          fi
-          git commit -m "site: ${GITHUB_SHA:0:7}"
-          git push origin "$BRANCH"
-          echo "Published to ${SITE_REPO}@${BRANCH}"
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -111,34 +111,35 @@ be rotated.
   500 RPD there is no pressure and it complicates the cache. Revisit if the
   IPO count grows a lot.
 
-### Why the site lives in a second repo
+### Publishing: three configurations in one day, and why it settled where it did
 
-This repo is **private**, and GitHub Pages on a private repo needs a paid plan
-— on the free plan Pages only serves public repos. That is what
-`configure-pages` was really reporting when it failed with *"Get Pages site
-failed … Not Found"*: not a misconfiguration, but Pages being unavailable.
-Adding `enablement: true` would not have helped for the same reason.
+Worth writing down because each step looked correct at the time.
 
-So: code, data, notes and secrets stay private here; only the contents of
-`frontend/` are mirrored into a small public repo that Pages serves.
+**1. Actions-based Pages in one repo** (the original `pages.yml`). Failed with
+*"Get Pages site failed … Not Found"*. That reads like a misconfiguration and
+isn't: the repo was **private**, and Pages on a private repo needs a paid plan.
+Pages could not be enabled at all, so `configure-pages` had nothing to find.
+`enablement: true` would not have helped for the same reason.
 
-That public repo uses **Deploy from a branch**, not GitHub Actions. The
-frontend is plain HTML/CSS/JS reading JSON that `ipopulse build` already
-produced — there is nothing to build on the far side, so an Actions workflow
-there would only copy files to themselves. Branch-deploy is exactly the case
-for pre-built files. `pages.yml` was written for the single-repo Actions model
-and has been deleted.
+**2. Split repos.** Keep code private, mirror only `frontend/` into a small
+public repo whose Pages deploys from a branch. Correct for a private repo, and
+the right Pages source too — the frontend is pre-built, so there is nothing for
+an Actions workflow on the far side to build.
 
-`publish.yml` does the mirroring, and it keeps the one step worth keeping from
-`pages.yml`: **the secret scan, which now runs before the push rather than
-after.** Everything past that gate lands somewhere genuinely public, so a scan
-that ran afterwards would be decoration. It is verified to block both an
-`AIza…` key and an `AQ.…` one while passing ordinary code.
+**3. Back to one repo, Actions source.** The repo was then made public, which
+removes the entire reason for the split: no second repo, no personal access
+token, no `SITE_REPO` variable. This is where it now sits.
 
-Two details that bite otherwise: the mirror **replaces** the tree rather than
-copying over it, so deleting a file here deletes it there instead of leaving
-it served forever; and it writes `.nojekyll`, because Pages runs Jekyll by
-default and Jekyll silently drops anything whose name starts with `_`.
+The trap in between: with **Deploy from a branch**, Pages can only serve the
+repo *root* or `/docs`. The root here is the README, so the published site was
+Jekyll rendering README.md while the actual studio sat at `/frontend/index.html`.
+Serving a subfolder as the site root is precisely what the Actions source is
+for — `upload-pages-artifact` with `path: frontend`.
+
+The one step that survived all three versions is the **secret scan**, and it
+always runs *before* publishing, never after. The repo and the site are both
+public now, so it is the last thing between a key and the open internet.
+Verified to block `AIza…` and `AQ.…` keys while passing ordinary code.
 
 ### Known and open
 

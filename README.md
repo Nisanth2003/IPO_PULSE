@@ -280,26 +280,23 @@ always there — no need to wait for a cron or fake a commit.
 
 ### Publishing the site
 
-This repo is private, and Pages on a private repo needs a paid plan, so
-`publish.yml` mirrors **only `frontend/`** into a public repo whose Pages is
-set to *Deploy from a branch → main → / (root)*. Configure it once here:
+`publish.yml` deploys `frontend/` to GitHub Pages **as the site root**, so the
+studio is at `https://<user>.github.io/<repo>/` and not one folder down.
 
-| Kind | Name | Value |
-|---|---|---|
-| Variable | `SITE_REPO` | `owner/name` of the public repo |
-| Variable | `SITE_BRANCH` | optional, defaults to `main` |
-| Secret | `SITE_REPO_TOKEN` | fine-grained PAT, **Contents: read+write on that repo only** |
+One setting has to match, in **Settings → Pages**:
+
+> **Source: GitHub Actions** — not "Deploy from a branch".
+
+That is the whole difference. Branch-deploy can only serve the repo *root* or
+`/docs`, and the root here is the README — so it publishes a rendered README
+while the studio sits unreachable at `/frontend/index.html`. Serving a
+subfolder as the root is exactly what the Actions source exists for.
 
 It runs on any push touching `frontend/**` or `backend/data/ipos/**`, and on
-demand. Before anything is pushed it re-runs `ipopulse build` (so the site can
-never lag the YAML) and then **scans `frontend/` for secrets and fails the job
-if it finds any** — that gate is the last thing standing between this repo and
-a public one, so it runs before the push, not after.
-
-The mirror replaces the tree rather than copying over it, so a file deleted
-here disappears from the site instead of being served forever, and it writes
-`.nojekyll` because Pages otherwise runs Jekyll and drops anything starting
-with `_`.
+demand. Before deploying it re-runs `ipopulse build` (so the site can never lag
+the YAML) and then **scans `frontend/` for secrets and fails the job if it
+finds any** — the repo and the site are both public, so that gate runs before
+the deploy, never after.
 
 **GitHub — Actions** (`.github/workflows/schedule.yml`):
 
