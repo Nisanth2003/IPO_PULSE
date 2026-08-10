@@ -1,0 +1,322 @@
+{
+  "schema": 1,
+  "generated_at": "2026-08-10T14:00:35",
+  "ipo": {
+    "slug": "dhoot-transmission",
+    "company": "Dhoot Transmission Limited",
+    "initials": "",
+    "board": "Mainboard",
+    "sector": "",
+    "issue": {
+      "fresh_cr": 0.0,
+      "ofs_cr": 0.0,
+      "price_low": 829.0,
+      "price_high": 871.0,
+      "lot_size": 17,
+      "shares_post_issue_cr": 0.0,
+      "registrar": "KFintech",
+      "registrar_url": "https://kosmic.kfintech.com/ipostatus/",
+      "exchanges": [
+        "BSE",
+        "NSE"
+      ]
+    },
+    "dates": {
+      "announced": null,
+      "open": "2026-08-10",
+      "close": "2026-08-12",
+      "close_time": "17:00",
+      "allotment": null,
+      "refund": null,
+      "listing": null
+    },
+    "financials": {
+      "years": [
+        "FY23",
+        "FY24",
+        "FY25"
+      ],
+      "revenue": [],
+      "ebitda": [],
+      "pat": [],
+      "net_worth": [],
+      "total_debt": [],
+      "eps": 0.0,
+      "pe_peer_avg": 0.0
+    },
+    "gmp_history": [
+      {
+        "date": "2026-08-07",
+        "gmp": 258.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
+      },
+      {
+        "date": "2026-08-10",
+        "gmp": 259.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
+      }
+    ],
+    "subscription": [
+      {
+        "day": 1,
+        "date": "2026-08-10",
+        "qib": 0.0,
+        "nii": 0.45,
+        "retail": 0.38,
+        "employee": 0.76,
+        "total": 0.29
+      }
+    ],
+    "analysis": {
+      "overview": [],
+      "green_flags": [],
+      "red_flags": [],
+      "growth": "",
+      "valuation": "",
+      "risk": "",
+      "growth_tone": "good",
+      "valuation_tone": "warn",
+      "score": 0.0,
+      "verdict": "apply",
+      "verdict_text": "",
+      "reco_retail": "apply",
+      "reco_hni": "watch",
+      "reco_long": "watch"
+    },
+    "allotment": {
+      "status": "expected",
+      "listing_low": 0.0,
+      "listing_high": 0.0,
+      "steps": []
+    },
+    "i18n": {},
+    "benchmarks": {},
+    "sources": {
+      "gmp": "https://www.investorgain.com/report/live-ipo-gmp/331/"
+    },
+    "notes": ""
+  },
+  "derived": {
+    "initials": "DT",
+    "issue": {
+      "total_cr": 0.0,
+      "fresh_pct": 0.0,
+      "ofs_pct": 0.0,
+      "min_investment": 14807,
+      "is_fresh_heavy": true
+    },
+    "gmp": {
+      "gmp": 259.0,
+      "prev": 258.0,
+      "delta": 1.0,
+      "pct": 29.74,
+      "est_listing": 1130.0,
+      "gain_per_lot": 4403,
+      "movement": "stable",
+      "kostak": 0.0,
+      "sauda": 0.0,
+      "updated": "2026-08-10",
+      "series": [
+        {
+          "date": "2026-08-07",
+          "gmp": 258.0,
+          "pct": 29.62,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
+        },
+        {
+          "date": "2026-08-10",
+          "gmp": 259.0,
+          "pct": 29.74,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
+        }
+      ],
+      "peak": 259.0,
+      "trough": 258.0,
+      "days_tracked": 2
+    },
+    "subscription": {
+      "has_data": true,
+      "day": 1,
+      "qib": 0.0,
+      "nii": 0.45,
+      "retail": 0.38,
+      "employee": 0.76,
+      "total": 0.29,
+      "max_category": 1.0,
+      "sentiment": "weak",
+      "leader": "nii",
+      "days": [
+        {
+          "day": 1,
+          "date": "2026-08-10",
+          "qib": 0.0,
+          "nii": 0.45,
+          "retail": 0.38,
+          "employee": 0.76,
+          "total": 0.29
+        }
+      ]
+    },
+    "financials": {
+      "has_data": true,
+      "rows": [
+        {
+          "year": "FY23",
+          "revenue": 0.0,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 0.0,
+          "pat_margin": 0.0,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "FY24",
+          "revenue": 0.0,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 0.0,
+          "pat_margin": 0.0,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        },
+        {
+          "year": "FY25",
+          "revenue": 0.0,
+          "ebitda": 0.0,
+          "ebitda_margin": 0.0,
+          "pat": 0.0,
+          "pat_margin": 0.0,
+          "net_worth": 0.0,
+          "total_debt": 0.0,
+          "ronw": 0.0,
+          "debt_equity": 0.0
+        }
+      ],
+      "latest": {
+        "year": "FY25",
+        "revenue": 0.0,
+        "ebitda": 0.0,
+        "ebitda_margin": 0.0,
+        "pat": 0.0,
+        "pat_margin": 0.0,
+        "net_worth": 0.0,
+        "total_debt": 0.0,
+        "ronw": 0.0,
+        "debt_equity": 0.0
+      },
+      "revenue_cagr": 0.0,
+      "ebitda_cagr": 0.0,
+      "pat_cagr": 0.0,
+      "margin_shift_bps": 0,
+      "eps": 0.0,
+      "pe": 0.0,
+      "pe_peer_avg": 0.0,
+      "pe_premium_pct": 0.0,
+      "market_cap_cr": 0.0,
+      "marks": {
+        "ebitda_margin": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "poor",
+          "unit": "%",
+          "pos": 0,
+          "mark": 50,
+          "gap_pct": -100.0
+        },
+        "pat_margin": {
+          "value": 0.0,
+          "good_at": 8.0,
+          "higher_is_better": true,
+          "verdict": "poor",
+          "unit": "%",
+          "pos": 0,
+          "mark": 50,
+          "gap_pct": -100.0
+        },
+        "revenue_cagr": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "poor",
+          "unit": "%",
+          "pos": 0,
+          "mark": 50,
+          "gap_pct": -100.0
+        },
+        "pat_cagr": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "poor",
+          "unit": "%",
+          "pos": 0,
+          "mark": 50,
+          "gap_pct": -100.0
+        },
+        "ronw": {
+          "value": 0.0,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "poor",
+          "unit": "%",
+          "pos": 0,
+          "mark": 50,
+          "gap_pct": -100.0
+        },
+        "debt_equity": {
+          "value": 0.0,
+          "good_at": 1.0,
+          "higher_is_better": false,
+          "verdict": "good",
+          "unit": "x",
+          "pos": 0,
+          "mark": 50,
+          "gap_pct": -100.0
+        },
+        "pe": {
+          "value": 0.0,
+          "good_at": null,
+          "higher_is_better": false,
+          "verdict": "na",
+          "unit": "x",
+          "pos": 0,
+          "mark": 0
+        }
+      },
+      "score_good": 1,
+      "score_total": 6
+    },
+    "dates": {
+      "announced": null,
+      "open": "2026-08-10",
+      "close": "2026-08-12",
+      "close_time": "17:00",
+      "allotment": null,
+      "refund": null,
+      "listing": null,
+      "close_at": "2026-08-12T17:00:00",
+      "status": "open"
+    },
+    "listing": {
+      "status": "expected",
+      "low": 0.0,
+      "high": 0.0,
+      "low_pct": -100.0,
+      "high_pct": -100.0
+    }
+  }
+}

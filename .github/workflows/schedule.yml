@@ -1,0 +1,113 @@
+name: Scheduled data refresh
+
+# The GitHub-hosted half of deploy/. systemd and Task Scheduler need a machine
+# that is switched on; this needs nothing but the repo.
+#
+# NOTE ON PAGES: GitHub Pages is static hosting — it runs no processes, so a
+# timer cannot live "on Pages". This workflow is the GitHub-native equivalent:
+# Actions runs the job, commits the regenerated JSON, and the push to
+# frontend/** makes pages.yml redeploy the site.
+#
+# Cron is UTC and has no timezone option, so every time below is IST minus
+# 5:30, with the IST time in the comment. Actions cron is also best-effort:
+# under load a run can start 5-20 minutes late, which is fine for a 13:00
+# read and is why the important one is 18:00, an hour clear of the close.
+
+on:
+  schedule:
+    - cron: '30 7 * * 1-5'    # 13:00 IST Mon-Fri — mid bidding window
+    - cron: '0 11 * * 1-5'    # 16:30 IST Mon-Fri — 30 min before close
+    - cron: '30 12 * * *'     # 18:00 IST daily   — day's final figures
+    - cron: '30 15 * * *'     # 21:00 IST daily   — GMP, after the grey market settles
+    - cron: '30 21 * * 6'     # 03:00 IST Sunday  — translate
+    - cron: '30 22 * * 6'     # 04:00 IST Sunday  — Excel report
+  workflow_dispatch:
+    inputs:
+      jobs:
+        description: 'Jobs to run, in order (space separated). e.g. "sync build push"'
+        required: false
+        default: 'daily'
+
+permissions:
+  contents: write             # to commit the refreshed data back
+
+# Never let a 16:30 run overlap a slow 13:00 one — they write the same files.
+concurrency:
+  group: ipopulse-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - run: pip install -r backend/requirements.txt
+
+      # Which job? A dispatch says so explicitly; a cron is identified by the
+      # schedule string that fired it.
+      - id: pick
+        shell: bash
+        run: |
+          case "${{ github.event.schedule }}" in
+            '30 15 * * *')  JOBS=grey ;;
+            '30 21 * * 6')  JOBS=translate ;;
+            '30 22 * * 6')  JOBS=report ;;
+            '')             JOBS='${{ inputs.jobs }}' ;;   # manual dispatch
+            *)              JOBS=daily ;;                  # the three data pulls
+          esac
+          echo "jobs=${JOBS:-daily}" >> "$GITHUB_OUTPUT"
+          echo "Running: ${JOBS:-daily}"
+
+      # Secrets never touch the repo. The service-account key is one secret
+      # holding the whole JSON; write it out, point the CLI at it, delete it.
+      # Passed through env rather than interpolated into the script: the JSON
+      # contains quotes and braces, and `${{ }}` inside a shell string would
+      # end the quoting at the first one.
+      - name: Write service-account key
+        env:
+          SA_JSON: ${{ secrets.GOOGLE_SHEETS_KEY_JSON }}
+        run: |
+          if [ -z "$SA_JSON" ]; then
+            echo "No GOOGLE_SHEETS_KEY_JSON secret — push jobs will be skipped."
+            exit 0
+          fi
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_SHEETS_KEY=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      - name: Run
+        working-directory: backend
+        env:
+          GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL:     ${{ vars.GEMINI_MODEL }}
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          GOOGLE_SHEETS_TAB: ${{ vars.GOOGLE_SHEETS_TAB }}
+          PYTHONIOENCODING: utf-8
+        run: python -m ipopulse.cli job ${{ steps.pick.outputs.jobs }}
+
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name  'ipopulse-bot'
+          git config user.email 'ipopulse-bot@users.noreply.github.com'
+          git add backend/data frontend/data
+          # Nothing changed on a quiet day; an empty commit would still push
+          # and trigger a pointless Pages rebuild.
+          if git diff --cached --quiet; then
+            echo "No data changes."
+            exit 0
+          fi
+          git commit -m "data: ${{ steps.pick.outputs.jobs }} $(date -u +'%Y-%m-%d %H:%M UTC')"
+          # Another run may have landed while this one worked.
+          git pull --rebase --autostash
+          git push

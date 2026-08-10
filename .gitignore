@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Secrets — the Gemini key must never reach the repo or the published site
+.env
+
+# Google service-account keys. .env only holds the PATH to one, so the key
+# file itself needs its own rule or it ships with the repo. Deliberately NOT
+# a blanket *.json — frontend/data/**.json is generated output that must be
+# committed, or a fresh clone renders nothing.
+secrets/
+*service-account*.json
+*credentials*.json
+portfolio-*-*.json
+
+# Generated Excel reports
+backend/out/*.xlsx
+
+# Gemini response cache. Purely a cost optimisation: the translations it
+# produces are written into the IPO's YAML (the `i18n:` block) and those ARE
+# committed, so a fresh clone renders every language without an API key.
+backend/data/cache/
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini

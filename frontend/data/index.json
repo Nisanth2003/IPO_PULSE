@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "generated_at": "2026-08-10T14:00:35",
+  "count": 10,
+  "ipos": [
+    {
+      "slug": "dhoot-transmission",
+      "company": "Dhoot Transmission Limited",
+      "initials": "DT",
+      "board": "Mainboard",
+      "status": "open"
+    },
+    {
+      "slug": "molbio-diagnostics",
+      "company": "Molbio Diagnostics Limited",
+      "initials": "MD",
+      "board": "Mainboard",
+      "status": "open"
+    },
+    {
+      "slug": "leap-india",
+      "company": "Leap India Limited",
+      "initials": "L",
+      "board": "Mainboard",
+      "status": "open"
+    },
+    {
+      "slug": "technocraft-ventures",
+      "company": "Technocraft Ventures Limited",
+      "initials": "TV",
+      "board": "Mainboard",
+      "status": "open"
+    },
+    {
+      "slug": "optimystix-entertainment-india",
+      "company": "Optimystix Entertainment India Limited",
+      "initials": "OE",
+      "board": "Mainboard",
+      "status": "open"
+    },
+    {
+      "slug": "vertex-aerospace",
+      "company": "Vertex Aerospace Ltd",
+      "initials": "VA",
+      "board": "Mainboard",
+      "status": "upcoming"
+    },
+    {
+      "slug": "milky-mist-dairy-food",
+      "company": "Milky Mist Dairy Food Limited",
+      "initials": "MM",
+      "board": "Mainboard",
+      "status": "upcoming"
+    },
+    {
+      "slug": "meridian-logistics",
+      "company": "Meridian Logistics Ltd",
+      "initials": "ML",
+      "board": "Mainboard",
+      "status": "upcoming"
+    },
+    {
+      "slug": "fascinate-textiles",
+      "company": "Fascinate Textiles Limited",
+      "initials": "FT",
+      "board": "Mainboard",
+      "status": "upcoming"
+    },
+    {
+      "slug": "pramodini-medicare",
+      "company": "Pramodini Medicare Limited",
+      "initials": "PM",
+      "board": "Mainboard",
+      "status": "upcoming"
+    }
+  ]
+}

@@ -1,0 +1,448 @@
+{
+  "schema": 1,
+  "generated_at": "2026-08-10T14:00:35",
+  "ipo": {
+    "slug": "meridian-logistics",
+    "company": "Meridian Logistics Ltd",
+    "initials": "",
+    "board": "Mainboard",
+    "sector": "Warehousing & Supply Chain",
+    "issue": {
+      "fresh_cr": 180.0,
+      "ofs_cr": 540.0,
+      "price_low": 271.0,
+      "price_high": 285.0,
+      "lot_size": 52,
+      "shares_post_issue_cr": 9.1,
+      "registrar": "MUFG Intime (Link Intime)",
+      "registrar_url": "https://in.mpms.mufg.com/Initial_Offer/public-issues.html",
+      "exchanges": [
+        "BSE",
+        "NSE"
+      ]
+    },
+    "dates": {
+      "announced": "2026-08-04",
+      "open": "2026-08-18",
+      "close": "2026-08-20",
+      "close_time": "17:00",
+      "allotment": "2026-08-21",
+      "refund": "2026-08-22",
+      "listing": "2026-08-25"
+    },
+    "financials": {
+      "years": [
+        "FY24",
+        "FY25",
+        "FY26"
+      ],
+      "revenue": [
+        1420.0,
+        1512.0,
+        1498.0
+      ],
+      "ebitda": [
+        171.0,
+        166.0,
+        149.0
+      ],
+      "pat": [
+        88.0,
+        74.0,
+        61.0
+      ],
+      "net_worth": [
+        612.0,
+        668.0,
+        705.0
+      ],
+      "total_debt": [
+        498.0,
+        545.0,
+        602.0
+      ],
+      "eps": 6.7,
+      "pe_peer_avg": 31.0
+    },
+    "gmp_history": [
+      {
+        "date": "2026-08-04",
+        "gmp": 14.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "manual"
+      },
+      {
+        "date": "2026-08-05",
+        "gmp": 12.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "manual"
+      },
+      {
+        "date": "2026-08-06",
+        "gmp": 9.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "manual"
+      },
+      {
+        "date": "2026-08-07",
+        "gmp": 10.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "manual"
+      },
+      {
+        "date": "2026-08-08",
+        "gmp": 7.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "manual"
+      },
+      {
+        "date": "2026-08-09",
+        "gmp": 6.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "manual"
+      },
+      {
+        "date": "2026-08-10",
+        "gmp": 4.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "manual"
+      }
+    ],
+    "subscription": [],
+    "analysis": {
+      "overview": [
+        "Operates 41 warehouses across 12 states for retail and e-commerce",
+        "Revenue is flat while margins have been sliding for two years"
+      ],
+      "green_flags": [
+        "Long-tenure contracts with three large retail chains",
+        "Asset base of owned land in tier-2 hubs"
+      ],
+      "red_flags": [
+        "OFS is 75% of the issue — promoters are the main sellers",
+        "PAT down 31% over two years",
+        "Debt up while equity growth stalled"
+      ],
+      "growth": "Revenue flat, PAT down 31% over FY24-FY26",
+      "valuation": "P/E 43x vs peer average 31x",
+      "risk": "Margin compression with rising debt",
+      "growth_tone": "bad",
+      "valuation_tone": "bad",
+      "score": 3.4,
+      "verdict": "avoid",
+      "verdict_text": "",
+      "reco_retail": "avoid",
+      "reco_hni": "avoid",
+      "reco_long": "avoid"
+    },
+    "allotment": {
+      "status": "expected",
+      "listing_low": 275.0,
+      "listing_high": 292.0,
+      "steps": []
+    },
+    "i18n": {
+      "hi": {
+        "overview": [
+          "रिटेल और e-commerce के लिए 12 राज्यों में 41 वेयरहाउस संचालित करती है",
+          "Revenue flat है जबकि दो सालों से मार्जिन लगातार गिर रहे हैं"
+        ],
+        "green_flags": [
+          "तीन बड़ी रिटेल चेन्स के साथ लंबी अवधि के कॉन्ट्रैक्ट्स",
+          "tier-2 हब्स में खुद की जमीन का एसेट बेस"
+        ],
+        "red_flags": [
+          "OFS इश्यू का 75% है — promoters मुख्य विक्रेता हैं",
+          "दो सालों में PAT 31% घटा है",
+          "Debt बढ़ा है जबकि इक्विटी ग्रोथ रुक गई है"
+        ],
+        "growth": "Revenue flat, FY24-FY26 में PAT 31% नीचे",
+        "valuation": "P/E 43x बनाम पीयर एवरेज 31x",
+        "risk": "बढ़ते Debt के साथ घटता मार्जिन",
+        "sector": "वेयरहाउसिंग और सप्लाई चेन",
+        "allotment_steps": [
+          "रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें",
+          "ड्रॉपडाउन से IPO का नाम चुनें",
+          "PAN या एप्लिकेशन नंबर डालें",
+          "सर्च दबाएँ — स्टेटस तुरंत दिखेगा"
+        ]
+      },
+      "te": {
+        "overview": [
+          "రీటైల్, ఇ-కామర్స్ కోసం 12 రాష్ట్రాల్లో 41 వేర్‌హౌస్‌లను నడుపుతోంది",
+          "రెవెన్యూలో మార్పు లేదు, రెండేళ్లుగా మార్జిన్లు పడిపోతున్నాయి"
+        ],
+        "green_flags": [
+          "మూడు పెద్ద రీటైల్ చైన్స్‌తో దీర్ఘకాలిక కాంట్రాక్టులు",
+          "టైర్-2 హబ్‌లలో సొంత స్థలాల అసెట్ బేస్"
+        ],
+        "red_flags": [
+          "ఇష్యూలో OFS 75% — ప్రమోటర్లే ప్రధాన విక్రేతలు",
+          "రెండేళ్లలో PAT 31% తగ్గింది",
+          "ఈక్విటీ గ్రోత్ నిలిచిపోయింది, అప్పులు పెరిగాయి"
+        ],
+        "growth": "రెవెన్యూలో మార్పు లేదు, FY24-FY26 లో PAT 31% తగ్గింది",
+        "valuation": "P/E 43x vs పీర్ యావరేజ్ 31x",
+        "risk": "పెరుగుతున్న అప్పులతో పాటు మార్జిన్ల క్షీణత",
+        "sector": "వేర్‌హౌసింగ్ & సప్లై చైన్",
+        "allotment_steps": [
+          "రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి",
+          "డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి",
+          "PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి",
+          "సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది"
+        ]
+      }
+    },
+    "benchmarks": {},
+    "sources": {},
+    "notes": "Sample record. OFS-heavy, deteriorating margins."
+  },
+  "derived": {
+    "initials": "ML",
+    "issue": {
+      "total_cr": 720.0,
+      "fresh_pct": 25.0,
+      "ofs_pct": 75.0,
+      "min_investment": 14820,
+      "is_fresh_heavy": false
+    },
+    "gmp": {
+      "gmp": 4.0,
+      "prev": 6.0,
+      "delta": -2.0,
+      "pct": 1.4,
+      "est_listing": 289.0,
+      "gain_per_lot": 208,
+      "movement": "drop",
+      "kostak": 0.0,
+      "sauda": 0.0,
+      "updated": "2026-08-10",
+      "series": [
+        {
+          "date": "2026-08-04",
+          "gmp": 14.0,
+          "pct": 4.91,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "manual"
+        },
+        {
+          "date": "2026-08-05",
+          "gmp": 12.0,
+          "pct": 4.21,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "manual"
+        },
+        {
+          "date": "2026-08-06",
+          "gmp": 9.0,
+          "pct": 3.16,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "manual"
+        },
+        {
+          "date": "2026-08-07",
+          "gmp": 10.0,
+          "pct": 3.51,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "manual"
+        },
+        {
+          "date": "2026-08-08",
+          "gmp": 7.0,
+          "pct": 2.46,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "manual"
+        },
+        {
+          "date": "2026-08-09",
+          "gmp": 6.0,
+          "pct": 2.11,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "manual"
+        },
+        {
+          "date": "2026-08-10",
+          "gmp": 4.0,
+          "pct": 1.4,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "manual"
+        }
+      ],
+      "peak": 14.0,
+      "trough": 4.0,
+      "days_tracked": 7
+    },
+    "subscription": {
+      "has_data": false,
+      "days": []
+    },
+    "financials": {
+      "has_data": true,
+      "rows": [
+        {
+          "year": "FY24",
+          "revenue": 1420.0,
+          "ebitda": 171.0,
+          "ebitda_margin": 12.0,
+          "pat": 88.0,
+          "pat_margin": 6.2,
+          "net_worth": 612.0,
+          "total_debt": 498.0,
+          "ronw": 14.4,
+          "debt_equity": 0.81
+        },
+        {
+          "year": "FY25",
+          "revenue": 1512.0,
+          "ebitda": 166.0,
+          "ebitda_margin": 11.0,
+          "pat": 74.0,
+          "pat_margin": 4.9,
+          "net_worth": 668.0,
+          "total_debt": 545.0,
+          "ronw": 11.1,
+          "debt_equity": 0.82
+        },
+        {
+          "year": "FY26",
+          "revenue": 1498.0,
+          "ebitda": 149.0,
+          "ebitda_margin": 9.9,
+          "pat": 61.0,
+          "pat_margin": 4.1,
+          "net_worth": 705.0,
+          "total_debt": 602.0,
+          "ronw": 8.7,
+          "debt_equity": 0.85
+        }
+      ],
+      "latest": {
+        "year": "FY26",
+        "revenue": 1498.0,
+        "ebitda": 149.0,
+        "ebitda_margin": 9.9,
+        "pat": 61.0,
+        "pat_margin": 4.1,
+        "net_worth": 705.0,
+        "total_debt": 602.0,
+        "ronw": 8.7,
+        "debt_equity": 0.85
+      },
+      "revenue_cagr": 2.7,
+      "ebitda_cagr": -6.7,
+      "pat_cagr": -16.7,
+      "margin_shift_bps": -210,
+      "eps": 6.7,
+      "pe": 42.5,
+      "pe_peer_avg": 31.0,
+      "pe_premium_pct": 37.1,
+      "market_cap_cr": 2594,
+      "marks": {
+        "ebitda_margin": {
+          "value": 9.9,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "poor",
+          "unit": "%",
+          "pos": 33,
+          "mark": 50,
+          "gap_pct": -34.0
+        },
+        "pat_margin": {
+          "value": 4.1,
+          "good_at": 8.0,
+          "higher_is_better": true,
+          "verdict": "poor",
+          "unit": "%",
+          "pos": 26,
+          "mark": 50,
+          "gap_pct": -48.8
+        },
+        "revenue_cagr": {
+          "value": 2.7,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "poor",
+          "unit": "%",
+          "pos": 9,
+          "mark": 50,
+          "gap_pct": -82.0
+        },
+        "pat_cagr": {
+          "value": -16.7,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "poor",
+          "unit": "%",
+          "pos": 0,
+          "mark": 45,
+          "gap_pct": -211.3
+        },
+        "ronw": {
+          "value": 8.7,
+          "good_at": 15.0,
+          "higher_is_better": true,
+          "verdict": "poor",
+          "unit": "%",
+          "pos": 29,
+          "mark": 50,
+          "gap_pct": -42.0
+        },
+        "debt_equity": {
+          "value": 0.85,
+          "good_at": 1.0,
+          "higher_is_better": false,
+          "verdict": "good",
+          "unit": "x",
+          "pos": 42,
+          "mark": 50,
+          "gap_pct": -15.0
+        },
+        "pe": {
+          "value": 42.5,
+          "good_at": 31.0,
+          "higher_is_better": false,
+          "verdict": "poor",
+          "unit": "x",
+          "pos": 50,
+          "mark": 36,
+          "gap_pct": 37.1
+        }
+      },
+      "score_good": 1,
+      "score_total": 7
+    },
+    "dates": {
+      "announced": "2026-08-04",
+      "open": "2026-08-18",
+      "close": "2026-08-20",
+      "close_time": "17:00",
+      "allotment": "2026-08-21",
+      "refund": "2026-08-22",
+      "listing": "2026-08-25",
+      "close_at": "2026-08-20T17:00:00",
+      "status": "upcoming"
+    },
+    "listing": {
+      "status": "expected",
+      "low": 275.0,
+      "high": 292.0,
+      "low_pct": -3.5,
+      "high_pct": 2.5
+    }
+  }
+}

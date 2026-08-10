@@ -1,0 +1,50 @@
+# docker compose up                     -> studio on http://localhost:8000
+# docker compose run --rm cli build      -> any ipopulse command
+# docker compose run --rm cli gmp vertex-aerospace 46
+# docker compose run --rm cli import /data/ipos.xlsx
+#
+# Data lives on the host, not in the image: edit YAML in your editor and the
+# container sees it immediately.
+#
+# On Docker Desktop (Windows/Mac) the bind mounts just work. On a Linux host
+# whose user isn't UID 1000, the container can't write to them — either
+# `sudo chown -R 1000:1000 backend/data frontend/data`, or add
+# `user: "${UID}:${GID}"` to the services below.
+
+services:
+  studio:
+    build: .
+    image: ipo-pulse:latest
+    container_name: ipo-pulse-studio
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/backend/data      # your IPO YAML + AI cache
+      - ./backend/out:/app/backend/out        # generated Excel reports
+      - ./frontend/data:/app/frontend/data    # published JSON (this is the deploy)
+    env_file:
+      # GEMINI_API_KEY etc. Never baked into the image. Optional: the studio
+      # runs fine without a key, captions just stay in English.
+      - path: .env
+        required: false
+    environment:
+      IPOPULSE_HOST: 0.0.0.0
+      IPOPULSE_CACHE_DAYS: 30                 # Gemini cache TTL
+    restart: unless-stopped
+
+  # One-shot CLI against the same data. `run --rm` so it doesn't pile up.
+  cli:
+    build: .
+    image: ipo-pulse:latest
+    profiles: ["cli"]                         # kept out of `compose up`
+    volumes:
+      - ./backend/data:/app/backend/data
+      - ./backend/out:/app/backend/out
+      - ./frontend/data:/app/frontend/data
+      - ./import:/data                        # drop spreadsheets here to import
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      IPOPULSE_CACHE_DAYS: 30
+    entrypoint: ["python", "-m", "ipopulse.cli"]

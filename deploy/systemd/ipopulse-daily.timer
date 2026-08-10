@@ -1,0 +1,31 @@
+[Unit]
+Description=IPO Pulse timer: daily
+
+[Timer]
+# sync -> build -> push, chained so push cannot start before sync exits 0.
+#
+# Bidding is 10:00-17:00 IST, and subscription is a running total that only
+# moves while the window is open, so one evening pull would miss the whole
+# intraday story:
+#   13:00  mid-window read, three hours of demand in
+#   16:30  30 minutes before close, where the last-day surge actually happens
+#   18:00  an hour after close: the day's final, settled figure
+# The first two are Mon-Fri because there is no bidding at the weekend. The
+# 18:00 run is every day so a weekend catalogue change still lands.
+#
+# Asia/Kolkata is pinned so the schedule cannot drift with the host's
+# timezone. Needs systemd 251+; on older versions drop the suffix and run
+# timedatectl set-timezone Asia/Kolkata
+OnCalendar=Mon..Fri *-*-* 13:00:00 Asia/Kolkata
+OnCalendar=Mon..Fri *-*-* 16:30:00 Asia/Kolkata
+OnCalendar=*-*-* 18:00:00 Asia/Kolkata
+
+# A host that was asleep at the trigger still runs the job on waking, rather
+# than losing a day of data.
+Persistent=true
+RandomizedDelaySec=120
+
+Unit=ipopulse@daily.service
+
+[Install]
+WantedBy=timers.target

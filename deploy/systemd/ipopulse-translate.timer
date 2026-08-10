@@ -1,0 +1,21 @@
+[Unit]
+Description=IPO Pulse timer: translate
+
+[Timer]
+# Weekly. Translations are cached 30 days and only change when the prose
+# does, so a nightly run would spend quota to rewrite identical text.
+#
+# Asia/Kolkata is pinned so the schedule cannot drift with the host's
+# timezone. Needs systemd 251+; on older versions drop the suffix and run
+# timedatectl set-timezone Asia/Kolkata
+OnCalendar=Sun *-*-* 03:00:00 Asia/Kolkata
+
+# A host that was asleep at the trigger still runs the job on waking, rather
+# than losing a day of data.
+Persistent=true
+RandomizedDelaySec=120
+
+Unit=ipopulse@translate.service
+
+[Install]
+WantedBy=timers.target

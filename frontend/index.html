@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPO Pulse Studio</title>
+<meta name="description" content="Scene-based reel studio for the IPO Pulse channel.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;600;700;800&family=Noto+Sans+Telugu:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      // Every size is driven by --fs so the whole card scales with density.
+      // Line-heights stay >= 1.2 — tighter ones let ancestors clip descenders.
+      fontSize: {
+        '3xs': ['calc(var(--fs)*0.52)', '1.45'],
+        '2xs': ['calc(var(--fs)*0.62)', '1.45'],
+        'xs':  ['calc(var(--fs)*0.72)', '1.45'],
+        'sm':  ['calc(var(--fs)*0.84)', '1.45'],
+        'base':['calc(var(--fs)*1.00)', '1.45'],
+        'lg':  ['calc(var(--fs)*1.15)', '1.40'],
+        'xl':  ['calc(var(--fs)*1.35)', '1.35'],
+        '2xl': ['calc(var(--fs)*1.65)', '1.30'],
+        '3xl': ['calc(var(--fs)*2.05)', '1.25'],
+        '4xl': ['calc(var(--fs)*2.55)', '1.22'],
+        '5xl': ['calc(var(--fs)*3.20)', '1.20'],
+        '6xl': ['calc(var(--fs)*4.00)', '1.20'],
+        '7xl': ['calc(var(--fs)*5.00)', '1.20'],
+      },
+      extend: { colors: { pulse: '#22C55E', danger: '#EF4444', warn: '#F59E0B' } },
+    },
+  }
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="css/studio.css">
+
+<script src="js/i18n.js"></script>
+<script src="js/compute.js"></script>
+<script src="js/data.js"></script>
+<script src="js/reels.js"></script>
+<script src="js/output.js"></script>
+<script src="js/studio.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</head>
+
+<body>
+<div x-data="studio()" @keydown.window="key($event)" x-cloak class="h-screen overflow-hidden flex flex-col">
+
+<!-- ══ TOP BAR ══════════════════════════════════════════════════════════ -->
+<header x-show="!focus" class="shrink-0 border-b border-white/10 bg-[#0A0F1C]/95 backdrop-blur">
+  <div class="flex flex-wrap items-center gap-2 px-3 py-2">
+    <div class="flex items-center gap-2 mr-1">
+      <span class="text-lg">📡</span>
+      <div class="leading-none">
+        <div class="text-[13px] font-black tracking-tight">IPO PULSE <span class="text-pulse">STUDIO</span></div>
+        <div class="text-[9px] uppercase tracking-[.18em] text-slate-500 font-bold">Reel Builder</div>
+      </div>
+    </div>
+
+    <div class="h-6 w-px bg-white/10 mx-1"></div>
+
+    <!-- company selector, straight from the published catalogue -->
+    <select class="inp !w-auto !py-1.5 font-bold" :value="slug" @change="select($event.target.value)">
+      <template x-for="c in catalogue" :key="c.slug">
+        <option :value="c.slug" x-text="c.company + '  ·  ' + c.board"></option>
+      </template>
+    </select>
+
+    <div class="flex items-center gap-1 rounded-lg bg-white/5 p-1 border border-white/10">
+      <template x-for="l in [['en','EN'],['hi','हिं'],['te','తె']]" :key="l[0]">
+        <button class="rounded-md px-2.5 py-1 text-[11.5px] font-bold transition"
+                :class="lang===l[0] ? 'bg-pulse text-black' : 'text-slate-400 hover:text-white hover:bg-white/10'"
+                @click="lang=l[0]; recompute()" x-text="l[1]"></button>
+      </template>
+    </div>
+
+    <div class="flex items-center gap-1 rounded-lg bg-white/5 p-1 border border-white/10">
+      <template x-for="r in Object.values(PRESETS)" :key="r.k">
+        <button class="rounded-md px-2.5 py-1 text-[11.5px] font-bold transition"
+                :class="ratio===r.k ? 'bg-pulse text-black' : 'text-slate-400 hover:text-white hover:bg-white/10'"
+                @click="setRatio(r.k)" :title="r.out" x-text="r.short"></button>
+      </template>
+    </div>
+
+    <button class="btn" @click="fit()" title="Fit to screen">⤢ Fit</button>
+    <div class="flex-1"></div>
+
+    <span x-show="!translated" class="pill bg-amber-500/15 text-amber-300 border border-amber-500/40"
+          title="Run: ipopulse translate">EN fallback</span>
+    <button class="btn" :class="showSafe?'btn-on':''" @click="showSafe=!showSafe" title="Safe zones (G)">⬚ Safe</button>
+    <button class="btn" :class="playing?'btn-on':''" @click="togglePlay()" title="Play reel (Space)">
+      <span x-text="playing ? '⏸ Pause' : '▶ Play reel'"></span>
+    </button>
+    <button class="btn btn-acc" @click="exportScene()" title="Export PNG (E)">⤓ PNG</button>
+    <button class="btn" @click="focus=true" title="Focus mode (F)">⛶ Focus</button>
+    <button class="btn" @click="leftOpen=!leftOpen" title="Data (S)">☰ Data</button>
+    <button class="btn" @click="rightOpen=!rightOpen" title="Studio (D)">⚙ Studio</button>
+    <!-- Only rendered when a local backend answers /api/health. On GitHub
+         Pages nothing answers, so this never appears on the public site —
+         which is the point: /trigger runs commands and must not be reachable
+         from a static host. See backend/ipopulse/control.py. -->
+    <a x-show="hasBackend" x-cloak class="btn btn-acc" href="/trigger"
+       title="Run sync / build / push (local only)">⚡ Trigger</a>
+  </div>
+
+  <!-- reel tabs: each is one video -->
+  <div class="grid grid-cols-6 gap-1 px-3 pb-2">
+    <template x-for="(r,i) in REELS" :key="r.n">
+      <button @click="go(i,0)"
+              class="group relative rounded-lg border px-2 py-1.5 text-left transition"
+              :class="reelIndex===i ? 'border-transparent text-white' : 'border-white/10 bg-white/[.03] text-slate-400 hover:bg-white/[.08]'"
+              :style="reelIndex===i ? `background:linear-gradient(180deg,${r.acc}33,${r.acc}12);border-color:${r.acc}88` : ''">
+        <div class="flex items-center gap-1">
+          <span class="text-[9px] font-black tracking-[.16em] opacity-70" x-text="'REEL 0'+r.n"></span>
+          <span class="text-[8.5px] opacity-50"
+                x-text="'· ' + (i===reelIndex ? sceneCount : (r.n===2 && gmpMode==='board' ? r.boardScenes.length : r.scenes.length)) + ' scenes'"></span>
+        </div>
+        <div class="text-[11.5px] font-bold leading-tight truncate" x-text="t(r.key)"></div>
+      </button>
+    </template>
+  </div>
+</header>
+
+<div class="flex-1 flex min-h-0">
+
+  <!-- ══ LEFT: LIVE DATA ═══════════════════════════════════════════════ -->
+  <aside x-show="leftOpen && !focus"
+         class="w-[320px] shrink-0 border-r border-white/10 bg-[#0A0F1C] overflow-y-auto scroll p-3">
+    <div class="text-[11px] font-black uppercase tracking-[.14em] text-pulse mb-1">Live Data</div>
+    <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">
+      Edits here update the card instantly for this session. They are
+      <b class="text-slate-400">not written back</b> — put the final numbers in
+      <code class="text-slate-400">backend/data/ipos/<span x-text="slug"></span>.yaml</code>
+      and run <code class="text-slate-400">ipopulse build</code>.
+    </p>
+
+    <template x-if="ipo">
+      <div>
+        <details class="sect" open><summary>Today's GMP</summary><div class="body">
+          <div class="row">
+            <label class="fld">GMP today (₹)</label>
+            <input type="number" class="inp" :value="todayGmpValue"
+                   @input="setTodayGmp($event.target.value)">
+          </div>
+          <div class="text-[10px] text-slate-400 leading-relaxed">
+            <div><span class="text-slate-500">GMP %</span>
+              <b class="text-pulse tnum" x-text="' ' + d.gmp.pct + '%'"></b></div>
+            <div><span class="text-slate-500">Est. listing</span>
+              <b class="tnum" x-text="' ₹' + fmt(d.gmp.est_listing)"></b></div>
+            <div><span class="text-slate-500">Gain / lot</span>
+              <b class="tnum" x-text="' ₹' + fmt(d.gmp.gain_per_lot)"></b></div>
+            <div><span class="text-slate-500">Tracked</span>
+              <b class="tnum" x-text="' ' + d.gmp.days_tracked + ' days'"></b></div>
+          </div>
+        </div></details>
+
+        <details class="sect" open><summary>Subscription (latest day)</summary><div class="body">
+          <div class="row g3">
+            <div><label class="fld">QIB</label>
+              <input type="number" step="0.01" class="inp" :value="d.subscription.qib||0"
+                     @input="setSubDay('qib',$event.target.value)"></div>
+            <div><label class="fld">NII</label>
+              <input type="number" step="0.01" class="inp" :value="d.subscription.nii||0"
+                     @input="setSubDay('nii',$event.target.value)"></div>
+            <div><label class="fld">Retail</label>
+              <input type="number" step="0.01" class="inp" :value="d.subscription.retail||0"
+                     @input="setSubDay('retail',$event.target.value)"></div>
+          </div>
+          <div class="row g2">
+            <div><label class="fld">Day</label>
+              <input type="number" class="inp" :value="d.subscription.day||1"
+                     @input="setSubDay('day',$event.target.value)"></div>
+            <div><label class="fld">Overall (x)</label>
+              <input type="number" step="0.01" class="inp" :value="d.subscription.total||0"
+                     @input="setSubDay('total',$event.target.value)"></div>
+          </div>
+        </div></details>
+
+        <details class="sect"><summary>Verdict</summary><div class="body">
+          <div class="row"><label class="fld">Score —
+              <span class="text-pulse tnum" x-text="Number(ipo.analysis.score).toFixed(1)"></span>/10</label>
+            <input type="range" min="0" max="10" step="0.1" class="w-full accent-emerald-500"
+                   :value="ipo.analysis.score"
+                   @input="ipo.analysis.score=Number($event.target.value); recompute()"></div>
+          <div class="row"><label class="fld">Verdict</label>
+            <select class="inp" :value="ipo.analysis.verdict"
+                    @change="ipo.analysis.verdict=$event.target.value; recompute()">
+              <option value="apply">Apply for Listing Gain</option>
+              <option value="both">Apply — Listing + Long Term</option>
+              <option value="longterm">Long Term Only</option>
+              <option value="risky">Risky — Apply Small</option>
+              <option value="avoid">Avoid / Skip</option>
+            </select></div>
+          <div class="row g3">
+            <template x-for="r in [['reco_retail','Retail'],['reco_hni','HNI'],['reco_long','Long']]" :key="r[0]">
+              <div><label class="fld" x-text="r[1]"></label>
+                <select class="inp" :value="ipo.analysis[r[0]]"
+                        @change="ipo.analysis[r[0]]=$event.target.value; recompute()">
+                  <option value="apply">Apply</option><option value="watch">Watch</option>
+                  <option value="avoid">Avoid</option>
+                </select></div>
+            </template>
+          </div>
+        </div></details>
+
+        <details class="sect"><summary>Read-only facts</summary><div class="body">
+          <div class="text-[10.5px] text-slate-400 space-y-1 tnum">
+            <div>Issue <b x-text="'₹'+fmt(d.issue.total_cr)+' Cr'"></b>
+              (<span x-text="d.issue.fresh_pct+'% fresh'"></span>)</div>
+            <div>Band <b x-text="'₹'+ipo.issue.price_low+'–₹'+ipo.issue.price_high"></b></div>
+            <div>Lot <b x-text="ipo.issue.lot_size"></b> · Min
+              <b x-text="'₹'+fmt(d.issue.min_investment)"></b></div>
+            <div x-show="d.financials.has_data">P/E <b x-text="d.financials.pe"></b> vs peers
+              <b x-text="d.financials.pe_peer_avg"></b></div>
+            <div x-show="d.financials.has_data">Rev CAGR
+              <b x-text="d.financials.revenue_cagr+'%'"></b> · EBITDA margin
+              <b x-text="d.financials.latest.ebitda_margin+'%'"></b></div>
+            <div>Registrar <b x-text="ipo.issue.registrar"></b></div>
+          </div>
+        </div></details>
+
+        <details class="sect"><summary>Branding</summary><div class="body">
+          <div class="row"><label class="fld">Handle</label>
+            <input class="inp" x-model="handle"></div>
+        </div></details>
+
+        <button class="btn w-full" @click="select(slug)">↺ Reload from backend</button>
+      </div>
+    </template>
+  </aside>
+
+  <!-- ══ CENTER: STAGE ═════════════════════════════════════════════════ -->
+  <main x-ref="stage" @resize.window="if(autoFit) fit()"
+        class="flex-1 min-w-0 flex flex-col items-center justify-center overflow-auto scroll p-6 relative"
+        :class="'stage-'+bg">
+
+    <div data-html2canvas-ignore x-show="loading"
+         class="absolute inset-0 grid place-items-center text-slate-400 text-sm">Loading…</div>
+
+    <div data-html2canvas-ignore x-show="loadError"
+         class="absolute inset-0 grid place-items-center p-8">
+      <div class="max-w-md rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200 text-sm leading-relaxed"
+           x-text="loadError"></div>
+    </div>
+
+    <div data-html2canvas-ignore x-show="overflow && !focus"
+         class="absolute top-3 left-1/2 -translate-x-1/2 z-30 rounded-full bg-amber-500/90 text-black text-[11px] font-bold px-3 py-1">
+      ⚠ Scene overflows — lower Text scale
+    </div>
+
+    <div :style="`width:${P.w*scale}px;height:${P.h*scale}px`" class="shrink-0 relative">
+      <div :style="`transform:scale(${scale});transform-origin:top left`">
+
+        <!-- ══════════ THE CARD ══════════ -->
+        <div id="capture" class="stage-card flex flex-col overflow-hidden"
+             :class="{ 'rounded-[26px]': rounded }"
+             :style="`width:${P.w}px;height:${P.h}px;--fs:${P.fs*density}px;--acc:${acc}`">
+
+          <div class="absolute inset-0 pointer-events-none" :style="accGlow"></div>
+
+          <!-- scene progress: one segment per scene in this reel -->
+          <div x-show="showProgress" class="shrink-0 flex gap-1 px-3 pt-2">
+            <template x-for="(s,i) in scenes" :key="i">
+              <div class="h-[3px] flex-1 rounded-full bg-white/10 overflow-hidden">
+                <div class="h-full rounded-full bg-white/85"
+                     :style="`width:${i < scene ? 100 : (i===scene ? (playing?sceneProg:100) : 0)}%;transition:width .12s linear`"></div>
+              </div>
+            </template>
+          </div>
+
+          <!-- brand header -->
+          <header class="shrink-0 px-4 pt-2.5 pb-2 border-b border-white/10"
+                  style="background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0))">
+            <div class="flex items-center gap-2">
+              <span class="text-lg leading-none">📡</span>
+              <div class="font-black tracking-tight text-lg">IPO&nbsp;PULSE</div>
+              <div class="text-white/25 font-light text-lg leading-none">|</div>
+              <div class="lbl !text-[length:calc(var(--fs)*0.66)] text-slate-300" x-text="t('live')"></div>
+              <div class="flex-1"></div>
+              <div class="flex items-center gap-1.5 rounded-full px-2 py-[3px]"
+                   style="background:rgba(239,68,68,.16);border:1px solid rgba(239,68,68,.4)">
+                <span class="livedot w-[6px] h-[6px] rounded-full bg-danger inline-block"></span>
+                <span class="text-2xs font-black tracking-[.14em] text-red-300">LIVE</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 mt-1.5">
+              <div class="rounded-md px-1.5 py-[2px] text-2xs font-black tracking-[.1em]"
+                   :style="`background:${acc}26;color:${acc};border:1px solid ${acc}55`"
+                   x-text="'0'+reel.n+' / 06'"></div>
+              <div class="text-xs font-extrabold uppercase tracking-[.13em]" :style="`color:${acc}`"
+                   x-text="t(reel.key)"></div>
+              <div class="flex-1"></div>
+              <div class="text-2xs text-slate-500 font-semibold" x-text="today"></div>
+            </div>
+          </header>
+
+          <!-- ══════════ SCENES ══════════ -->
+          <div class="flex-1 min-h-0 overflow-hidden px-4 py-3" x-ref="body" :class="{'anim': mounted}">
+          <template x-if="ipo && d">
+          <div class="h-full">
+
+            <!-- ─── REEL 1 · ABOUT IPO ─────────────────────────────── -->
+            <div x-show="at(1,'hook')" class="scene items-center text-center">
+              <div class="pill self-center text-2xs font-black tracking-[.16em]"
+                   :style="`background:${acc}22;color:${acc};border:1px solid ${acc}66`"
+                   x-text="t('st_'+d.dates.status)"></div>
+              <div>
+                <div class="lbl" x-text="t('issueSize')"></div>
+                <div class="font-black text-6xl tnum" :style="`color:${acc}`"
+                     x-text="'₹'+fmt(d.issue.total_cr)"></div>
+                <div class="font-black text-xl text-slate-300" x-text="t('cr')+' IPO'"></div>
+              </div>
+              <div class="font-black text-2xl leading-tight" x-text="ipo.company"></div>
+              <div class="text-sm text-slate-400 font-semibold" x-text="loc.sector"></div>
+              <div class="glass px-3 py-2 self-center">
+                <span class="lbl" x-text="t('opens')"></span>
+                <span class="font-black text-lg tnum ml-2" x-text="fmtDate(ipo.dates.open, true)"></span>
+              </div>
+            </div>
+
+            <div x-show="at(1,'company')" class="scene">
+              <div class="flex items-center gap-3">
+                <div class="shrink-0 grid place-items-center rounded-2xl font-black text-2xl"
+                     :style="`width:calc(var(--fs)*3.4);height:calc(var(--fs)*3.4);background:linear-gradient(145deg,#1E293B,#0F172A);border:1px solid rgba(255,255,255,.14);color:${acc}`"
+                     x-text="d.initials"></div>
+                <div class="min-w-0">
+                  <div class="font-black text-xl leading-tight" x-text="ipo.company"></div>
+                  <div class="flex items-center gap-1.5 mt-1">
+                    <span class="rounded px-1.5 py-[1px] text-2xs font-bold bg-white/10 text-slate-300"
+                          x-text="ipo.board"></span>
+                    <span class="text-2xs text-slate-400" x-text="loc.sector"></span>
+                  </div>
+                </div>
+              </div>
+              <div class="lbl" x-text="t('overview')"></div>
+              <template x-for="(b,i) in loc.overview" :key="i">
+                <div class="glass p-3 flex gap-2.5 items-start">
+                  <span class="mt-[7px] w-[7px] h-[7px] rounded-full shrink-0" :style="`background:${acc}`"></span>
+                  <span class="text-base text-slate-100 leading-snug font-semibold" x-text="b"></span>
+                </div>
+              </template>
+            </div>
+
+            <div x-show="at(1,'split')" class="scene">
+              <div class="text-center">
+                <div class="lbl" x-text="t('issueSize')"></div>
+                <div class="font-black text-4xl tnum" x-text="'₹'+fmt(d.issue.total_cr)+' '+t('cr')"></div>
+              </div>
+              <div class="flex h-[14px] rounded-full overflow-hidden bg-white/10">
+                <div class="bar-fill h-full"
+                     :style="`background:linear-gradient(90deg,#22C55E,#4ADE80);width:${mounted ? d.issue.fresh_pct : 0}%`"></div>
+                <div class="bar-fill h-full"
+                     :style="`background:linear-gradient(90deg,#F59E0B,#EF4444);width:${mounted ? d.issue.ofs_pct : 0}%`"></div>
+              </div>
+              <div class="grid grid-cols-2 gap-2.5">
+                <div class="glass glass-g p-3">
+                  <div class="text-2xs font-black tracking-[.12em] text-emerald-300"
+                       x-text="t('fresh').toUpperCase()"></div>
+                  <div class="font-black text-3xl tnum text-emerald-400" x-text="'₹'+fmt(ipo.issue.fresh_cr)"></div>
+                  <div class="text-2xs text-emerald-200/80 font-bold"
+                       x-text="t('cr')+' · '+d.issue.fresh_pct+'%'"></div>
+                  <div class="mt-1.5 text-sm font-extrabold text-emerald-100 leading-tight"
+                       x-text="'✅ '+t('freshSub')"></div>
+                </div>
+                <div class="glass glass-r p-3">
+                  <div class="text-2xs font-black tracking-[.12em] text-red-300" x-text="t('ofs')"></div>
+                  <div class="font-black text-3xl tnum text-red-400" x-text="'₹'+fmt(ipo.issue.ofs_cr)"></div>
+                  <div class="text-2xs text-red-200/80 font-bold"
+                       x-text="t('cr')+' · '+d.issue.ofs_pct+'%'"></div>
+                  <div class="mt-1.5 text-sm font-extrabold text-red-100 leading-tight"
+                       x-text="'⚠️ '+t('ofsSub')"></div>
+                </div>
+              </div>
+            </div>
+
+            <div x-show="at(1,'terms')" class="scene">
+              <div class="grid grid-cols-2 gap-2.5">
+                <div class="glass p-3">
+                  <div class="lbl" x-text="t('priceBand')"></div>
+                  <div class="font-black text-xl tnum"
+                       x-text="'₹'+ipo.issue.price_low+' – ₹'+ipo.issue.price_high"></div>
+                </div>
+                <div class="glass p-3">
+                  <div class="lbl" x-text="t('lotSize')"></div>
+                  <div class="font-black text-xl tnum"><span x-text="fmt(ipo.issue.lot_size)"></span>
+                    <span class="text-xs font-bold text-slate-400" x-text="t('shares')"></span></div>
+                </div>
+                <div class="glass glass-acc p-3" :style="accTint">
+                  <div class="lbl" x-text="t('minInv')"></div>
+                  <div class="font-black text-xl tnum" :style="`color:${acc}`"
+                       x-text="'₹'+fmt(d.issue.min_investment)"></div>
+                </div>
+                <div class="glass p-3">
+                  <div class="lbl" x-text="t('listOn')"></div>
+                  <div class="font-black text-xl" x-text="(ipo.issue.exchanges||[]).join(', ')"></div>
+                </div>
+              </div>
+              <div class="glass p-3 text-center" x-show="d.financials.market_cap_cr">
+                <div class="lbl" x-text="t('marketCap')"></div>
+                <div class="font-black text-2xl tnum"
+                     x-text="'₹'+fmt(d.financials.market_cap_cr)+' '+t('cr')"></div>
+              </div>
+            </div>
+
+            <div x-show="at(1,'dates')" class="scene">
+              <div class="lbl text-center" x-text="t('keyDates')"></div>
+              <template x-for="(k,i) in [['announced',ipo.dates.announced],['opens',ipo.dates.open],['closes',ipo.dates.close],['allot',ipo.dates.allotment],['listing',ipo.dates.listing]]" :key="i">
+                <div class="glass px-3 py-2 flex items-center gap-3"
+                     :class="i===2 ? 'glass-r' : ''">
+                  <span class="w-[10px] h-[10px] rounded-full shrink-0"
+                        :style="`background:${i===2 ? '#EF4444' : acc}`"></span>
+                  <span class="lbl flex-1" x-text="t(k[0])"></span>
+                  <span class="font-black text-lg tnum"
+                        :class="i===2 ? 'text-red-400' : 'text-slate-100'"
+                        x-text="fmtDate(k[1], true)"></span>
+                </div>
+              </template>
+            </div>
+
+            <!-- ─── REEL 2 · DAILY GMP (single) ────────────────────── -->
+            <div x-show="at(2,'hook')" class="scene items-center text-center">
+              <div class="font-black text-xl" x-text="ipo.company"></div>
+              <div>
+                <div class="lbl" x-text="t('todayGmp')"></div>
+                <div class="font-black text-7xl tnum"
+                     :class="gmpPositive ? 'text-pulse' : 'text-danger'"
+                     x-text="(gmpPositive?'₹':'-₹')+fmt(Math.abs(Math.round(a.gmp)))"></div>
+              </div>
+              <div class="font-black text-3xl tnum"
+                   :class="gmpPositive ? 'text-emerald-300' : 'text-red-300'"
+                   x-text="signed(a.pct)+'%'"></div>
+              <div class="lbl" x-text="t('overBand')+' ₹'+ipo.issue.price_high"></div>
+            </div>
+
+            <div x-show="at(2,'gauge')" class="scene items-center">
+              <div class="relative glowpulse self-center"
+                   style="width:calc(var(--fs)*13);height:calc(var(--fs)*13)">
+                <!-- explicit size + in-SVG rotation: html2canvas serialises the
+                     SVG to an image, so CSS sizing/transform would be lost -->
+                <svg viewBox="0 0 160 160" width="160" height="160" class="w-full h-full">
+                  <circle cx="80" cy="80" r="66" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="13"/>
+                  <circle cx="80" cy="80" r="66" fill="none" stroke-width="13" stroke-linecap="round"
+                          transform="rotate(-90 80 80)"
+                          :stroke="gmpPositive ? '#22C55E' : '#EF4444'"
+                          :stroke-dasharray="RING" class="ring-fill"
+                          :stroke-dashoffset="mounted ? RING*(1-gaugeFrac) : RING"/>
+                </svg>
+                <div class="absolute inset-0 grid place-content-center text-center px-[19%]">
+                  <div class="lbl !tracking-[.10em]" x-text="t('todayGmp')"></div>
+                  <div class="font-black text-5xl tnum leading-none mt-0.5"
+                       :class="gmpPositive ? 'text-pulse' : 'text-danger'"
+                       x-text="(gmpPositive?'₹':'-₹')+fmt(Math.abs(Math.round(a.gmp)))"></div>
+                  <div class="mt-0.5 font-black text-xl tnum"
+                       :class="gmpPositive ? 'text-emerald-300' : 'text-red-300'"
+                       x-text="signed(a.pct)+'%'"></div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 rounded-full px-4 py-2 self-center glass"
+                   :class="d.gmp.movement==='surge' ? 'glass-g' : (d.gmp.movement==='drop' ? 'glass-r' : 'glass-a')">
+                <span class="text-lg" x-text="moveIcon"></span>
+                <span class="font-black text-base tracking-[.1em]"
+                      :class="d.gmp.movement==='surge' ? 'text-emerald-300' : (d.gmp.movement==='drop' ? 'text-red-300' : 'text-amber-300')"
+                      x-text="t(d.gmp.movement)"></span>
+                <span class="text-sm font-bold text-slate-300 tnum"
+                      x-text="'₹'+d.gmp.prev+' → ₹'+d.gmp.gmp+' ('+signed(d.gmp.delta,0)+')'"></span>
+              </div>
+              <div class="text-2xs text-slate-500 font-semibold text-center" x-text="'ⓘ '+t('gmpNote')"></div>
+            </div>
+
+            <div x-show="at(2,'listing')" class="scene">
+              <div class="glass glass-acc p-4 text-center" :style="accTint">
+                <div class="lbl" x-text="t('estListing')"></div>
+                <div class="font-black text-5xl tnum" :style="`color:${acc}`"
+                     x-text="'₹'+fmt(Math.round(a.est))"></div>
+                <div class="text-2xs font-bold text-slate-400 tnum"
+                     x-text="'₹'+ipo.issue.price_high+' + ₹'+d.gmp.gmp+' '+t('todayGmp')"></div>
+              </div>
+              <div class="glass p-3 text-center">
+                <div class="lbl" x-text="t('perLot')"></div>
+                <div class="font-black text-4xl tnum"
+                     :class="gmpPositive?'text-pulse':'text-danger'"
+                     x-text="(gmpPositive?'+₹':'-₹')+fmt(Math.abs(d.gmp.gain_per_lot))"></div>
+                <div class="text-2xs text-slate-500 font-bold tnum"
+                     x-text="ipo.issue.lot_size+' '+t('shares')+' · ₹'+fmt(d.issue.min_investment)"></div>
+              </div>
+              <div class="grid grid-cols-2 gap-2" x-show="d.gmp.kostak>0 || d.gmp.sauda>0">
+                <div class="glass p-2.5" x-show="d.gmp.kostak>0">
+                  <div class="lbl" x-text="t('kostak')"></div>
+                  <div class="font-black text-lg tnum" x-text="'₹'+fmt(d.gmp.kostak)"></div>
+                </div>
+                <div class="glass p-2.5" x-show="d.gmp.sauda>0">
+                  <div class="lbl" x-text="t('sauda')"></div>
+                  <div class="font-black text-lg tnum" x-text="'₹'+fmt(d.gmp.sauda)"></div>
+                </div>
+              </div>
+              <!-- the reason to act today, on the reel people watch daily -->
+              <div class="rounded-2xl px-3 py-2.5 flex items-center justify-between alertpulse"
+                   x-show="!countdown.over"
+                   style="background:linear-gradient(90deg,rgba(239,68,68,.22),rgba(239,68,68,.06));border:1px solid rgba(239,68,68,.5)">
+                <div>
+                  <div class="lbl !text-red-300" x-text="t('closesIn')"></div>
+                  <div class="text-2xs font-bold text-red-200/80" x-text="t('applyBefore')"></div>
+                </div>
+                <div class="font-black text-2xl tnum text-red-300" x-text="countdown.txt"></div>
+              </div>
+            </div>
+
+            <!-- the daily trail from announcement to listing -->
+            <div x-show="at(2,'trail')" class="scene tight">
+              <div class="lbl text-center" x-text="t('gmpTrail')"></div>
+              <template x-if="spark">
+                <div class="glass p-2">
+                  <svg :viewBox="`0 0 ${spark.w} ${spark.h}`" :width="spark.w" :height="spark.h"
+                       preserveAspectRatio="none" class="w-full" style="height:calc(var(--fs)*3.4)">
+                    <path :d="spark.area" :fill="gmpPositive ? 'rgba(34,197,94,.18)' : 'rgba(239,68,68,.18)'"/>
+                    <path :d="spark.line" fill="none" :stroke="gmpPositive ? '#22C55E' : '#EF4444'"
+                          stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle :cx="spark.lastX" :cy="spark.lastY" r="5"
+                            :fill="gmpPositive ? '#22C55E' : '#EF4444'"/>
+                  </svg>
+                </div>
+              </template>
+              <div class="grid grid-cols-3 gap-2">
+                <div class="glass p-2 text-center">
+                  <div class="lbl" x-text="t('peak')"></div>
+                  <div class="font-black text-lg tnum text-emerald-400" x-text="'₹'+d.gmp.peak"></div>
+                </div>
+                <div class="glass p-2 text-center">
+                  <div class="lbl" x-text="t('trough')"></div>
+                  <div class="font-black text-lg tnum text-red-400" x-text="'₹'+d.gmp.trough"></div>
+                </div>
+                <div class="glass p-2 text-center">
+                  <div class="lbl" x-text="t('daysTracked')"></div>
+                  <div class="font-black text-lg tnum" x-text="d.gmp.days_tracked"></div>
+                </div>
+              </div>
+              <div class="glass p-2 overflow-hidden">
+                <table class="dtable">
+                  <thead><tr>
+                    <th x-text="t('closes').slice(0,4)==='Clos' ? 'Date' : t('closes')"></th>
+                    <th>GMP</th><th>%</th><th x-text="t('estListing').split(' ').pop()"></th>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="(p,i) in trailRows()" :key="p.date">
+                      <tr>
+                        <td x-text="fmtShort(p.date)"></td>
+                        <td class="tnum" x-text="'₹'+p.gmp"></td>
+                        <td class="tnum" :class="p.gmp>=0?'text-emerald-400':'text-red-400'"
+                            x-text="p.pct+'%'"></td>
+                        <td class="tnum" x-text="'₹'+p.est"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ─── REEL 2 · GMP BOARD (all IPOs) ──────────────────── -->
+            <div x-show="at(2,'boardhook')" class="scene items-center text-center">
+              <div class="pill self-center text-2xs font-black tracking-[.16em]"
+                   :style="`background:${acc}22;color:${acc};border:1px solid ${acc}66`"
+                   x-text="today"></div>
+              <div class="font-black text-4xl leading-tight" x-text="t('todayBoard')"></div>
+              <div class="font-black text-6xl tnum" :style="`color:${acc}`" x-text="boardRows.length"></div>
+              <div class="lbl" x-text="t('allIpos')"></div>
+            </div>
+
+            <div x-show="at(2,'board')" class="scene tight">
+              <div class="lbl text-center" x-text="t('todayBoard')"></div>
+              <div class="glass p-2 overflow-hidden">
+                <table class="dtable">
+                  <thead><tr>
+                    <th>IPO</th><th>GMP</th><th>%</th><th x-text="t('closes')"></th>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="r in boardRows.slice(0,7)" :key="r.slug">
+                      <tr>
+                        <td class="truncate" style="max-width:calc(var(--fs)*8)" x-text="r.company"></td>
+                        <td class="tnum" x-text="'₹'+r.gmp"></td>
+                        <td class="tnum font-black"
+                            :class="r.gmp_pct>=0?'text-emerald-400':'text-red-400'"
+                            x-text="signed(r.gmp_pct,0)+'%'"></td>
+                        <td class="tnum" x-text="fmtShort(r.close)"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="text-2xs text-slate-500 font-semibold text-center" x-text="'ⓘ '+t('gmpNote')"></div>
+            </div>
+
+            <!-- ─── REEL 3 · SUBSCRIPTION ──────────────────────────── -->
+            <div x-show="at(3,'hook')" class="scene items-center text-center">
+              <div class="font-black text-xl" x-text="ipo.company"></div>
+              <div class="rounded-2xl px-5 py-2 self-center"
+                   :style="`background:${acc}1F;border:1px solid ${acc}66`">
+                <div class="font-black text-3xl leading-none tnum" :style="`color:${acc}`"
+                     x-text="'DAY '+(d.subscription.day||1)"></div>
+              </div>
+              <div>
+                <div class="lbl" x-text="t('totalSub')"></div>
+                <div class="font-black text-7xl tnum" :style="`color:${acc}`"
+                     x-text="a.total.toFixed(2)+'x'"></div>
+              </div>
+              <div class="rounded-xl px-4 py-2 glass self-center" :class="sentiment.cls">
+                <span class="font-black text-lg" x-text="t(sentiment.key)"></span>
+              </div>
+            </div>
+
+            <div x-show="at(3,'bars')" class="scene">
+              <div class="lbl text-center" x-text="t('subDay')+' '+(d.subscription.day||1)"></div>
+              <div class="glass p-4">
+                <template x-for="b in [['qib',d.subscription.qib,'#60A5FA'],['nii',d.subscription.nii,'#A78BFA'],['retail',d.subscription.retail,'#22C55E']]" :key="b[0]">
+                  <div class="mb-4 last:mb-0">
+                    <div class="flex items-baseline justify-between mb-1.5">
+                      <span class="text-base font-black tracking-[.08em]" x-text="t(b[0])"></span>
+                      <span class="font-black text-2xl tnum" :style="`color:${b[2]}`"
+                            x-text="Number(b[1]).toFixed(2)+'x'"></span>
+                    </div>
+                    <div class="h-[14px] rounded-full bg-white/8 overflow-hidden">
+                      <div class="bar-fill h-full rounded-full relative"
+                           :style="`width:${mounted ? subBarPct(b[1]) : 0}%;background:linear-gradient(90deg,${b[2]}AA,${b[2]})`">
+                        <div class="sheen"></div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <div class="glass glass-acc p-3 text-center" :style="accTint">
+                <div class="lbl" x-text="t('totalSub')"></div>
+                <div class="font-black text-4xl tnum" :style="`color:${acc}`"
+                     x-text="a.total.toFixed(2)+'x'"></div>
+              </div>
+            </div>
+
+            <div x-show="at(3,'trend')" class="scene">
+              <div class="lbl text-center" x-text="t('dayWise')"></div>
+              <div class="glass p-2 overflow-hidden">
+                <table class="dtable">
+                  <thead><tr>
+                    <th x-text="t('subDay')"></th><th>QIB</th><th>NII</th>
+                    <th x-text="t('retail')"></th><th>Total</th>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="s in (d.subscription.days||[])" :key="s.day">
+                      <tr>
+                        <td x-text="'Day '+s.day"></td>
+                        <td class="tnum" x-text="s.qib.toFixed(2)"></td>
+                        <td class="tnum" x-text="s.nii.toFixed(2)"></td>
+                        <td class="tnum" x-text="s.retail.toFixed(2)"></td>
+                        <td class="tnum font-black" :style="`color:${acc}`" x-text="s.total.toFixed(2)+'x'"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="rounded-xl px-4 py-2.5 glass text-center" :class="sentiment.cls">
+                <span class="font-black text-lg" x-text="t(sentiment.key)"></span>
+              </div>
+            </div>
+
+            <!-- ─── REEL 4 · APPLY OR SKIP ─────────────────────────── -->
+            <div x-show="at(4,'hook')" class="scene items-center text-center">
+              <div class="font-black text-xl" x-text="ipo.company"></div>
+              <div class="font-black text-5xl leading-tight" :style="`color:${acc}`"
+                   x-text="t('applySkip')"></div>
+              <div class="grid grid-cols-2 gap-2 w-full">
+                <div class="glass p-3">
+                  <div class="lbl">GMP</div>
+                  <div class="font-black text-2xl tnum"
+                       :class="gmpPositive?'text-pulse':'text-danger'" x-text="signed(d.gmp.pct)+'%'"></div>
+                </div>
+                <div class="glass p-3" x-show="d.financials.has_data">
+                  <div class="lbl" x-text="t('revCagr')"></div>
+                  <div class="font-black text-2xl tnum"
+                       :class="d.financials.revenue_cagr>=0?'text-pulse':'text-danger'"
+                       x-text="signed(d.financials.revenue_cagr)+'%'"></div>
+                </div>
+              </div>
+            </div>
+
+            <div x-show="at(4,'financials')" class="scene tight">
+              <div class="lbl text-center" x-text="t('financials')+' (₹ '+t('cr')+')'"></div>
+              <div class="glass p-2 overflow-hidden" x-show="d.financials.has_data">
+                <table class="dtable">
+                  <thead><tr>
+                    <th></th><th x-text="t('revenue')"></th><th>EBITDA</th>
+                    <th x-text="t('ebitdaMargin').split(' ')[0]==='EBITDA' ? 'EBITDA %' : '%'"></th>
+                    <th>PAT</th>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="r in d.financials.rows" :key="r.year">
+                      <tr>
+                        <td class="font-black" x-text="r.year"></td>
+                        <td class="tnum" x-text="fmt(r.revenue)"></td>
+                        <td class="tnum" x-text="fmt(r.ebitda)"></td>
+                        <td class="tnum" :style="`color:${acc}`" x-text="r.ebitda_margin+'%'"></td>
+                        <td class="tnum" x-text="fmt(r.pat)"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="grid grid-cols-3 gap-2" x-show="d.financials.has_data">
+                <div class="glass p-2 text-center"
+                     :class="d.financials.revenue_cagr>=0?'glass-g':'glass-r'">
+                  <div class="lbl" x-text="t('revCagr')"></div>
+                  <div class="font-black text-lg tnum"
+                       x-text="signed(d.financials.revenue_cagr,0)+'%'"></div>
+                </div>
+                <div class="glass p-2 text-center"
+                     :class="d.financials.pat_cagr>=0?'glass-g':'glass-r'">
+                  <div class="lbl" x-text="t('patCagr')"></div>
+                  <div class="font-black text-lg tnum"
+                       x-text="signed(d.financials.pat_cagr,0)+'%'"></div>
+                </div>
+                <div class="glass p-2 text-center"
+                     :class="d.financials.margin_shift_bps>=0?'glass-g':'glass-r'">
+                  <div class="lbl" x-text="t('marginShift')"></div>
+                  <div class="font-black text-lg tnum"
+                       x-text="signed(d.financials.margin_shift_bps,0)+' bps'"></div>
+                </div>
+              </div>
+              <div class="glass p-3 text-center" x-show="!d.financials.has_data">
+                <span class="text-sm text-slate-400">No financials entered yet — add them to the YAML.</span>
+              </div>
+            </div>
+
+            <!-- health check: every metric against the line that makes it good -->
+            <div x-show="at(4,'valuation')" class="scene tight">
+              <div class="flex items-baseline justify-between">
+                <span class="lbl" x-text="t('healthCheck')"></span>
+                <span class="font-black text-xl tnum"
+                      :class="d.financials.score_good >= d.financials.score_total/2 ? 'text-pulse' : 'text-danger'"
+                      x-text="benchScore"></span>
+              </div>
+              <template x-for="m in benchRows" :key="m.key">
+                <div class="glass p-2.5" :class="m.good ? 'glass-g' : 'glass-r'">
+                  <div class="flex items-baseline justify-between mb-1">
+                    <span class="lbl" x-text="m.label"></span>
+                    <span class="font-black text-lg tnum"
+                          :class="m.good ? 'text-emerald-300' : 'text-red-300'"
+                          x-text="m.value"></span>
+                  </div>
+                  <div class="bmark">
+                    <div class="bmark-track">
+                      <div class="bmark-fill"
+                           :style="`width:${mounted ? m.pos : 0}%;background:${m.good ? '#22C55E' : '#EF4444'}`"></div>
+                    </div>
+                    <div class="bmark-tick" :style="`left:${m.mark}%`"></div>
+                  </div>
+                  <div class="flex items-center justify-between mt-1">
+                    <span class="text-3xs text-slate-400 font-bold" x-text="m.hint"></span>
+                    <span class="text-3xs font-black tracking-[.1em]"
+                          :class="m.good ? 'text-emerald-400' : 'text-red-400'"
+                          x-text="(m.good ? '✓ ' : '✕ ') + t(m.good ? 'markGood' : 'markWeak')"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div x-show="at(4,'flags')" class="scene">
+              <div class="glass glass-g p-3">
+                <div class="flex items-center gap-1.5 mb-2">
+                  <span class="text-base">🟢</span>
+                  <span class="text-sm font-black tracking-[.1em] text-emerald-300 uppercase"
+                        x-text="t('greenFlags')"></span>
+                </div>
+                <template x-for="(g,i) in loc.green_flags" :key="i">
+                  <div class="flex gap-2 items-start mb-1.5 last:mb-0">
+                    <span class="text-emerald-400 font-black text-sm mt-[1px]">✓</span>
+                    <span class="text-sm text-emerald-50 leading-snug" x-text="g"></span>
+                  </div>
+                </template>
+              </div>
+              <div class="glass glass-r p-3">
+                <div class="flex items-center gap-1.5 mb-2">
+                  <span class="text-base">🚨</span>
+                  <span class="text-sm font-black tracking-[.1em] text-red-300 uppercase"
+                        x-text="t('redFlags')"></span>
+                </div>
+                <template x-for="(r,i) in loc.red_flags" :key="i">
+                  <div class="flex gap-2 items-start mb-1.5 last:mb-0">
+                    <span class="text-red-400 font-black text-sm mt-[1px]">✕</span>
+                    <span class="text-sm text-red-50 leading-snug" x-text="r"></span>
+                  </div>
+                </template>
+              </div>
+              <div class="glass glass-a p-2.5 flex items-center gap-2" x-show="loc.risk">
+                <span class="lbl shrink-0" x-text="t('keyRisk')"></span>
+                <span class="text-xs font-extrabold text-amber-200 text-right flex-1"
+                      x-text="loc.risk"></span>
+              </div>
+            </div>
+
+            <!-- ─── REEL 5 · FINAL VERDICT ─────────────────────────── -->
+            <div x-show="at(5,'score')" class="scene items-center text-center">
+              <div class="font-black text-xl" x-text="ipo.company"></div>
+              <div class="relative self-center" style="width:calc(var(--fs)*10);height:calc(var(--fs)*10)">
+                <svg viewBox="0 0 160 160" width="160" height="160" class="w-full h-full">
+                  <circle cx="80" cy="80" r="66" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="11"/>
+                  <circle cx="80" cy="80" r="66" fill="none" stroke-width="11" stroke-linecap="round"
+                          transform="rotate(-90 80 80)"
+                          :stroke="verdict.hex" :stroke-dasharray="RING" class="ring-fill"
+                          :stroke-dashoffset="mounted ? RING*(1-Math.min(1,ipo.analysis.score/10)) : RING"/>
+                </svg>
+                <div class="absolute inset-0 grid place-content-center text-center px-[16%]">
+                  <div class="font-black text-4xl tnum leading-none" :style="`color:${verdict.hex}`">
+                    <span x-text="a.score.toFixed(1)"></span><span class="text-lg text-slate-500">/10</span>
+                  </div>
+                </div>
+              </div>
+              <div class="lbl" x-text="t('score')"></div>
+            </div>
+
+            <div x-show="at(5,'verdict')" class="scene items-center">
+              <div class="relative rounded-2xl px-5 py-6 text-center overflow-hidden w-full"
+                   :style="`background:linear-gradient(135deg,${verdict.hex}33,${verdict.hex}0D);border:2px solid ${verdict.hex};box-shadow:0 0 44px ${verdict.hex}45`">
+                <div class="sheen"></div>
+                <div class="lbl !tracking-[.24em]" x-text="t('verdictL')"></div>
+                <div class="font-black text-4xl leading-[1.1] mt-2" :style="`color:${verdict.hex}`"
+                     x-text="verdictText"></div>
+              </div>
+              <div class="glass px-4 py-2 self-center">
+                <span class="lbl" x-text="t('score')"></span>
+                <span class="font-black text-2xl tnum ml-2" :style="`color:${verdict.hex}`"
+                      x-text="Number(ipo.analysis.score).toFixed(1)+'/10'"></span>
+              </div>
+            </div>
+
+            <div x-show="at(5,'who')" class="scene">
+              <template x-for="r in [[t('forRetail'),ipo.analysis.reco_retail],[t('forHni'),ipo.analysis.reco_hni],[t('forLong'),ipo.analysis.reco_long]]" :key="r[0]">
+                <div class="flex items-center justify-between gap-2 rounded-xl px-3.5 py-3 glass"
+                     :class="r[1]==='apply' ? 'glass-g' : (r[1]==='avoid' ? 'glass-r' : 'glass-a')">
+                  <span class="text-base font-bold text-slate-100" x-text="r[0]"></span>
+                  <span class="text-base font-black tracking-[.08em]"
+                        :class="r[1]==='apply' ? 'text-emerald-300' : (r[1]==='avoid' ? 'text-red-300' : 'text-amber-300')"
+                        x-text="(r[1]==='apply'?'✅ ':(r[1]==='avoid'?'⛔ ':'👀 '))+t('r_'+r[1])"></span>
+                </div>
+              </template>
+              <div class="rounded-2xl px-4 py-3 flex items-center justify-between alertpulse"
+                   style="background:linear-gradient(90deg,rgba(239,68,68,.22),rgba(239,68,68,.06));border:1px solid rgba(239,68,68,.5)">
+                <div>
+                  <div class="lbl !text-red-300" x-text="countdown.over ? t('closed') : t('closesIn')"></div>
+                  <div class="text-2xs font-bold text-red-200/80" x-text="t('applyBefore')"></div>
+                </div>
+                <div class="font-black text-3xl tnum text-red-300" x-text="countdown.txt"></div>
+              </div>
+            </div>
+
+            <!-- ─── REEL 6 · ALLOTMENT & LISTING ───────────────────── -->
+            <div x-show="at(6,'status')" class="scene items-center text-center">
+              <div class="font-black text-xl" x-text="ipo.company"></div>
+              <div class="lbl" x-text="t('allotStatus')"></div>
+              <div class="rounded-2xl px-6 py-4 self-center glass"
+                   :class="d.listing.status==='out' ? 'glass-g' : 'glass-a'">
+                <div class="font-black text-4xl leading-none"
+                     :class="d.listing.status==='out' ? 'text-emerald-400' : 'text-amber-400'"
+                     x-text="d.listing.status==='out' ? '✅ '+t('out') : '⏳ '+t('expected')"></div>
+                <div class="text-sm font-bold text-slate-300 tnum mt-2"
+                     x-text="fmtDate(ipo.dates.allotment, true)"></div>
+              </div>
+              <div class="glass p-3 w-full">
+                <div class="lbl" x-text="t('registrar')"></div>
+                <div class="font-black text-xl leading-tight" x-text="ipo.issue.registrar"></div>
+                <div class="text-2xs font-semibold break-all mt-1" :style="`color:${acc}`"
+                     x-text="shortUrl"></div>
+              </div>
+            </div>
+
+            <div x-show="at(6,'checklist')" class="scene">
+              <div class="flex items-center gap-2 justify-center">
+                <span class="text-lg">⚡</span>
+                <span class="text-base font-black uppercase tracking-[.06em]" :style="`color:${acc}`"
+                      x-text="t('how10')"></span>
+              </div>
+              <template x-for="(s,i) in steps" :key="i">
+                <div class="glass p-3 flex gap-3 items-start" :style="i===0 ? accTint : ''">
+                  <span class="shrink-0 grid place-items-center rounded-lg text-xs font-black"
+                        :style="`width:calc(var(--fs)*1.7);height:calc(var(--fs)*1.7);background:${acc};color:#04210F`"
+                        x-text="i+1"></span>
+                  <span class="text-sm text-slate-100 leading-snug font-semibold" x-text="s"></span>
+                </div>
+              </template>
+            </div>
+
+            <div x-show="at(6,'listing')" class="scene">
+              <div class="grid grid-cols-2 gap-2.5">
+                <div class="glass p-3">
+                  <div class="lbl" x-text="t('listDate')"></div>
+                  <div class="font-black text-xl tnum" x-text="fmtDate(ipo.dates.listing, true)"></div>
+                </div>
+                <div class="glass glass-acc p-3" :style="accTint">
+                  <div class="lbl" x-text="t('expRange')"></div>
+                  <div class="font-black text-xl tnum" :style="`color:${acc}`"
+                       x-text="'₹'+d.listing.low+' – ₹'+d.listing.high"></div>
+                </div>
+              </div>
+              <div class="glass p-3 text-center">
+                <div class="lbl" x-text="t('estListing')"></div>
+                <div class="font-black text-3xl tnum" :style="`color:${acc}`"
+                     x-text="signed(d.listing.low_pct,0)+'% to '+signed(d.listing.high_pct,0)+'%'"></div>
+                <div class="text-2xs text-slate-500 font-bold tnum"
+                     x-text="'vs ₹'+ipo.issue.price_high+' issue price'"></div>
+              </div>
+              <div class="rounded-xl px-3 py-3 text-center"
+                   :style="`background:${acc}1A;border:1px dashed ${acc}66`">
+                <span class="text-base font-black" :style="`color:${acc}`" x-text="'🔔 '+t('follow')"></span>
+              </div>
+            </div>
+
+          </div>
+          </template>
+          </div>
+
+          <!-- footer -->
+          <footer x-show="showFooter" class="shrink-0 px-4 py-2 border-t border-white/10 flex items-center gap-2"
+                  style="background:linear-gradient(0deg,rgba(0,0,0,.35),transparent)">
+            <span class="text-xs font-black" :style="`color:${acc}`" x-text="handle"></span>
+            <span class="text-3xs text-slate-500 truncate flex-1" x-text="t('disclaimer')"></span>
+            <div class="flex gap-1 shrink-0">
+              <template x-for="(s,i) in scenes" :key="i">
+                <span class="w-[5px] h-[5px] rounded-full"
+                      :style="i===scene ? `background:${acc}` : 'background:rgba(255,255,255,.2)'"></span>
+              </template>
+            </div>
+          </footer>
+
+          <!-- safe zones -->
+          <template x-if="showSafe && ratio==='reel'">
+            <div data-html2canvas-ignore class="absolute inset-0 pointer-events-none z-20">
+              <div class="safe" style="left:0;right:0;top:0;height:10%">
+                <span class="safe-t absolute left-2 bottom-1">YT top UI</span></div>
+              <div class="safe" style="left:0;right:0;bottom:0;height:20%">
+                <span class="safe-t absolute left-2 top-1">Title / channel / caption</span></div>
+              <div class="safe" style="right:0;width:15%;top:45%;bottom:20%">
+                <span class="safe-t absolute right-1 top-1 [writing-mode:vertical-rl]">Buttons</span></div>
+            </div>
+          </template>
+          <template x-if="showSafe && ratio!=='reel'">
+            <div data-html2canvas-ignore class="absolute inset-0 pointer-events-none z-20">
+              <div class="absolute inset-[5%] border border-dashed border-red-400/60"></div>
+              <span class="safe-t absolute left-[5.5%] top-[5.5%]">Title safe 90%</span>
+            </div>
+          </template>
+
+        </div><!-- /#capture -->
+      </div>
+    </div>
+
+    <!-- scene navigation -->
+    <div data-html2canvas-ignore x-show="!focus" class="mt-4 flex items-center gap-2 shrink-0">
+      <button class="btn" @click="prevScene()">←</button>
+      <template x-for="(s,i) in scenes" :key="i">
+        <button class="px-2.5 h-7 rounded-lg text-[10.5px] font-black transition"
+                :class="scene===i ? 'bg-white text-black' : 'bg-white/8 text-slate-400 hover:bg-white/15'"
+                @click="go(reelIndex,i)" x-text="s.id"></button>
+      </template>
+      <button class="btn" @click="nextScene()">→</button>
+      <span class="ml-2 text-[10px] text-slate-500 font-bold tnum"
+            x-text="P.out+' · reel ≈ '+reelSeconds+'s'"></span>
+    </div>
+  </main>
+
+  <!-- ══ RIGHT: STUDIO ═════════════════════════════════════════════════ -->
+  <aside x-show="rightOpen && !focus"
+         class="w-[300px] shrink-0 border-l border-white/10 bg-[#0A0F1C] overflow-y-auto scroll p-3">
+    <div class="text-[11px] font-black uppercase tracking-[.14em] text-pulse mb-3">Studio</div>
+
+    <details class="sect" open><summary>Daily GMP mode</summary><div class="body">
+      <div class="grid grid-cols-2 gap-1.5">
+        <button class="btn" :class="gmpMode==='single'?'btn-on':''"
+                @click="gmpMode='single'; go(1,0)">This IPO</button>
+        <button class="btn" :class="gmpMode==='board'?'btn-on':''"
+                @click="gmpMode='board'; go(1,0)">All IPOs</button>
+      </div>
+      <div class="text-[9.5px] text-slate-500 mt-1.5">
+        “This IPO” gives the gauge plus the full announcement-to-listing trail.
+        “All IPOs” is the round-up board across everything you track.
+      </div>
+    </div></details>
+
+    <details class="sect" open><summary>Frame</summary><div class="body">
+      <div class="row grid grid-cols-2 gap-1.5">
+        <template x-for="r in Object.values(PRESETS)" :key="r.k">
+          <button class="btn text-left leading-tight" :class="ratio===r.k?'btn-on':''" @click="setRatio(r.k)">
+            <span x-text="r.label"></span><br><span class="opacity-70 text-[9.5px]" x-text="r.out"></span>
+          </button>
+        </template>
+      </div>
+      <div class="row"><label class="fld">Preview zoom — <span x-text="scale.toFixed(2)+'×'"></span>
+          <button class="ml-1 text-pulse" @click="autoFit=true; fit()">[auto-fit]</button></label>
+        <input type="range" min="0.3" max="1.8" step="0.05" class="w-full accent-emerald-500"
+               x-model.number="scale" @input="autoFit=false"></div>
+      <div class="row"><label class="fld">Text scale — <span x-text="densityBase.toFixed(2)+'×'"></span>
+          <span class="text-amber-400" x-show="autoShrink && density < densityBase - 0.001"
+                x-text="'→ '+density.toFixed(2)+'×'"></span></label>
+        <input type="range" min="0.70" max="1.2" step="0.01" class="w-full accent-emerald-500"
+               x-model.number="densityBase"></div>
+      <div class="row">
+        <button class="btn w-full" :class="autoShrink?'btn-on':''" @click="autoShrink=!autoShrink"
+                x-text="autoShrink ? '✓ Auto-shrink to fit' : 'Auto-shrink: off'"></button>
+      </div>
+      <div class="row"><label class="fld">Stage background</label>
+        <div class="grid grid-cols-5 gap-1.5">
+          <template x-for="b in ['gradient','black','green','blue','checker']" :key="b">
+            <button class="h-7 rounded-lg border border-white/20"
+                    :class="[bg===b?'ring-2 ring-pulse':'','stage-'+b]" @click="bg=b" :title="b"></button>
+          </template>
+        </div>
+        <div class="text-[9.5px] text-slate-500 mt-1">Green/blue = chroma key backdrops.</div>
+      </div>
+      <div class="row grid grid-cols-2 gap-1.5">
+        <button class="btn" :class="rounded?'btn-on':''" @click="rounded=!rounded">Rounded</button>
+        <button class="btn" :class="showSafe?'btn-on':''" @click="showSafe=!showSafe">Safe zones</button>
+        <button class="btn" :class="showFooter?'btn-on':''" @click="showFooter=!showFooter">Footer</button>
+        <button class="btn" :class="showProgress?'btn-on':''" @click="showProgress=!showProgress">Progress</button>
+      </div>
+    </div></details>
+
+    <details class="sect" open><summary>Record this reel</summary><div class="body">
+      <div class="row"><label class="fld">Speed — <span x-text="speed.toFixed(2)+'×'"></span>
+          (<span x-text="reelSeconds+'s total'"></span>)</label>
+        <input type="range" min="0.5" max="2" step="0.05" class="w-full accent-emerald-500"
+               x-model.number="speed"></div>
+      <div class="grid grid-cols-2 gap-1.5">
+        <button class="btn" :class="playing?'btn-on':''" @click="togglePlay()"
+                x-text="playing?'⏸ Pause':'▶ Play reel'"></button>
+        <button class="btn" @click="replay()">↻ Replay scene</button>
+      </div>
+      <div class="text-[9.5px] text-slate-500 mt-2">
+        Press <b class="text-slate-300">F</b> for focus mode, start your recorder,
+        then <b class="text-slate-300">Space</b>. The reel plays its
+        <span x-text="sceneCount"></span> scenes and stops — that's one finished video.
+      </div>
+    </div></details>
+
+    <details class="sect" open><summary>Export</summary><div class="body">
+      <div class="grid grid-cols-2 gap-1.5 mb-2">
+        <button class="btn btn-acc" @click="exportScene()">⤓ This scene</button>
+        <button class="btn btn-acc" @click="exportReel()">⤓ Whole reel</button>
+        <button class="btn" @click="copyPng()">⧉ Copy PNG</button>
+        <button class="btn" @click="downloadCsv()">⤓ Report</button>
+      </div>
+      <div class="text-[9.5px] text-slate-500">
+        PNGs export at <b class="text-slate-300" x-text="P.out"></b>.
+        The report is a full CSV — every number, GMP history and financials —
+        that opens directly in Excel. For a formatted multi-sheet workbook run
+        <code class="text-slate-400">ipopulse report</code>.
+      </div>
+      <div class="text-[9.5px] text-amber-400/80 mt-1" x-show="!hasH2C">
+        html2canvas didn't load (offline?). Use Win+Shift+S instead.
+      </div>
+    </div></details>
+
+    <details class="sect" open><summary>Script &amp; caption</summary><div class="body">
+      <div class="row">
+        <label class="fld">Voiceover — reel <span x-text="reel.n"></span>
+          (<span x-text="lang.toUpperCase()"></span>)</label>
+        <textarea class="inp" rows="9" readonly x-text="script"></textarea>
+        <button class="btn w-full mt-1.5" @click="copy(script,'s')">⧉ Copy script</button>
+      </div>
+      <div class="row">
+        <label class="fld">Title + description + hashtags</label>
+        <button class="btn w-full" @click="copy(caption,'c')">⧉ Copy caption</button>
+      </div>
+      <div class="text-[9.5px] text-emerald-400" x-show="copied" x-transition>✓ Copied</div>
+    </div></details>
+
+    <details class="sect"><summary>Keyboard</summary><div class="body">
+      <div class="text-[10.5px] text-slate-400 space-y-1">
+        <div><b class="text-slate-200">1–6</b> — jump to reel</div>
+        <div><b class="text-slate-200">← →</b> — prev / next scene</div>
+        <div><b class="text-slate-200">↑ ↓</b> — prev / next reel</div>
+        <div><b class="text-slate-200">Space</b> — play the reel</div>
+        <div><b class="text-slate-200">F</b> — focus mode · <b class="text-slate-200">Esc</b> exit</div>
+        <div><b class="text-slate-200">G</b> safe zones · <b class="text-slate-200">B</b> background</div>
+        <div><b class="text-slate-200">S / D</b> — panels · <b class="text-slate-200">E</b> export</div>
+        <div><b class="text-slate-200">[ ]</b> — text scale</div>
+      </div>
+    </div></details>
+  </aside>
+</div>
+
+<!-- focus-mode bar: nearly invisible until hovered -->
+<div data-html2canvas-ignore x-show="focus"
+     class="minibar fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 rounded-full bg-black/80 border border-white/15 px-3 py-2 backdrop-blur">
+  <button class="btn !rounded-full" @click="prevReel()">⇤</button>
+  <button class="btn !rounded-full" @click="prevScene()">←</button>
+  <span class="text-[10px] font-black text-slate-300 px-1"
+        x-text="'R'+reel.n+' · '+(scene+1)+'/'+sceneCount"></span>
+  <button class="btn !rounded-full" @click="nextScene()">→</button>
+  <button class="btn !rounded-full" @click="nextReel()">⇥</button>
+  <button class="btn !rounded-full" :class="playing?'btn-on':''" @click="togglePlay()"
+          x-text="playing?'⏸':'▶'"></button>
+  <button class="btn !rounded-full" @click="focus=false">✕</button>
+</div>
+
+</div>
+</body>
+</html>

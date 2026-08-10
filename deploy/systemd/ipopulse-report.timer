@@ -1,0 +1,21 @@
+[Unit]
+Description=IPO Pulse timer: report
+
+[Timer]
+# Weekly, an hour after translate, so the workbook carries the week's
+# final copy rather than racing it.
+#
+# Asia/Kolkata is pinned so the schedule cannot drift with the host's
+# timezone. Needs systemd 251+; on older versions drop the suffix and run
+# timedatectl set-timezone Asia/Kolkata
+OnCalendar=Sun *-*-* 04:00:00 Asia/Kolkata
+
+# A host that was asleep at the trigger still runs the job on waking, rather
+# than losing a day of data.
+Persistent=true
+RandomizedDelaySec=120
+
+Unit=ipopulse@report.service
+
+[Install]
+WantedBy=timers.target

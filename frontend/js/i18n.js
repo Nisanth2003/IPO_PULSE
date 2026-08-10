@@ -1,0 +1,168 @@
+/* UI labels in English / Hindi / Telugu.
+ *
+ * This file holds only *chrome* — field names, units, verdicts. The IPO's own
+ * prose (business overview, green/red flags, risk) is translated by Gemini in
+ * the backend and arrives inside the published JSON under `ipo.i18n`, so a
+ * company's copy reads naturally rather than being word-swapped in the browser.
+ */
+
+const LANG_INDEX = { en: 0, hi: 1, te: 2 };
+
+const LABELS = {
+  live:        ['Live Updates', 'लाइव अपडेट', 'లైవ్ అప్‌డేట్స్'],
+
+  // reels
+  reel1:       ['About IPO', 'IPO की जानकारी', 'IPO వివరాలు'],
+  reel2:       ['Daily GMP', 'आज का GMP', 'నేటి GMP'],
+  reel3:       ['Subscription', 'सब्सक्रिप्शन', 'సబ్‌స్క్రిప్షన్'],
+  reel4:       ['Apply or Skip?', 'अप्लाई या स्किप?', 'అప్లై చేయాలా?'],
+  reel5:       ['Final Verdict', 'फाइनल फैसला', 'తుది తీర్పు'],
+  reel6:       ['Allotment & Listing', 'अलॉटमेंट व लिस्टिंग', 'అలాట్‌మెంట్ & లిస్టింగ్'],
+
+  // issue
+  overview:    ['Business Overview', 'बिज़नेस क्या है', 'బిజినెస్ ఏమిటి'],
+  issueSize:   ['Issue Size', 'इश्यू साइज़', 'ఇష్యూ సైజ్'],
+  fresh:       ['Fresh Issue', 'फ्रेश इश्यू', 'ఫ్రెష్ ఇష్యూ'],
+  freshSub:    ['Company Growth', 'कंपनी की ग्रोथ', 'కంపెనీ గ్రోత్'],
+  ofs:         ['OFS', 'OFS', 'OFS'],
+  ofsSub:      ['Promoter Exit', 'प्रमोटर एग्ज़िट', 'ప్రమోటర్ ఎగ్జిట్'],
+  priceBand:   ['Price Band', 'प्राइस बैंड', 'ప్రైస్ బ్యాండ్'],
+  lotSize:     ['Lot Size', 'लॉट साइज़', 'లాట్ సైజ్'],
+  minInv:      ['Min Investment', 'न्यूनतम निवेश', 'కనీస పెట్టుబడి'],
+  listOn:      ['Lists On', 'लिस्टिंग', 'లిస్టింగ్'],
+  keyDates:    ['Key Dates', 'ज़रूरी तारीखें', 'ముఖ్య తేదీలు'],
+  announced:   ['Announced', 'ऐलान', 'ప్రకటన'],
+  opens:       ['Opens', 'ओपन', 'ఓపెన్'],
+  closes:      ['Closes', 'क्लोज़', 'క్లోజ్'],
+  allot:       ['Allotment', 'अलॉटमेंट', 'అలాట్‌మెంట్'],
+  listing:     ['Listing', 'लिस्टिंग', 'లిస్టింగ్'],
+  cr:          ['Cr', 'करोड़', 'కోట్లు'],
+  shares:      ['shares', 'शेयर', 'షేర్లు'],
+
+  // gmp
+  todayGmp:    ["Today's GMP", 'आज का GMP', 'నేటి GMP'],
+  overBand:    ['over upper band', 'अपर बैंड से ऊपर', 'అప్పర్ బ్యాండ్ కంటే'],
+  estListing:  ['Est. Listing Price', 'अनुमानित लिस्टिंग प्राइस', 'అంచనా లిస్టింగ్ ధర'],
+  perLot:      ['Est. Gain / Lot', 'प्रति लॉट मुनाफ़ा', 'లాట్‌కి లాభం'],
+  gmpTrend:    ['GMP Trend', 'GMP ट्रेंड', 'GMP ట్రెండ్'],
+  gmpTrail:    ['GMP: Announcement → Listing', 'GMP: ऐलान से लिस्टिंग तक', 'GMP: ప్రకటన నుంచి లిస్టింగ్ వరకు'],
+  peak:        ['Peak', 'सबसे ऊपर', 'గరిష్టం'],
+  trough:      ['Low', 'सबसे नीचे', 'కనిష్టం'],
+  daysTracked: ['Days Tracked', 'दिन ट्रैक किए', 'ట్రాక్ చేసిన రోజులు'],
+  kostak:      ['Kostak', 'कोस्टक', 'కోస్టక్'],
+  sauda:       ['Subject to Sauda', 'सब्जेक्ट टू सौदा', 'సబ్జెక్ట్ టు సౌదా'],
+  updated:     ['Updated', 'अपडेट', 'అప్‌డేట్'],
+  surge:       ['SURGE', 'तेज़ी', 'జోరు'],
+  stable:      ['STABLE', 'स्थिर', 'స్థిరం'],
+  drop:        ['DROP', 'गिरावट', 'తగ్గుదల'],
+  gmpNote:     ['GMP is unofficial grey-market data and changes daily',
+                'GMP अनऑफिशियल ग्रे-मार्केट डेटा है, रोज़ बदलता है',
+                'GMP అనధికారిక గ్రే-మార్కెట్ డేటా, రోజూ మారుతుంది'],
+  allIpos:     ['All Live IPOs', 'सभी लाइव IPO', 'అన్ని లైవ్ IPOలు'],
+  todayBoard:  ["Today's GMP Board", 'आज का GMP बोर्ड', 'నేటి GMP బోర్డ్'],
+
+  // subscription
+  subDay:      ['Subscription Day', 'सब्सक्रिप्शन डे', 'సబ్‌స్క్రిప్షన్ డే'],
+  qib:         ['QIB', 'QIB', 'QIB'],
+  nii:         ['NII / HNI', 'NII / HNI', 'NII / HNI'],
+  retail:      ['RETAIL', 'रिटेल', 'రిటైల్'],
+  employee:    ['EMPLOYEE', 'एम्प्लॉई', 'ఎంప్లాయీ'],
+  totalSub:    ['Total Overall Subscription', 'कुल सब्सक्रिप्शन', 'మొత్తం సబ్‌స్క్రిప్షన్'],
+  times:       ['times subscribed', 'गुना सब्सक्राइब', 'రెట్లు సబ్‌స్క్రైబ్'],
+  dayWise:     ['Day-wise', 'दिन के हिसाब से', 'రోజువారీ'],
+  demHeavy:    ['🔥 HEAVY DEMAND', '🔥 ज़बरदस्त डिमांड', '🔥 భారీ డిమాండ్'],
+  demGood:     ['✅ HEALTHY DEMAND', '✅ अच्छी डिमांड', '✅ మంచి డిమాండ్'],
+  demOk:       ['🟡 MODERATE DEMAND', '🟡 ठीक-ठाक डिमांड', '🟡 మధ్యస్థ డిమాండ్'],
+  demWeak:     ['⚠️ WEAK DEMAND', '⚠️ कमज़ोर डिमांड', '⚠️ బలహీన డిమాండ్'],
+
+  // financials
+  financials:  ['Financials', 'फाइनेंशियल्स', 'ఫైనాన్షియల్స్'],
+  revenue:     ['Revenue', 'रेवेन्यू', 'ఆదాయం'],
+  ebitda:      ['EBITDA', 'EBITDA', 'EBITDA'],
+  ebitdaMargin:['EBITDA Margin', 'EBITDA मार्जिन', 'EBITDA మార్జిన్'],
+  pat:         ['PAT', 'PAT (मुनाफ़ा)', 'PAT (లాభం)'],
+  patMargin:   ['PAT Margin', 'PAT मार्जिन', 'PAT మార్జిన్'],
+  revCagr:     ['Revenue CAGR', 'रेवेन्यू CAGR', 'ఆదాయం CAGR'],
+  patCagr:     ['PAT CAGR', 'PAT CAGR', 'PAT CAGR'],
+  marginShift: ['Margin Shift', 'मार्जिन में बदलाव', 'మార్జిన్ మార్పు'],
+  valuation:   ['Valuation', 'वैल्यूएशन', 'వాల్యుయేషన్'],
+  peRatio:     ['P/E at upper band', 'अपर बैंड पर P/E', 'అప్పర్ బ్యాండ్ వద్ద P/E'],
+  peerPe:      ['Peer Average P/E', 'पीयर औसत P/E', 'పీర్ సగటు P/E'],
+  cheaper:     ['cheaper than peers', 'पीयर से सस्ता', 'పీర్ల కంటే చౌక'],
+  pricier:     ['premium to peers', 'पीयर से महँगा', 'పీర్ల కంటే ఖరీదు'],
+  ronw:        ['RoNW', 'RoNW', 'RoNW'],
+  debtEquity:  ['Debt / Equity', 'डेट / इक्विटी', 'డెట్ / ఈక్విటీ'],
+  marketCap:   ['Market Cap', 'मार्केट कैप', 'మార్కెట్ క్యాప్'],
+
+  // benchmark meters
+  healthCheck: ['Health Check', 'हेल्थ चेक', 'హెల్త్ చెక్'],
+  goodAbove:   ['good above', 'अच्छा इससे ऊपर', 'దీని కంటే ఎక్కువ మంచిది'],
+  goodBelow:   ['good below', 'अच्छा इससे नीचे', 'దీని కంటే తక్కువ మంచిది'],
+  vsPeers:     ['vs peers', 'पीयर के मुक़ाबले', 'పీర్లతో పోలిస్తే'],
+  markGood:    ['GOOD', 'अच्छा', 'మంచిది'],
+  markWeak:    ['WEAK', 'कमज़ोर', 'బలహీనం'],
+  aboveBench:  ['above benchmark', 'बेंचमार्क से ऊपर', 'బెంచ్‌మార్క్ కంటే ఎక్కువ'],
+
+  // apply or skip
+  applySkip:   ['Apply or Skip?', 'अप्लाई करें या नहीं?', 'అప్లై చేయాలా వద్దా?'],
+  growth:      ['Financial Growth', 'फाइनेंशियल ग्रोथ', 'ఫైనాన్షియల్ గ్రోత్'],
+  keyRisk:     ['Key Risk', 'मुख्य रिस्क', 'ప్రధాన రిస్క్'],
+  greenFlags:  ['Green Flags', 'ग्रीन फ्लैग्स', 'గ్రీన్ ఫ్లాగ్స్'],
+  redFlags:    ['Red Flags', 'रेड फ्लैग्स', 'రెడ్ ఫ్లాగ్స్'],
+
+  // verdict
+  verdictL:    ['Verdict', 'फैसला', 'తీర్పు'],
+  score:       ['IPO Pulse Score', 'IPO पल्स स्कोर', 'IPO పల్స్ స్కోర్'],
+  forRetail:   ['Retail Investor', 'रिटेल निवेशक', 'రిటైల్ ఇన్వెస్టర్'],
+  forHni:      ['HNI / NII', 'HNI / NII', 'HNI / NII'],
+  forLong:     ['Long Term Investor', 'लॉन्ग टर्म निवेशक', 'లాంగ్ టర్మ్ ఇన్వెస్టర్'],
+  r_apply:     ['APPLY', 'अप्लाई', 'అప్లై'],
+  r_avoid:     ['AVOID', 'अवॉइड', 'వద్దు'],
+  r_watch:     ['WATCHLIST', 'वॉचलिस्ट', 'వాచ్‌లిస్ట్'],
+  closesIn:    ['Closes In', 'बंद होने में', 'ముగియడానికి'],
+  closed:      ['Issue Closed', 'इश्यू बंद', 'ఇష్యూ ముగిసింది'],
+  applyBefore: ['Apply before the cut-off', 'कट-ऑफ से पहले अप्लाई करें', 'కట్-ఆఫ్‌కి ముందే అప్లై చేయండి'],
+
+  // allotment
+  allotStatus: ['Allotment Status', 'अलॉटमेंट स्टेटस', 'అలాట్‌మెంట్ స్టేటస్'],
+  out:         ['OUT', 'आ गया', 'వచ్చింది'],
+  expected:    ['EXPECTED', 'संभावित', 'అంచనా'],
+  registrar:   ['Official Registrar', 'ऑफिशियल रजिस्ट्रार', 'అధికారిక రిజిస్ట్రార్'],
+  listDate:    ['Listing Date', 'लिस्टिंग डेट', 'లిస్టింగ్ తేదీ'],
+  expRange:    ['Expected Listing', 'संभावित लिस्टिंग', 'అంచనా లిస్టింగ్'],
+  how10:       ['Check allotment in 10 seconds', '10 सेकंड में अलॉटमेंट चेक करें', '10 సెకన్లలో అలాట్‌మెంట్ చెక్ చేయండి'],
+  follow:      ['Follow for daily IPO updates', 'डेली IPO अपडेट के लिए फॉलो करें', 'రోజువారీ IPO అప్‌డేట్‌ల కోసం ఫాలో అవ్వండి'],
+  disclaimer:  ['Not investment advice. Do your own research.',
+                'यह निवेश सलाह नहीं है। खुद रिसर्च करें।',
+                'ఇది పెట్టుబడి సలహా కాదు. మీరే పరిశోధించండి.'],
+
+  // status
+  st_upcoming: ['OPENS SOON', 'जल्द खुलेगा', 'త్వరలో ఓపెన్'],
+  st_open:     ['OPEN NOW', 'अभी खुला है', 'ఇప్పుడు ఓపెన్'],
+  st_closed:   ['CLOSED', 'बंद', 'ముగిసింది'],
+  st_allotment:['ALLOTMENT', 'अलॉटमेंट', 'అలాట్‌మెంట్'],
+  st_listed:   ['LISTED', 'लिस्ट हो गया', 'లిస్ట్ అయ్యింది'],
+};
+
+const VERDICTS = {
+  apply:    { hex: '#22C55E', text: ['APPLY FOR LISTING GAIN', 'लिस्टिंग गेन के लिए अप्लाई करें', 'లిస్టింగ్ గెయిన్ కోసం అప్లై చేయండి'] },
+  both:     { hex: '#22C55E', text: ['APPLY — LISTING + LONG TERM', 'अप्लाई — लिस्टिंग + लॉन्ग टर्म', 'అప్లై — లిస్టింగ్ + లాంగ్ టర్మ్'] },
+  longterm: { hex: '#F59E0B', text: ['LONG TERM ONLY', 'सिर्फ़ लॉन्ग टर्म के लिए', 'దీర్ఘకాలానికి మాత్రమే'] },
+  risky:    { hex: '#F59E0B', text: ['RISKY — APPLY SMALL', 'रिस्की — छोटा दांव लगाएँ', 'రిస్క్ — చిన్నగా అప్లై చేయండి'] },
+  avoid:    { hex: '#EF4444', text: ['AVOID / SKIP', 'अवॉइड करें / स्किप करें', 'స్కిప్ చేయండి'] },
+};
+
+const DEFAULT_STEPS = {
+  en: ['Open the registrar or BSE allotment page', 'Pick the IPO name from the dropdown',
+       'Enter PAN or Application Number', 'Hit Search — status shows instantly'],
+  hi: ['रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें', 'ड्रॉपडाउन से IPO का नाम चुनें',
+       'PAN या एप्लिकेशन नंबर डालें', 'सर्च दबाएँ — स्टेटस तुरंत दिखेगा'],
+  te: ['రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి', 'డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి',
+       'PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి', 'సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది'],
+};
+
+function label(key, lang) {
+  const entry = LABELS[key];
+  if (!entry) return key;
+  return entry[LANG_INDEX[lang] ?? 0] || entry[0];
+}

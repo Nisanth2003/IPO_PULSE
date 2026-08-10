@@ -1,0 +1,45 @@
+# One templated service for every job: %i is the job name, resolved by
+# `ipopulse job <name>` against control.JOBS. Nothing here spells out flags,
+# so changing what a job does never means editing a unit file.
+#
+#   systemctl start ipopulse@sync
+#   journalctl -u ipopulse@sync -f
+#
+# Paths are placeholders — install.sh substitutes them. Do not install this
+# file by hand unless you replace __REPO__ and __PYTHON__ yourself.
+
+[Unit]
+Description=IPO Pulse job: %i
+Documentation=https://github.com/ipo-pulse
+# Timers fire on the wall clock; a job that needs the network must not start
+# before there is one, or a laptop resuming from sleep runs it into a void.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__REPO__/backend
+ExecStart=__PYTHON__ -m ipopulse.cli job %i
+
+# The CLI reads .env itself (cli.load_dotenv), so no EnvironmentFile is
+# needed and secrets never enter the unit or `systemctl show` output.
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+
+# NSE and Google are both occasionally slow; a job that hangs must not block
+# the next day's run.
+TimeoutStartSec=900
+
+# Sandboxing. The job only ever writes inside the repo.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__REPO__/backend/data __REPO__/backend/out __REPO__/frontend/data
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

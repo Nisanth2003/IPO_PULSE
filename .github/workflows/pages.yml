@@ -1,0 +1,49 @@
+name: Deploy studio to GitHub Pages
+
+# The frontend is fully static: it reads the JSON that `ipopulse build` writes
+# into frontend/data/. So "deploying" is just publishing that folder — no build
+# step, no secrets, nothing server-side.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if a secret leaked into the frontend
+        run: |
+          if grep -rIn --include='*.js' --include='*.html' --include='*.json' \
+               -E 'AIza[0-9A-Za-z_-]{20,}|GEMINI_API_KEY\s*[:=]\s*["'\''][^"'\'']+' frontend/; then
+            echo "::error::Possible API key in frontend/ — refusing to publish."
+            exit 1
+          fi
+          echo "No key patterns found."
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,231 @@
+/* IPO Pulse Studio.
+ *
+ * Two hard-won rules encoded here, both discovered by exporting real PNGs:
+ *
+ *  1. No color-mix() anywhere inside the card. Chrome resolves it to
+ *     color(srgb ...), which html2canvas cannot parse — it throws and the
+ *     whole export dies. Accent tints arrive as plain rgba() via :style.
+ *  2. Scenes are always single column. A multi-column grid inside the card
+ *     exported with text clipped at the bottom. One idea per screen removes
+ *     the need for columns entirely, which is also better on a phone.
+ */
+
+:root { --fs: 16px; --acc: #22C55E; }
+[x-cloak] { display: none !important; }
+
+html, body { height: 100%; }
+body {
+  background: #070B14;
+  color: #E2E8F0;
+  font-family: 'Inter', 'Segoe UI', 'Nirmala UI',
+               'Noto Sans Devanagari', 'Noto Sans Telugu', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.tnum { font-variant-numeric: tabular-nums; }
+
+.scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll::-webkit-scrollbar-track { background: transparent; }
+.scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 8px; }
+.scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.22); }
+
+/* ── stage backdrops (prefixed so Tailwind can't collide) ──────────────── */
+.stage-gradient { background: radial-gradient(120% 90% at 50% 0%, #16233F 0%, #0B1120 55%, #05070D 100%); }
+.stage-black    { background: #000; }
+.stage-green    { background: #00B140; }   /* chroma key */
+.stage-blue     { background: #1E6FD9; }   /* chroma key */
+.stage-checker  {
+  background-color: #111827;
+  background-image:
+    linear-gradient(45deg,#1f2937 25%,transparent 25%),
+    linear-gradient(-45deg,#1f2937 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,#1f2937 75%),
+    linear-gradient(-45deg,transparent 75%,#1f2937 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+}
+
+/* ── the card ──────────────────────────────────────────────────────────── */
+.stage-card {
+  position: relative;
+  background: linear-gradient(180deg, #101B33 0%, #0F172A 42%, #0B1120 100%);
+  box-shadow: 0 40px 120px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07) inset;
+  isolation: isolate;
+}
+.stage-card::after {          /* fine grain so flat gradients don't band */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  opacity: .35; z-index: 0;
+  background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px);
+}
+.stage-card > * { position: relative; z-index: 1; }
+
+/* ── glass blocks ──────────────────────────────────────────────────────── */
+.glass {
+  background: linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.028));
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+}
+.glass-acc { border-color: rgba(34,197,94,.45);
+             background: linear-gradient(180deg, rgba(34,197,94,.16), rgba(255,255,255,.03)); }
+.glass-g   { border-color: rgba(34,197,94,.42);
+             background: linear-gradient(180deg, rgba(34,197,94,.20), rgba(34,197,94,.05)); }
+.glass-r   { border-color: rgba(239,68,68,.42);
+             background: linear-gradient(180deg, rgba(239,68,68,.20), rgba(239,68,68,.05)); }
+.glass-a   { border-color: rgba(245,158,11,.42);
+             background: linear-gradient(180deg, rgba(245,158,11,.20), rgba(245,158,11,.05)); }
+
+.lbl { font-size: calc(var(--fs)*.62); letter-spacing: .14em; text-transform: uppercase;
+       color: #8FA3BF; font-weight: 800; }
+
+/* Tailwind's truncate is overflow:hidden; tight line-heights shave descenders */
+.stage-card .truncate { padding-block: .09em; }
+
+/* ── scenes ────────────────────────────────────────────────────────────── */
+.scene {
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 12px; height: 100%; flex: 0 0 auto;
+}
+.scene.tight { gap: 8px; }
+
+/* slide-up entrance, staggered per block */
+@keyframes sceneIn {
+  from { opacity: 0; transform: translateY(46px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes blockIn {
+  from { opacity: 0; transform: translateY(14px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+.anim .scene { animation: sceneIn .52s cubic-bezier(.16,.84,.28,1) both; }
+.anim .scene > * { animation: blockIn .46s cubic-bezier(.2,.9,.3,1) both; }
+.anim .scene > *:nth-child(1) { animation-delay: .06s }
+.anim .scene > *:nth-child(2) { animation-delay: .13s }
+.anim .scene > *:nth-child(3) { animation-delay: .20s }
+.anim .scene > *:nth-child(4) { animation-delay: .27s }
+.anim .scene > *:nth-child(5) { animation-delay: .34s }
+.anim .scene > *:nth-child(6) { animation-delay: .41s }
+
+@keyframes livedot { 0%,100% { opacity:1; transform:scale(1) } 50% { opacity:.35; transform:scale(.82) } }
+.livedot { animation: livedot 1.4s ease-in-out infinite; }
+
+@keyframes alertpulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.45) }
+  50%     { box-shadow: 0 0 0 10px rgba(239,68,68,0) }
+}
+.alertpulse { animation: alertpulse 1.8s ease-out infinite; }
+
+@keyframes glowpulse {
+  0%,100% { filter: drop-shadow(0 0 10px rgba(34,197,94,.45)) }
+  50%     { filter: drop-shadow(0 0 22px rgba(34,197,94,.75)) }
+}
+.glowpulse { animation: glowpulse 2.4s ease-in-out infinite; }
+
+@keyframes sheen { from { transform: translateX(-120%) } to { transform: translateX(220%) } }
+.sheen { position:absolute; inset:0; overflow:hidden; border-radius:inherit; pointer-events:none; }
+.sheen::before {
+  content:''; position:absolute; top:0; bottom:0; width:38%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.16), transparent);
+  animation: sheen 3.2s ease-in-out infinite;
+}
+
+.bar-fill  { transition: width 1s cubic-bezier(.2,.8,.2,1); }
+.ring-fill { transition: stroke-dashoffset 1.15s cubic-bezier(.2,.8,.2,1); }
+
+/* Freeze everything while html2canvas reads the DOM, so the PNG is always the
+   settled state rather than whatever frame the animation happened to be on. */
+.capturing *, .capturing *::before, .capturing *::after {
+  animation: none !important;
+  transition: none !important;
+}
+.capturing .scene, .capturing .scene > * { opacity: 1 !important; transform: none !important; }
+
+/* Same freeze, applied for a single synchronous measurement. The entrance
+   animation starts at translateY(46px), so a scene measured mid-flight looks
+   46px too tall and the auto-shrink drags the type down to the floor for no
+   reason. Applied and removed within one tick, so nothing repaints. */
+.measuring .scene, .measuring .scene > * {
+  animation: none !important;
+  transition: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+}
+
+/* ── data tables inside the card ───────────────────────────────────────── */
+.dtable { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.dtable th {
+  font-size: calc(var(--fs)*.60); letter-spacing: .10em; text-transform: uppercase;
+  color: #8FA3BF; font-weight: 800; text-align: right; padding: 4px 6px;
+  border-bottom: 1px solid rgba(255,255,255,.14);
+}
+.dtable th:first-child, .dtable td:first-child { text-align: left; }
+.dtable td {
+  font-size: calc(var(--fs)*.78); font-weight: 700; text-align: right;
+  padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.dtable tr:last-child td { border-bottom: 0; }
+.dtable tbody tr:nth-child(even) td { background: rgba(255,255,255,.03); }
+
+/* ── benchmark meters ──────────────────────────────────────────────────────
+   A figure on its own tells a viewer nothing — is a 15% EBITDA margin good?
+   Each meter draws the value as a fill and the "healthy" threshold as a tick,
+   so the answer is visual: past the tick is good, short of it isn't.
+   The tick sits outside the clipped track so it can overhang both edges. */
+.bmark { position: relative; padding: 3px 0; }
+.bmark-track {
+  height: 9px; border-radius: 999px;
+  background: rgba(255,255,255,.09); overflow: hidden;
+}
+.bmark-fill { height: 100%; border-radius: 999px; transition: width .9s cubic-bezier(.2,.8,.2,1); }
+.bmark-tick {
+  position: absolute; top: 0; bottom: 0; width: 2px;
+  background: #F8FAFC; border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.45);
+}
+.bmark-tick::after {
+  content: ''; position: absolute; left: 50%; bottom: -3px;
+  width: 5px; height: 5px; margin-left: -2.5px;
+  background: #F8FAFC; border-radius: 50%;
+}
+
+/* ── safe zones (never exported) ───────────────────────────────────────── */
+.safe   { position:absolute; background: rgba(239,68,68,.14); border:1px dashed rgba(239,68,68,.65); }
+.safe-t { font: 700 10px/1 Inter, sans-serif; letter-spacing:.08em; color:#FCA5A5; text-transform:uppercase; }
+
+/* ── sidebar controls ──────────────────────────────────────────────────── */
+.inp {
+  width:100%; background: rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.11);
+  border-radius:9px; padding:6px 9px; font-size:12.5px; color:#E2E8F0; outline:none;
+}
+.inp:focus { border-color:#22C55E; box-shadow: 0 0 0 3px rgba(34,197,94,.15); background: rgba(255,255,255,.07); }
+textarea.inp { resize: vertical; min-height: 52px; line-height:1.45; }
+select.inp option { background:#0F172A; color:#E2E8F0; }
+.fld { display:block; font-size:9.5px; letter-spacing:.09em; text-transform:uppercase;
+       color:#7C8DA6; font-weight:800; margin-bottom:3px; }
+.g2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+.row { margin-bottom:9px; }
+
+details.sect { border:1px solid rgba(255,255,255,.08); border-radius:12px;
+               background: rgba(255,255,255,.022); margin-bottom:8px; }
+details.sect > summary {
+  cursor:pointer; padding:9px 11px; font-weight:800; font-size:11px; letter-spacing:.07em;
+  text-transform:uppercase; color:#CBD5E1; list-style:none; display:flex; align-items:center; gap:8px;
+}
+details.sect > summary::-webkit-details-marker { display:none; }
+details.sect > summary::before { content:'▸'; color:#22C55E; display:inline-block; transition:transform .18s; }
+details.sect[open] > summary::before { transform: rotate(90deg); }
+details.sect > .body { padding: 2px 11px 12px; }
+
+.btn { border-radius:9px; font-weight:700; font-size:11.5px; padding:7px 10px;
+       border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#CBD5E1;
+       transition:.15s; white-space:nowrap; }
+.btn:hover { background:rgba(255,255,255,.11); color:#fff; }
+.btn-on { background:#22C55E; border-color:#22C55E; color:#04210F; }
+.btn-on:hover { background:#16A34A; color:#04210F; }
+.btn-acc { background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.4); color:#86EFAC; }
+
+.pill { border-radius:999px; padding:4px 10px; font-size:11px; font-weight:700; transition:.15s; }
+
+/* Focus mode bar: nearly invisible until hovered, so it stays out of takes */
+.minibar { opacity:.10; transition: opacity .2s; }
+.minibar:hover { opacity:1; }

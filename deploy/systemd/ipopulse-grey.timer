@@ -1,0 +1,25 @@
+[Unit]
+Description=IPO Pulse timer: grey
+
+[Timer]
+# refresh GMP -> push it to the GMP tab, chained.
+#
+# 21:00 rather than the earlier 20:00: grey-market quotes are still moving in
+# the early evening and the community sites that carry them settle later than
+# the exchange does. Every day, because GMP for an upcoming IPO moves on days
+# when nothing is bidding.
+#
+# Asia/Kolkata is pinned so the schedule cannot drift with the host's
+# timezone. Needs systemd 251+; on older versions drop the suffix and run
+# timedatectl set-timezone Asia/Kolkata
+OnCalendar=*-*-* 21:00:00 Asia/Kolkata
+
+# A host that was asleep at the trigger still runs the job on waking, rather
+# than losing a day of data.
+Persistent=true
+RandomizedDelaySec=120
+
+Unit=ipopulse@grey.service
+
+[Install]
+WantedBy=timers.target

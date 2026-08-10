@@ -1,0 +1,13 @@
+# Core — needed to build and publish
+PyYAML>=6.0
+openpyxl>=3.1
+
+# Gemini translation / drafting. Optional: without it (or without a key) the
+# build still works and captions stay in English.
+google-genai>=1.0.0
+
+# Writing back to a Google Sheet. Optional in the same way: reading a sheet
+# needs none of this (providers/sheet.py takes a published CSV URL), only
+# writing does. Needs a service-account key — see GOOGLE_SHEETS_KEY in .env.
+google-api-python-client>=2.100
+google-auth>=2.23
