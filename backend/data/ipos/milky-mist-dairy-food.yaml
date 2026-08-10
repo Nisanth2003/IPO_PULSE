@@ -80,7 +80,45 @@ allotment:
   listing_low: 0.0
   listing_high: 0.0
   steps: []
-i18n: {}
+i18n:
+  hi:
+    overview:
+    - डेयरी और पैक्ड फूड सेक्टर में काम करती है।
+    - Milky Mist Dairy Food Limited फूड प्रोडक्ट्स ऑफर करती है।
+    green_flags:
+    - Revenue CAGR 31.3 प्रतिशत है।
+    - PAT CAGR 155.6 प्रतिशत है।
+    red_flags:
+    - PAT margin 4.0 प्रतिशत है।
+    - PAT margin का प्रदर्शन खराब है।
+    growth: Revenue 31.3 प्रतिशत CAGR और PAT 155.6 प्रतिशत CAGR से बढ़ा है।
+    valuation: ''
+    risk: PAT margin 4.0 प्रतिशत पर कम है।
+    sector: डेयरी और पैक्ड फूड
+    allotment_steps:
+    - रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें
+    - ड्रॉपडाउन से IPO का नाम चुनें
+    - PAN या एप्लिकेशन नंबर डालें
+    - सर्च दबाएँ — स्टेटस तुरंत दिखेगा
+  te:
+    overview:
+    - డైరీ మరియు ప్యాకేజ్డ్ ఫుడ్ రంగంలో పనిచేస్తోంది.
+    - Milky Mist Dairy Food Limited ఆహార ఉత్పత్తులను అందిస్తుంది.
+    green_flags:
+    - Revenue CAGR 31.3 శాతం.
+    - PAT CAGR 155.6 శాతం.
+    red_flags:
+    - PAT మార్జిన్ 4.0 శాతం.
+    - PAT మార్జిన్ చాలా తక్కువ.
+    growth: Revenue 31.3 శాతం CAGR మరియు PAT 155.6 శాతం CAGR తో పెరిగింది.
+    valuation: ''
+    risk: PAT మార్జిన్ 4.0 శాతంతో తక్కువగా ఉంది.
+    sector: డైరీ మరియు ప్యాకేజ్డ్ ఫుడ్
+    allotment_steps:
+    - రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి
+    - డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి
+    - PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి
+    - సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది
 benchmarks: {}
 sources:
   issue: https://groww.in/ipo/milky-mist-ipo

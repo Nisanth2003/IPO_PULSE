@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T00:35:02",
+  "generated_at": "2026-08-11T01:18:36",
   "ipo": {
     "slug": "behari-lal-engineering",
     "company": "Behari Lal Engineering Limited",
@@ -94,7 +94,56 @@
       "listing_high": 0.0,
       "steps": []
     },
-    "i18n": {},
+    "i18n": {
+      "hi": {
+        "overview": [
+          "यह आयरन और स्टील प्रोडक्ट्स बनाती है।",
+          "यह प्रिसिजन-इंजीनियर्ड कंपोनेंट्स बनाती है।"
+        ],
+        "green_flags": [
+          "PAT CAGR 34.4 percent पर मजबूत है।",
+          "FY26 में PAT मार्जिन 12.1 percent रहा।",
+          "GMP 18.6 percent है।"
+        ],
+        "red_flags": [
+          "Revenue CAGR 9.4 percent पर कमजोर है।"
+        ],
+        "growth": "Revenue 9.4% और PAT 34.4% CAGR से बढ़ा है।",
+        "valuation": "",
+        "risk": "Revenue ग्रोथ 9.4 percent पर कम है।",
+        "sector": "Iron and steel manufacturing / precision-engineered components",
+        "allotment_steps": [
+          "रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें",
+          "ड्रॉपडाउन से IPO का नाम चुनें",
+          "PAN या एप्लिकेशन नंबर डालें",
+          "सर्च दबाएँ — स्टेटस तुरंत दिखेगा"
+        ]
+      },
+      "te": {
+        "overview": [
+          "ఇది ఇనుము మరియు ఉక్కు ఉత్పత్తులను తయారు చేస్తుంది.",
+          "ఇది ప్రిసిషన్-ఇంజనీర్డ్ కాంపోనెంట్లను తయారు చేస్తుంది."
+        ],
+        "green_flags": [
+          "PAT CAGR 34.4 percent వద్ద బలంగా ఉంది.",
+          "FY26లో PAT మార్జిన్ 12.1 percent కి చేరుకుంది.",
+          "GMP percentage 18.6 వద్ద ఉంది."
+        ],
+        "red_flags": [
+          "Revenue CAGR 9.4 percent వద్ద బలహీనంగా ఉంది."
+        ],
+        "growth": "Revenue 9.4% పెరిగింది, అయితే PAT 34.4% CAGR తో పెరిగింది.",
+        "valuation": "",
+        "risk": "Revenue వృద్ధి 9.4 percent వద్ద తక్కువగా ఉంది.",
+        "sector": "Iron and steel manufacturing / precision-engineered components",
+        "allotment_steps": [
+          "రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి",
+          "డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి",
+          "PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి",
+          "సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది"
+        ]
+      }
+    },
     "benchmarks": {},
     "sources": {
       "issue": "https://groww.in/ipo/behari-lal-engineering-ipo"

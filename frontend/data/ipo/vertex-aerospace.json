@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T00:35:03",
+  "generated_at": "2026-08-11T01:18:36",
   "ipo": {
     "slug": "vertex-aerospace",
     "company": "Vertex Aerospace Ltd",
@@ -193,23 +193,23 @@
     "i18n": {
       "hi": {
         "overview": [
-          "ग्लोबल aerospace OEMs के लिए precision machined parts बनाती है",
-          "4 plants चलाती है, top clients से 92% repeat-order rate है"
+          "ग्लोबल एयरोस्पेस OEMs के लिए प्रेसिजन मशीन पार्ट्स बनाती है",
+          "टॉप क्लाइंट्स से 92% रिपीट-ऑर्डर रेट के साथ 4 प्लांट चलाती है"
         ],
         "green_flags": [
-          "Order book 2.4 years का revenue cover करती है",
-          "दो सालों में debt 40% घटा, IPO proceeds से और कम होगा",
-          "FY24 से EBITDA margin 380 bps बढ़ा है"
+          "ऑर्डर बुक 2.4 साल के रेवेन्यू को कवर करती है",
+          "दो साल में कर्ज 40% घटा, IPO फंड से और कम होगा",
+          "FY24 से EBITDA मार्जिन 380 bps बढ़ा"
         ],
         "red_flags": [
-          "Listed peers के मुकाबले महंगे valuation पर priced है",
-          "Top 3 clients से ही 61% revenue आता है",
-          "Total issue का 27% हिस्सा OFS है"
+          "लिस्टेड पीयर्स के मुकाबले प्रीमियम पर priced है",
+          "टॉप 3 क्लाइंट्स से 61% रेवेन्यू आता है",
+          "कुल इश्यू का 27% OFS है"
         ],
-        "growth": "FY24-FY26 के दौरान 26% revenue CAGR",
-        "valuation": "P/E 24x बनाम peer average 35x",
-        "risk": "Top 3 clients = 61% revenue",
-        "sector": "एयरोस्पेस एंड प्रिसिजन कंपोनेंट्स",
+        "growth": "FY24-FY26 के दौरान 26% रेवेन्यू CAGR",
+        "valuation": "P/E 24x, पीयर औसत 35x के मुकाबले",
+        "risk": "टॉप 3 क्लाइंट्स = 61% रेवेन्यू",
+        "sector": "Aerospace & Precision Components",
         "allotment_steps": [
           "रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें",
           "ड्रॉपडाउन से IPO का नाम चुनें",
@@ -219,22 +219,22 @@
       },
       "te": {
         "overview": [
-          "గ్లోబల్ aerospace OEMs కోసం precision machined parts తయారుచేస్తుంది",
-          "టాప్ clients నుండి 92% repeat-order రేటుతో 4 ప్లాంట్లు నడుపుతోంది"
+          "గ్లోబల్ ఏరోస్పేస్ OEMల కోసం ప్రెసిషన్ మెషీన్డ్ పార్ట్స్ తయారు చేస్తుంది",
+          "టాప్ క్లయింట్ల నుండి 92% రిపీట్-ఆర్డర్ రేటుతో 4 ప్లాంట్లను నడుపుతోంది"
         ],
         "green_flags": [
-          "Order book 2.4 ఏళ్ల రెవెన్యూని కవర్ చేస్తుంది",
-          "రెండేళ్లలో అప్పు 40% తగ్గింది, IPO proceedsతో ఇంకా తగ్గిస్తారు",
-          "FY24 నుండి EBITDA margin 380 bps పెరిగింది"
+          "ఆర్డర్ బుక్ 2.4 సంవత్సరాల రెవెన్యూను కవర్ చేస్తుంది",
+          "రెండు సంవత్సరాలలో అప్పు 40% తగ్గింది, IPO నిధులతో మరింత తగ్గించబడింది",
+          "FY24 నుండి EBITDA మార్జిన్ 380 bps పెరిగింది"
         ],
         "red_flags": [
-          "లిస్టెడ్ peers కంటే ఎక్కువ ప్రీమియం ధర",
-          "టాప్ 3 clients నుంచే 61% రెవెన్యూ వస్తుంది",
-          "మొత్తం ఇష్యూలో OFS 27%"
+          "లిస్టెడ్ పీర్స్‌తో పోలిస్తే ప్రీమియం ధర వద్ద ఉంది",
+          "టాప్ 3 క్లయింట్లు రెవెన్యూలో 61% ఉన్నారు",
+          "మొత్తం ఇష్యూలో OFS 27% ఉంది"
         ],
-        "growth": "FY24-FY26 లో 26% రెవెన్యూ CAGR",
-        "valuation": "P/E 24x vs peer సగటు 35x",
-        "risk": "టాప్ 3 clients = 61% రెవెన్యూ",
+        "growth": "FY24-FY26 మధ్య 26% రెవెన్యూ CAGR",
+        "valuation": "P/E 24x vs పీర్ యావరేజ్ 35x",
+        "risk": "టాప్ 3 క్లయింట్లు = 61% రెవెన్యూ",
         "sector": "Aerospace & Precision Components",
         "allotment_steps": [
           "రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి",

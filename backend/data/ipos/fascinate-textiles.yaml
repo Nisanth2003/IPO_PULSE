@@ -74,7 +74,43 @@ allotment:
   listing_low: 0.0
   listing_high: 0.0
   steps: []
-i18n: {}
+i18n:
+  hi:
+    overview:
+    - Fascinate Textiles Limited रेडीमेड गारमेंट्स बनाती है।
+    - यह mainboard स्टॉक एक्सचेंज पर लिस्टेड है।
+    green_flags:
+    - रेवेन्यू 66.1 percent CAGR से बढ़ा।
+    - PAT 301.7 percent CAGR से बढ़ा।
+    - FY25 में PAT मार्जिन 9.6 percent रहा।
+    red_flags: []
+    growth: रेवेन्यू 66.1 percent CAGR से बढ़ा और PAT में उछाल आया।
+    valuation: ''
+    risk: ''
+    sector: रेडीमेड गारमेंट मैन्युफैक्चरिंग
+    allotment_steps:
+    - रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें
+    - ड्रॉपडाउन से IPO का नाम चुनें
+    - PAN या एप्लिकेशन नंबर डालें
+    - सर्च दबाएँ — स्टेटस तुरंत दिखेगा
+  te:
+    overview:
+    - Fascinate Textiles Limited రెడీమేడ్ దుస్తులను తయారు చేస్తుంది.
+    - ఇది మెయిన్‌బోర్డ్ స్టాక్ ఎక్స్ఛేంజ్‌లో పనిచేస్తుంది.
+    green_flags:
+    - రెవెన్యూ 66.1 percent CAGR తో పెరిగింది.
+    - PAT 301.7 percent CAGR తో పెరిగింది.
+    - FY25 లో PAT మార్జిన్ 9.6 percent కి చేరుకుంది.
+    red_flags: []
+    growth: రెవెన్యూ 66.1 percent CAGR తో పెరిగింది, PAT భారీగా పెరిగింది.
+    valuation: ''
+    risk: ''
+    sector: రెడీమేడ్ గార్మెంట్ తయారీ
+    allotment_steps:
+    - రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి
+    - డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి
+    - PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి
+    - సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది
 benchmarks: {}
 sources:
   issue: https://groww.in/ipo/fascinate-textiles-ipo
