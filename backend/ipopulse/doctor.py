@@ -147,7 +147,7 @@ def gmp_gaps(ipo: Ipo, today: date | None = None) -> list[str]:
 
 def inspect(ipo: Ipo, today: date | None = None) -> dict[str, Any]:
     """Findings for one IPO, ordered worst-first."""
-    from .compute import date_metrics
+    from .compute import date_metrics, gmp_metrics
 
     status = date_metrics(ipo)["status"]
     missing = []
@@ -166,12 +166,18 @@ def inspect(ipo: Ipo, today: date | None = None) -> dict[str, Any]:
         missing.append({"field": label, "who": who,
                         "severity": severity, "breaks": breaks})
     missing.sort(key=lambda m: (m["severity"] != "blank", m["field"]))
+    gmp = gmp_metrics(ipo)
     return {
         "slug": ipo.slug,
         "company": ipo.company or ipo.slug,
+        "status": status,
         "missing": missing,
         "blank": [m for m in missing if m["severity"] == "blank"],
         "gmp_gaps": gmp_gaps(ipo, today),
+        # Stale is worse than missing here: the card still shows the number,
+        # labelled as today's.
+        "gmp_age_days": gmp["age_days"],
+        "gmp_stale": bool(gmp["is_stale"]) and status not in ("listed",),
         "repairs": [r["what"] for r in plan_repairs(ipo)],
     }
 

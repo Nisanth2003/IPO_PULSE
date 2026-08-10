@@ -128,7 +128,7 @@ def issue_metrics(ipo: Ipo) -> dict[str, Any]:
 
 # ── grey market ────────────────────────────────────────────────────────────
 
-def gmp_metrics(ipo: Ipo) -> dict[str, Any]:
+def gmp_metrics(ipo: Ipo, now: datetime | None = None) -> dict[str, Any]:
     latest, prev = ipo.latest_gmp, ipo.prev_gmp
     band = ipo.issue.price_high
     gmp = latest.gmp if latest else 0.0
@@ -157,6 +157,9 @@ def gmp_metrics(ipo: Ipo) -> dict[str, Any]:
     ]
     values = [p.gmp for p in ipo.gmp_history]
 
+    today = (now or datetime.now()).date()
+    age = (today - latest.date).days if (latest and latest.date) else None
+
     return {
         "gmp": gmp,
         "prev": prev_gmp,
@@ -172,6 +175,14 @@ def gmp_metrics(ipo: Ipo) -> dict[str, Any]:
         "peak": max(values) if values else 0.0,
         "trough": min(values) if values else 0.0,
         "days_tracked": len(series),
+        # How old the newest reading is. The reels call this number "Today's
+        # GMP" in three places; on any day the refresh does not run — or the
+        # source is down, which is what happened on 11 Aug — that label turns
+        # yesterday's premium into a claim about today. For a channel whose
+        # whole premise is a *daily* number, that is the same confident-wrong
+        # failure as printing a zero for a figure nobody has.
+        "age_days": age,
+        "is_stale": age is not None and age > 0,
     }
 
 
@@ -490,7 +501,7 @@ def derive(ipo: Ipo, now: datetime | None = None) -> dict[str, Any]:
     out = {
         "initials": ipo.display_initials,
         "issue": issue_metrics(ipo),
-        "gmp": gmp_metrics(ipo),
+        "gmp": gmp_metrics(ipo, now),
         "subscription": subscription_metrics(ipo),
         "financials": financial_metrics(ipo),
         "dates": date_metrics(ipo, now),

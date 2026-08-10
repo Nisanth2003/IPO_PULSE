@@ -1,12 +1,19 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T23:56:41",
+  "generated_at": "2026-08-11T00:35:03",
   "count": 11,
   "ipos": [
     {
       "slug": "dhoot-transmission",
       "company": "Dhoot Transmission Limited",
       "initials": "DT",
+      "board": "Mainboard",
+      "status": "open"
+    },
+    {
+      "slug": "milky-mist-dairy-food",
+      "company": "Milky Mist Dairy Food Limited",
+      "initials": "MM",
       "board": "Mainboard",
       "status": "open"
     },
@@ -39,6 +46,13 @@
       "status": "open"
     },
     {
+      "slug": "fascinate-textiles",
+      "company": "Fascinate Textiles Limited",
+      "initials": "FT",
+      "board": "Mainboard",
+      "status": "open"
+    },
+    {
       "slug": "vertex-aerospace",
       "company": "Vertex Aerospace Ltd",
       "initials": "VA",
@@ -53,23 +67,9 @@
       "status": "upcoming"
     },
     {
-      "slug": "milky-mist-dairy-food",
-      "company": "Milky Mist Dairy Food Limited",
-      "initials": "MM",
-      "board": "Mainboard",
-      "status": "upcoming"
-    },
-    {
       "slug": "meridian-logistics",
       "company": "Meridian Logistics Ltd",
       "initials": "ML",
-      "board": "Mainboard",
-      "status": "upcoming"
-    },
-    {
-      "slug": "fascinate-textiles",
-      "company": "Fascinate Textiles Limited",
-      "initials": "FT",
       "board": "Mainboard",
       "status": "upcoming"
     },

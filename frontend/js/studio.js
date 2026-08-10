@@ -422,6 +422,24 @@ function studio() {
        yet. The scene says so rather than printing a confident low mark. */
     get scoreThin() { return !(this.d?.score?.has_data); },
 
+    /* "Today's GMP" is only honest when the reading is from today. On any day
+       the refresh does not run — or the source is down — this swaps the label
+       for the date the figure actually belongs to. */
+    get gmpLabel() {
+      const g = this.d?.gmp;
+      if (!g || !g.updated) return this.t('todayGmp');
+      return g.is_stale
+        ? `${this.t('gmpAsOf')} ${this.fmtShort(g.updated)}`
+        : this.t('todayGmp');
+    },
+    get gmpStaleNote() {
+      const g = this.d?.gmp;
+      if (!g || !g.is_stale) return '';
+      return g.age_days === 1
+        ? this.t('gmpStale1')
+        : `${g.age_days} ${this.t('gmpStaleN')}`;
+    },
+
     /* Key-dates rows that actually have a date. */
     get dateRows() {
       const d = this.ipo?.dates || {};

@@ -12,6 +12,21 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const pct = (part, whole) => (whole ? (part / whole) * 100 : 0);
 const round = (v, dp = 0) => { const m = 10 ** dp; return Math.round(num(v) * m) / m; };
 
+/* The LOCAL calendar date as YYYY-MM-DD.
+ *
+ * `toISOString()` would be shorter and is what this used to do, but it
+ * returns the UTC date — so between midnight and 05:30 IST the browser
+ * thought it was still yesterday while the backend, which uses
+ * `datetime.now().date()`, had already rolled over. Status and GMP staleness
+ * then disagreed between the published JSON and the studio for five and a
+ * half hours every night. The audience is Indian; the day that matters is
+ * the local one. */
+const isoDate = (d) => {
+  const dt = d instanceof Date ? d : new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`;
+};
+
 function cagr(first, last, years) {
   if (first <= 0 || last <= 0 || years <= 0) return 0;
   return ((last / first) ** (1 / years) - 1) * 100;
@@ -69,7 +84,7 @@ function issueMetrics(ipo) {
   };
 }
 
-function gmpMetrics(ipo) {
+function gmpMetrics(ipo, now = new Date()) {
   const hist = (ipo.gmp_history || []).slice().sort((a, b) =>
     String(a.date || '').localeCompare(String(b.date || '')));
   const band = num(ipo.issue?.price_high);
@@ -91,6 +106,13 @@ function gmpMetrics(ipo) {
   }));
   const values = series.map((p) => p.gmp);
 
+  // Age of the newest reading. Mirror of compute.py — the reels label this
+  // number "Today's GMP", so they need to know when it is not today's.
+  const todayIso = isoDate(now);
+  const age = latest && latest.date
+    ? Math.round((Date.parse(todayIso) - Date.parse(latest.date)) / 864e5)
+    : null;
+
   return {
     gmp, prev: prevGmp, delta: round(gmp - prevGmp, 2),
     pct: round(pct(gmp, band), 2),
@@ -104,6 +126,8 @@ function gmpMetrics(ipo) {
     peak: values.length ? Math.max(...values) : 0,
     trough: values.length ? Math.min(...values) : 0,
     days_tracked: series.length,
+    age_days: age,
+    is_stale: age !== null && age > 0,
   };
 }
 
@@ -219,7 +243,7 @@ function dateMetrics(ipo, now = new Date()) {
     const [hh, mm] = String(d.close_time || '17:00').split(':');
     out.close_at = `${d.close}T${String(hh || 17).padStart(2, '0')}:${String(mm || 0).padStart(2, '0')}:00`;
   }
-  const today = now.toISOString().slice(0, 10);
+  const today = isoDate(now);
   if (d.listing && today >= d.listing) out.status = 'listed';
   else if (d.allotment && today >= d.allotment) out.status = 'allotment';
   else if (d.close && today > d.close) out.status = 'closed';
@@ -322,7 +346,7 @@ function derive(ipo, now = new Date()) {
   const out = {
     initials: deriveInitials(ipo),
     issue: issueMetrics(ipo),
-    gmp: gmpMetrics(ipo),
+    gmp: gmpMetrics(ipo, now),
     subscription: subscriptionMetrics(ipo),
     financials: financialMetrics(ipo),
     dates: dateMetrics(ipo, now),

@@ -22,6 +22,34 @@ const OUTPUT = {
       drop: ['GMP has dropped.', 'GMP गिरा है।', 'GMP తగ్గింది.'],
     }[g.movement][i];
 
+    // The script is read aloud onto a recorded video, so "today's GMP" over a
+    // reading that is not today's is a false claim in the most permanent
+    // place it could be made. When the figure is stale, name its date and
+    // stop calling the previous point "yesterday".
+    const asOf = g.updated ? dt(g.updated) : '';
+    const gmpWhen = g.is_stale
+      ? [`the latest grey market premium, from ${asOf}, is`,
+         `${asOf} का ताज़ा ग्रे मार्केट प्रीमियम है`,
+         `${asOf} నాటి తాజా గ్రే మార్కెట్ ప్రీమియం`][i]
+      : [`today's grey market premium is`,
+         `आज का ग्रे मार्केट प्रीमियम है`,
+         `నేటి గ్రే మార్కెట్ ప్రీమియం`][i];
+    // Same rule for the spoken financials: without an EBITDA series this
+    // sentence read "EBITDA margin is 0%, down 0 basis points" out loud.
+    const ebitdaSentence = (fin.has_data && fin.present && fin.present.ebitda)
+      ? [` EBITDA margin is ${fin.latest.ebitda_margin}%, ${fin.margin_shift_bps >= 0 ? 'up' : 'down'} ${Math.abs(fin.margin_shift_bps)} basis points.`,
+         ` EBITDA मार्जिन ${fin.latest.ebitda_margin}%, ${Math.abs(fin.margin_shift_bps)} बेसिस पॉइंट ${fin.margin_shift_bps >= 0 ? 'ऊपर' : 'नीचे'}।`,
+         ` EBITDA మార్జిన్ ${fin.latest.ebitda_margin}%, ${Math.abs(fin.margin_shift_bps)} బేసిస్ పాయింట్లు ${fin.margin_shift_bps >= 0 ? 'పెరిగింది' : 'తగ్గింది'}.`][i]
+      : '';
+
+    const gmpMoveLine = g.is_stale
+      ? [`Previous reading ₹${g.prev}, latest ₹${g.gmp}.`,
+         `पिछली रीडिंग ₹${g.prev}, ताज़ा ₹${g.gmp}।`,
+         `మునుపటి రీడింగ్ ₹${g.prev}, తాజాది ₹${g.gmp}.`][i]
+      : [`Yesterday ₹${g.prev}, today ₹${g.gmp}.`,
+         `कल ₹${g.prev}, आज ₹${g.gmp}।`,
+         `నిన్న ₹${g.prev}, ఈరోజు ₹${g.gmp}.`][i];
+
     const S = {
       1: [
 `${ipo.company} IPO. Price band ₹${iss.price_low} to ₹${iss.price_high}, lot size ${iss.lot_size} shares — minimum ₹${f(d.issue.min_investment)}.
@@ -52,21 +80,21 @@ ${this.boardRows.slice(0, 5).map((r) => `${r.company}: GMP ₹${r.gmp}, या�
 ${this.boardRows.slice(0, 5).map((r) => `${r.company}: GMP ₹${r.gmp}, అంటే ${r.gmp_pct}%`).join('. ')}.
 GMP అనధికారికం, ప్రతిరోజూ మారుతుంది.`,
       ] : [
-`${ipo.company} — today's grey market premium is ₹${g.gmp}, that is ${pctTxt}% over the upper band of ₹${iss.price_high}.
+`${ipo.company} — ${gmpWhen} ₹${g.gmp}, that is ${pctTxt}% over the upper band of ₹${iss.price_high}.
 Estimated listing price ₹${f(g.est_listing)}. On one lot of ${iss.lot_size} shares that's about ₹${f(g.gain_per_lot)}.
-Yesterday ₹${g.prev}, today ₹${g.gmp}. ${move}
+${gmpMoveLine} ${move}
 We've tracked it for ${g.days_tracked} days since announcement — peak ₹${g.peak}, low ₹${g.trough}.
 GMP is unofficial and changes every single day.`,
 
-`${ipo.company} — आज का ग्रे मार्केट प्रीमियम ₹${g.gmp} है, यानी ₹${iss.price_high} के अपर बैंड से ${pctTxt}% ऊपर।
+`${ipo.company} — ${gmpWhen} ₹${g.gmp}, यानी ₹${iss.price_high} के अपर बैंड से ${pctTxt}% ऊपर।
 अनुमानित लिस्टिंग प्राइस ₹${f(g.est_listing)}। एक लॉट यानी ${iss.lot_size} शेयर पर करीब ₹${f(g.gain_per_lot)}।
-कल ₹${g.prev}, आज ₹${g.gmp}। ${move}
+${gmpMoveLine} ${move}
 ऐलान से अब तक ${g.days_tracked} दिन ट्रैक किया — सबसे ऊपर ₹${g.peak}, सबसे नीचे ₹${g.trough}।
 GMP अनऑफिशियल है और रोज़ बदलता है।`,
 
-`${ipo.company} — నేటి గ్రే మార్కెట్ ప్రీమియం ₹${g.gmp}, అంటే ₹${iss.price_high} అప్పర్ బ్యాండ్ కంటే ${pctTxt}% ఎక్కువ.
+`${ipo.company} — ${gmpWhen} ₹${g.gmp}, అంటే ₹${iss.price_high} అప్పర్ బ్యాండ్ కంటే ${pctTxt}% ఎక్కువ.
 అంచనా లిస్టింగ్ ధర ₹${f(g.est_listing)}. ఒక లాట్ ${iss.lot_size} షేర్లపై సుమారు ₹${f(g.gain_per_lot)}.
-నిన్న ₹${g.prev}, ఈరోజు ₹${g.gmp}. ${move}
+${gmpMoveLine} ${move}
 ప్రకటన నుంచి ${g.days_tracked} రోజులు ట్రాక్ చేశాం — గరిష్టం ₹${g.peak}, కనిష్టం ₹${g.trough}.
 GMP అనధికారికం, ప్రతిరోజూ మారుతుంది.`,
       ],
@@ -85,21 +113,21 @@ ${s.leader === 'nii' ? 'పెద్ద డబ్బు ముందుంది
       ] : ['Subscription has not opened yet.', 'सब्सक्रिप्शन अभी शुरू नहीं हुआ।', 'సబ్‌స్క్రిప్షన్ ఇంకా మొదలవలేదు.'],
       4: [
 `Should you apply to ${ipo.company}?
-${fin.has_data ? `Revenue grew ${fin.revenue_cagr}% a year to ₹${f(fin.latest.revenue)} crore. EBITDA margin is ${fin.latest.ebitda_margin}%, ${fin.margin_shift_bps >= 0 ? 'up' : 'down'} ${Math.abs(fin.margin_shift_bps)} basis points. Profit ₹${f(fin.latest.pat)} crore.` : ''}
+${fin.has_data ? `Revenue grew ${fin.revenue_cagr}% a year to ₹${f(fin.latest.revenue)} crore.${ebitdaSentence} Profit ₹${f(fin.latest.pat)} crore.` : ''}
 ${fin.pe ? `At ₹${iss.price_high} it trades at ${fin.pe} times earnings, against a peer average of ${fin.pe_peer_avg} — ${fin.pe_premium_pct < 0 ? `${Math.abs(fin.pe_premium_pct)}% cheaper` : `${fin.pe_premium_pct}% pricier`} than peers.` : ''}
 Green flags: ${L.green_flags.join('; ')}.
 Red flags: ${L.red_flags.join('; ')}.
 Biggest risk — ${L.risk}.`,
 
 `${ipo.company} में अप्लाई करें या नहीं?
-${fin.has_data ? `रेवेन्यू हर साल ${fin.revenue_cagr}% बढ़कर ₹${f(fin.latest.revenue)} करोड़। EBITDA मार्जिन ${fin.latest.ebitda_margin}%, ${fin.margin_shift_bps >= 0 ? 'यानी' : 'यानी'} ${Math.abs(fin.margin_shift_bps)} बेसिस पॉइंट ${fin.margin_shift_bps >= 0 ? 'ऊपर' : 'नीचे'}। मुनाफ़ा ₹${f(fin.latest.pat)} करोड़।` : ''}
+${fin.has_data ? `रेवेन्यू हर साल ${fin.revenue_cagr}% बढ़कर ₹${f(fin.latest.revenue)} करोड़।${ebitdaSentence} मुनाफ़ा ₹${f(fin.latest.pat)} करोड़।` : ''}
 ${fin.pe ? `₹${iss.price_high} पर यह ${fin.pe} गुना earnings पर है, पीयर औसत ${fin.pe_peer_avg} के मुकाबले — ${fin.pe_premium_pct < 0 ? `${Math.abs(fin.pe_premium_pct)}% सस्ता` : `${fin.pe_premium_pct}% महँगा`}।` : ''}
 पॉज़िटिव: ${L.green_flags.join('; ')}।
 रेड फ्लैग्स: ${L.red_flags.join('; ')}।
 सबसे बड़ा रिस्क — ${L.risk}।`,
 
 `${ipo.company}కి అప్లై చేయాలా?
-${fin.has_data ? `ఆదాయం ఏటా ${fin.revenue_cagr}% పెరిగి ₹${f(fin.latest.revenue)} కోట్లు. EBITDA మార్జిన్ ${fin.latest.ebitda_margin}%, ${Math.abs(fin.margin_shift_bps)} బేసిస్ పాయింట్లు ${fin.margin_shift_bps >= 0 ? 'పెరిగింది' : 'తగ్గింది'}. లాభం ₹${f(fin.latest.pat)} కోట్లు.` : ''}
+${fin.has_data ? `ఆదాయం ఏటా ${fin.revenue_cagr}% పెరిగి ₹${f(fin.latest.revenue)} కోట్లు.${ebitdaSentence} లాభం ₹${f(fin.latest.pat)} కోట్లు.` : ''}
 ${fin.pe ? `₹${iss.price_high} వద్ద ఇది ${fin.pe} రెట్ల earnings, పీర్ సగటు ${fin.pe_peer_avg}తో పోలిస్తే ${fin.pe_premium_pct < 0 ? `${Math.abs(fin.pe_premium_pct)}% చౌక` : `${fin.pe_premium_pct}% ఖరీదు`}.` : ''}
 సానుకూలం: ${L.green_flags.join('; ')}.
 రెడ్ ఫ్లాగ్స్: ${L.red_flags.join('; ')}.

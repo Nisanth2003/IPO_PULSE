@@ -788,7 +788,7 @@ def cmd_doctor(args) -> int:
     for ipo in ipos:
         rep = doctor.inspect(ipo)
         gaps = rep["gmp_gaps"]
-        clean = not rep["missing"] and not gaps
+        clean = not rep["missing"] and not gaps and not rep["gmp_stale"]
 
         print(f"\n── {rep['company']}  ({ipo.slug})")
         if clean:
@@ -801,6 +801,11 @@ def cmd_doctor(args) -> int:
             if m["severity"] != "blank":
                 print(f"  · {m['field']:<24} → {m['breaks']}")
         total_blank += len(rep["blank"])
+
+        if rep["gmp_stale"]:
+            n = rep["gmp_age_days"]
+            print(f"  ⚠ GMP is {n} day(s) old — the card labels it "
+                  f"\"today's GMP\" until this is refreshed")
 
         if gaps:
             shown = ", ".join(gaps[:6]) + (f" … +{len(gaps) - 6}" if len(gaps) > 6 else "")

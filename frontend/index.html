@@ -456,7 +456,10 @@
             <div x-show="at(2,'hook')" class="scene items-center text-center">
               <div class="font-black text-xl" x-text="ipo.company"></div>
               <div>
-                <div class="lbl" x-text="t('todayGmp')"></div>
+                <!-- gmpLabel, not a hardcoded "Today's GMP": on a day the
+                     refresh did not run this would otherwise publish
+                     yesterday's premium as today's. -->
+                <div class="lbl" x-text="gmpLabel"></div>
                 <div class="font-black text-7xl tnum"
                      :class="gmpPositive ? 'text-pulse' : 'text-danger'"
                      x-text="(gmpPositive?'₹':'-₹')+fmt(Math.abs(Math.round(a.gmp)))"></div>
@@ -465,6 +468,10 @@
                    :class="gmpPositive ? 'text-emerald-300' : 'text-red-300'"
                    x-text="signed(a.pct)+'%'"></div>
               <div class="lbl" x-text="t('overBand')+' ₹'+ipo.issue.price_high"></div>
+              <div class="pill self-center text-2xs font-black tracking-[.12em]"
+                   x-show="d.gmp.is_stale"
+                   style="background:rgba(245,158,11,.18);color:#FCD34D;border:1px solid rgba(245,158,11,.45)"
+                   x-text="'⚠ '+gmpStaleNote"></div>
             </div>
 
             <div x-show="at(2,'gauge')" class="scene items-center">
@@ -481,7 +488,7 @@
                           :stroke-dashoffset="mounted ? RING*(1-gaugeFrac) : RING"/>
                 </svg>
                 <div class="absolute inset-0 grid place-content-center text-center px-[19%]">
-                  <div class="lbl !tracking-[.10em]" x-text="t('todayGmp')"></div>
+                  <div class="lbl !tracking-[.10em]" x-text="gmpLabel"></div>
                   <div class="font-black text-5xl tnum leading-none mt-0.5"
                        :class="gmpPositive ? 'text-pulse' : 'text-danger'"
                        x-text="(gmpPositive?'₹':'-₹')+fmt(Math.abs(Math.round(a.gmp)))"></div>
