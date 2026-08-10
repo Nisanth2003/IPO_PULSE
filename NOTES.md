@@ -141,8 +141,33 @@ always runs *before* publishing, never after. The repo and the site are both
 public now, so it is the last thing between a key and the open internet.
 Verified to block `AIza…` and `AQ.…` keys while passing ordinary code.
 
+### `inputs.x != false` is false on a push event
+
+The publish workflow guarded its build step with `if: inputs.rebuild != false`,
+intending "build unless the manual checkbox was unticked". On a push there is
+no `inputs`, so `inputs.rebuild` is null — and GitHub coerces both null and
+false to `0` when comparing across types, making the test `0 != 0`, i.e.
+**false**. The build silently skipped on exactly the trigger it existed for.
+The run went green in 18 seconds and deployed whatever JSON happened to be
+committed.
+
+Guard on the event instead:
+
+    if: github.event_name != 'workflow_dispatch' || inputs.rebuild
+
+Related: while Pages was still set to branch-deploy, *both* `publish.yml` and
+GitHub's built-in `pages-build-deployment` ran on the same push, and whichever
+finished last won. That is why the site kept showing the README even after a
+green publish run.
+
 ### Known and open
 
+- **Issue size renders as ₹0 Cr on the published site.** NSE's `issueSize` is a
+  *share count* (e.g. 24,956,363), not rupees crore, and nothing maps it to
+  `fresh_cr` / `ofs_cr` — which is what the About IPO scene adds up. Shares x
+  price band / 1e7 would give the total in crore, but NSE does not publish the
+  fresh-vs-OFS split, so only the total is recoverable from it. Until then the
+  number has to be typed into the YAML by hand.
 - The two original IPOs (Vertex Aerospace, Meridian Logistics) are **fictional
   sample records**. Delete them once the real ones are established.
 - **Researched GMP lands on the page's own date**, not today's — e.g. 08-07
