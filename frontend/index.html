@@ -181,11 +181,19 @@
         </div></details>
 
         <details class="sect"><summary>Verdict</summary><div class="body">
+          <!-- Leave the slider at 0 and the score is computed from the data
+               (see scoreMetrics in compute.js). Move it and your number wins.
+               0 is not "zero out of ten" — it is "no override". -->
           <div class="row"><label class="fld">Score —
-              <span class="text-pulse tnum" x-text="Number(ipo.analysis.score).toFixed(1)"></span>/10</label>
+              <span class="text-pulse tnum" x-text="Number(d.score.effective).toFixed(1)"></span>/10
+              <span class="text-slate-500" x-text="d.score.source === 'manual'
+                    ? '(manual — auto is '+d.score.value.toFixed(1)+')'
+                    : '(auto, '+d.score.covered_pct+'% of inputs)'"></span></label>
             <input type="range" min="0" max="10" step="0.1" class="w-full accent-emerald-500"
                    :value="ipo.analysis.score"
-                   @input="ipo.analysis.score=Number($event.target.value); recompute()"></div>
+                   @input="ipo.analysis.score=Number($event.target.value); recompute()">
+            <button class="btn mt-1" x-show="d.score.source === 'manual'"
+                    @click="ipo.analysis.score=0; recompute()">Reset to auto</button></div>
           <div class="row"><label class="fld">Verdict</label>
             <select class="inp" :value="ipo.analysis.verdict"
                     @change="ipo.analysis.verdict=$event.target.value; recompute()">
@@ -216,9 +224,12 @@
               <b x-text="'₹'+fmt(d.issue.min_investment)"></b></div>
             <div x-show="d.financials.has_data">P/E <b x-text="d.financials.pe"></b> vs peers
               <b x-text="d.financials.pe_peer_avg"></b></div>
+            <!-- `?.` is load-bearing: x-show only toggles display, it still
+                 evaluates the binding, and `latest` is absent whenever no
+                 financials exist — which threw on every IPO without them. -->
             <div x-show="d.financials.has_data">Rev CAGR
               <b x-text="d.financials.revenue_cagr+'%'"></b> · EBITDA margin
-              <b x-text="d.financials.latest.ebitda_margin+'%'"></b></div>
+              <b x-text="(d.financials.latest?.ebitda_margin ?? 0)+'%'"></b></div>
             <div>Registrar <b x-text="ipo.issue.registrar"></b></div>
           </div>
         </div></details>
@@ -350,13 +361,27 @@
                 <div class="lbl" x-text="t('issueSize')"></div>
                 <div class="font-black text-4xl tnum" x-text="'₹'+fmt(d.issue.total_cr)+' '+t('cr')"></div>
               </div>
-              <div class="flex h-[14px] rounded-full overflow-hidden bg-white/10">
+              <!-- `has_split` is false when nobody has typed fresh/OFS in. It
+                   used to fall through anyway and draw an empty track with two
+                   ₹0 cards under it, which says "this issue is 0% fresh, 0%
+                   OFS" — a claim, and a false one. -->
+              <div class="flex h-[14px] rounded-full overflow-hidden bg-white/10"
+                   x-show="d.issue.has_split">
                 <div class="bar-fill h-full"
                      :style="`background:linear-gradient(90deg,#22C55E,#4ADE80);width:${mounted ? d.issue.fresh_pct : 0}%`"></div>
                 <div class="bar-fill h-full"
                      :style="`background:linear-gradient(90deg,#F59E0B,#EF4444);width:${mounted ? d.issue.ofs_pct : 0}%`"></div>
               </div>
-              <div class="grid grid-cols-2 gap-2.5">
+
+              <div class="glass glass-a p-4 text-center" x-show="!d.issue.has_split">
+                <div class="text-3xl mb-1">🗂️</div>
+                <div class="font-black text-xl text-amber-300 leading-tight"
+                     x-text="t('notDisclosed')"></div>
+                <div class="text-2xs text-amber-200/70 font-semibold mt-2 leading-snug"
+                     x-text="t('splitNote')"></div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2.5" x-show="d.issue.has_split">
                 <div class="glass glass-g p-3">
                   <div class="text-2xs font-black tracking-[.12em] text-emerald-300"
                        x-text="t('fresh').toUpperCase()"></div>
@@ -408,15 +433,21 @@
 
             <div x-show="at(1,'dates')" class="scene">
               <div class="lbl text-center" x-text="t('keyDates')"></div>
-              <template x-for="(k,i) in [['announced',ipo.dates.announced],['opens',ipo.dates.open],['closes',ipo.dates.close],['allot',ipo.dates.allotment],['listing',ipo.dates.listing]]" :key="i">
+              <!-- Filtered, not padded with dashes. `announced` is the usual
+                   absentee: no exchange feed carries it and nothing derives
+                   it, so it stayed null forever and printed a permanent "—"
+                   in the middle of an otherwise complete timeline. A row that
+                   is not there reads as "not applicable"; a dash reads as
+                   "broken". -->
+              <template x-for="k in dateRows" :key="k.key">
                 <div class="glass px-3 py-2 flex items-center gap-3"
-                     :class="i===2 ? 'glass-r' : ''">
+                     :class="k.key === 'closes' ? 'glass-r' : ''">
                   <span class="w-[10px] h-[10px] rounded-full shrink-0"
-                        :style="`background:${i===2 ? '#EF4444' : acc}`"></span>
-                  <span class="lbl flex-1" x-text="t(k[0])"></span>
+                        :style="`background:${k.key === 'closes' ? '#EF4444' : acc}`"></span>
+                  <span class="lbl flex-1" x-text="t(k.key)"></span>
                   <span class="font-black text-lg tnum"
-                        :class="i===2 ? 'text-red-400' : 'text-slate-100'"
-                        x-text="fmtDate(k[1], true)"></span>
+                        :class="k.key === 'closes' ? 'text-red-400' : 'text-slate-100'"
+                        x-text="fmtDate(k.date, true)"></span>
                 </div>
               </template>
             </div>
@@ -680,6 +711,19 @@
                        :class="d.financials.revenue_cagr>=0?'text-pulse':'text-danger'"
                        x-text="signed(d.financials.revenue_cagr)+'%'"></div>
                 </div>
+                <!-- Without financials the hook was one lonely GMP tile in a
+                     two-column grid. Subscription is always available once the
+                     issue opens and is the better second number anyway. -->
+                <div class="glass p-3" x-show="!d.financials.has_data && d.subscription.has_data">
+                  <div class="lbl" x-text="t('totalSub')"></div>
+                  <div class="font-black text-2xl tnum" :style="`color:${acc}`"
+                       x-text="d.subscription.total+'x'"></div>
+                </div>
+              </div>
+              <div class="glass px-4 py-2.5 self-center" x-show="d.score.has_data">
+                <span class="lbl" x-text="t('score')"></span>
+                <span class="font-black text-2xl tnum ml-2" :style="`color:${verdict.hex}`"
+                      x-text="Number(d.score.effective).toFixed(1)+'/10'"></span>
               </div>
             </div>
 
@@ -738,6 +782,20 @@
                       :class="d.financials.score_good >= d.financials.score_total/2 ? 'text-pulse' : 'text-danger'"
                       x-text="benchScore"></span>
               </div>
+              <!-- benchRows is [] without financials, so every marker here
+                   vanished and the scene rendered as an empty frame with a
+                   heading. -->
+              <div class="glass glass-a p-4 text-center" x-show="!benchRows.length">
+                <div class="text-3xl mb-1">📄</div>
+                <div class="font-black text-lg text-amber-300" x-text="t('noFinancials')"></div>
+                <div class="text-2xs text-amber-200/70 font-semibold mt-2 leading-snug">
+                  Revenue, EBITDA, PAT, net worth, EPS and peer P/E come from the
+                  RHP. Add them to the YAML, then <span class="font-black">ipopulse build</span>.
+                </div>
+                <div class="text-3xs text-amber-200/50 font-bold mt-2">
+                  ipopulse doctor — lists exactly what is missing
+                </div>
+              </div>
               <template x-for="m in benchRows" :key="m.key">
                 <div class="glass p-2.5" :class="m.good ? 'glass-g' : 'glass-r'">
                   <div class="flex items-baseline justify-between mb-1">
@@ -764,7 +822,19 @@
             </div>
 
             <div x-show="at(4,'flags')" class="scene">
-              <div class="glass glass-g p-3">
+              <!-- Both lists are written by `ipopulse analyse --write`, which
+                   is in no chain and so had never run for most IPOs. The two
+                   headed-but-empty boxes looked like a broken template. -->
+              <div class="glass glass-a p-4 text-center"
+                   x-show="!loc.green_flags.length && !loc.red_flags.length">
+                <div class="text-3xl mb-1">🏳️</div>
+                <div class="font-black text-lg text-amber-300" x-text="t('noFlags')"></div>
+                <div class="text-2xs text-amber-200/70 font-semibold mt-2 leading-snug">
+                  Draft them with <span class="font-black">ipopulse analyse &lt;slug&gt; --write</span>,
+                  then edit before recording — Gemini proposes, you decide.
+                </div>
+              </div>
+              <div class="glass glass-g p-3" x-show="loc.green_flags.length">
                 <div class="flex items-center gap-1.5 mb-2">
                   <span class="text-base">🟢</span>
                   <span class="text-sm font-black tracking-[.1em] text-emerald-300 uppercase"
@@ -777,7 +847,7 @@
                   </div>
                 </template>
               </div>
-              <div class="glass glass-r p-3">
+              <div class="glass glass-r p-3" x-show="loc.red_flags.length">
                 <div class="flex items-center gap-1.5 mb-2">
                   <span class="text-base">🚨</span>
                   <span class="text-sm font-black tracking-[.1em] text-red-300 uppercase"
@@ -800,21 +870,63 @@
             <!-- ─── REEL 5 · FINAL VERDICT ─────────────────────────── -->
             <div x-show="at(5,'score')" class="scene items-center text-center">
               <div class="font-black text-xl" x-text="ipo.company"></div>
-              <div class="relative self-center" style="width:calc(var(--fs)*10);height:calc(var(--fs)*10)">
+              <div class="relative self-center" style="width:calc(var(--fs)*8);height:calc(var(--fs)*8)">
                 <svg viewBox="0 0 160 160" width="160" height="160" class="w-full h-full">
                   <circle cx="80" cy="80" r="66" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="11"/>
+                  <!-- Greyed out when the coverage is too thin to mean
+                       anything. A saturated ring and a bold number next to
+                       the words "too little data to score yet" argue with
+                       each other, and the number wins that argument on
+                       camera every time. -->
                   <circle cx="80" cy="80" r="66" fill="none" stroke-width="11" stroke-linecap="round"
                           transform="rotate(-90 80 80)"
-                          :stroke="verdict.hex" :stroke-dasharray="RING" class="ring-fill"
-                          :stroke-dashoffset="mounted ? RING*(1-Math.min(1,ipo.analysis.score/10)) : RING"/>
+                          :stroke="scoreThin ? '#475569' : verdict.hex"
+                          :stroke-dasharray="RING" class="ring-fill"
+                          :stroke-dashoffset="mounted ? RING*(1-Math.min(1,d.score.effective/10)) : RING"/>
                 </svg>
                 <div class="absolute inset-0 grid place-content-center text-center px-[16%]">
-                  <div class="font-black text-4xl tnum leading-none" :style="`color:${verdict.hex}`">
+                  <div class="font-black text-4xl tnum leading-none"
+                       :style="`color:${scoreThin ? '#64748B' : verdict.hex}`">
                     <span x-text="a.score.toFixed(1)"></span><span class="text-lg text-slate-500">/10</span>
                   </div>
                 </div>
               </div>
               <div class="lbl" x-text="t('score')"></div>
+
+              <!-- the basis. A 0-10 with nothing behind it is just an opinion
+                   in a circle, and it was reading as a verdict on the company
+                   when it only ever meant "nobody has filled this in". -->
+              <div class="w-full" x-show="!scoreThin">
+                <div class="lbl mb-1" x-text="t('scoreBasis')"></div>
+                <template x-for="r in scoreRows" :key="r.key">
+                  <div class="glass p-2 mb-1.5 last:mb-0 text-left"
+                       :class="r.good ? 'glass-g' : 'glass-r'">
+                    <div class="flex items-baseline justify-between gap-2">
+                      <span class="text-xs font-black text-slate-100" x-text="r.label"></span>
+                      <span class="text-2xs font-bold text-slate-400 tnum"
+                            x-text="r.weight+'%'"></span>
+                      <span class="font-black text-sm tnum ml-auto"
+                            :class="r.good ? 'text-emerald-300' : 'text-red-300'"
+                            x-text="r.mark.toFixed(1)"></span>
+                    </div>
+                    <div class="bmark mt-1"><div class="bmark-track">
+                      <div class="bmark-fill"
+                           :style="`width:${mounted ? r.pos : 0}%;background:${r.good ? '#22C55E' : '#EF4444'}`"></div>
+                    </div></div>
+                    <div class="text-3xs text-slate-400 font-semibold mt-1" x-text="r.detail"></div>
+                  </div>
+                </template>
+                <div class="text-3xs text-slate-500 font-bold text-center mt-1"
+                     x-text="d.score.source === 'manual'
+                             ? t('scoreManual')
+                             : t('scoreOn')+' '+d.score.covered_pct+'% '+t('ofData')"></div>
+              </div>
+
+              <div class="glass glass-a p-3 w-full" x-show="scoreThin">
+                <div class="font-black text-base text-amber-300" x-text="t('scoreThin')"></div>
+                <div class="text-2xs text-amber-200/80 font-semibold mt-1"
+                     x-text="t('scoreOn')+' '+d.score.covered_pct+'% '+t('ofData')+' — '+d.score.missing.map(m=>t('sc_'+m)).join(', ')"></div>
+              </div>
             </div>
 
             <div x-show="at(5,'verdict')" class="scene items-center">
@@ -828,7 +940,7 @@
               <div class="glass px-4 py-2 self-center">
                 <span class="lbl" x-text="t('score')"></span>
                 <span class="font-black text-2xl tnum ml-2" :style="`color:${verdict.hex}`"
-                      x-text="Number(ipo.analysis.score).toFixed(1)+'/10'"></span>
+                      x-text="Number(d.score.effective).toFixed(1)+'/10'"></span>
               </div>
             </div>
 
@@ -897,13 +1009,18 @@
                 <div class="glass glass-acc p-3" :style="accTint">
                   <div class="lbl" x-text="t('expRange')"></div>
                   <div class="font-black text-xl tnum" :style="`color:${acc}`"
-                       x-text="'₹'+d.listing.low+' – ₹'+d.listing.high"></div>
+                       x-show="listingRange.has"
+                       x-text="'₹'+listingRange.low+' – ₹'+listingRange.high"></div>
+                  <div class="font-black text-sm text-slate-400" x-show="!listingRange.has"
+                       x-text="t('noRange')"></div>
+                  <div class="text-3xs font-bold text-slate-500 mt-0.5"
+                       x-show="listingRange.implied" x-text="t('fromGmp')"></div>
                 </div>
               </div>
-              <div class="glass p-3 text-center">
+              <div class="glass p-3 text-center" x-show="listingRange.has">
                 <div class="lbl" x-text="t('estListing')"></div>
                 <div class="font-black text-3xl tnum" :style="`color:${acc}`"
-                     x-text="signed(d.listing.low_pct,0)+'% to '+signed(d.listing.high_pct,0)+'%'"></div>
+                     x-text="signed(listingRange.low_pct,0)+'% to '+signed(listingRange.high_pct,0)+'%'"></div>
                 <div class="text-2xs text-slate-500 font-bold tnum"
                      x-text="'vs ₹'+ipo.issue.price_high+' issue price'"></div>
               </div>

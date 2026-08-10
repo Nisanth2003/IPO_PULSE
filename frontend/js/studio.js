@@ -187,7 +187,7 @@ function studio() {
         this.tw('pct', this.d.gmp.pct);
         this.tw('est', this.d.gmp.est_listing);
         this.tw('total', this.d.subscription.total || 0);
-        this.tw('score', this.ipo?.analysis?.score || 0);
+        this.tw('score', this.d.score.effective || 0);
         this.check();
       }, 50);
     },
@@ -196,7 +196,7 @@ function studio() {
       if (!this.d) return;
       this.a = {
         gmp: this.d.gmp.gmp, pct: this.d.gmp.pct, est: this.d.gmp.est_listing,
-        total: this.d.subscription.total || 0, score: this.ipo?.analysis?.score || 0,
+        total: this.d.subscription.total || 0, score: this.d.score.effective || 0,
       };
     },
     tw(key, to, dur = 900) {
@@ -400,6 +400,55 @@ function studio() {
     get benchScore() {
       const f = this.d?.financials;
       return f?.score_total ? `${f.score_good}/${f.score_total}` : '';
+    },
+
+    /* What the score is made of, ordered by how much it moved the number.
+       A 0-10 with no visible basis is just an opinion in a circle. */
+    get scoreRows() {
+      return (this.d?.score?.components || [])
+        .filter((p) => p.has_data)
+        .sort((a, b) => b.weight - a.weight)
+        .map((p) => ({
+          key: p.key,
+          label: this.t('sc_' + p.key),
+          mark: p.mark,
+          weight: p.weight,
+          detail: p.detail,
+          good: p.mark >= 6,
+          pos: Math.round(p.mark * 10),
+        }));
+    },
+    /* True when so little has been entered that the number is not a verdict
+       yet. The scene says so rather than printing a confident low mark. */
+    get scoreThin() { return !(this.d?.score?.has_data); },
+
+    /* Key-dates rows that actually have a date. */
+    get dateRows() {
+      const d = this.ipo?.dates || {};
+      return [
+        ['announced', d.announced], ['opens', d.open], ['closes', d.close],
+        ['allot', d.allotment], ['listing', d.listing],
+      ].filter(([, v]) => !!v).map(([key, date]) => ({ key, date }));
+    },
+
+    /* Expected listing range. Falls back to what the grey market implies,
+       clearly labelled — the hand-entered range is almost never filled, and
+       "₹0 – ₹0" was being read off the card as a real forecast. */
+    get listingRange() {
+      const l = this.d?.listing, g = this.d?.gmp;
+      if (l && (l.low || l.high)) {
+        return { low: l.low, high: l.high, low_pct: l.low_pct, high_pct: l.high_pct,
+                 implied: false, has: true };
+      }
+      const band = Number(this.ipo?.issue?.price_high) || 0;
+      if (!band || !g?.gmp) return { has: false, implied: false };
+      // A band around the GMP estimate rather than a false point forecast:
+      // the grey market is directional, not a price.
+      const est = band + g.gmp;
+      const low = Math.round(band + g.gmp * 0.6);
+      const high = Math.round(est + g.gmp * 0.15);
+      const pc = (v) => Math.round((v - band) / band * 100);
+      return { low, high, low_pct: pc(low), high_pct: pc(high), implied: true, has: true };
     },
 
     /* The ring is drawn against the number printed inside it, so it has to be

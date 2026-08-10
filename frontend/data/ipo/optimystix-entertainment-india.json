@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T15:40:30",
+  "generated_at": "2026-08-10T23:07:15",
   "ipo": {
     "slug": "optimystix-entertainment-india",
     "company": "Optimystix Entertainment India Limited",
@@ -52,6 +52,13 @@
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
+      },
+      {
+        "date": "2026-08-10",
+        "gmp": 5.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
       }
     ],
     "subscription": [],
@@ -94,18 +101,26 @@
     },
     "gmp": {
       "gmp": 5.0,
-      "prev": 0.0,
-      "delta": 5.0,
+      "prev": 5.0,
+      "delta": 0.0,
       "pct": 2.86,
       "est_listing": 180.0,
       "gain_per_lot": 0,
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-07",
+      "updated": "2026-08-10",
       "series": [
         {
           "date": "2026-08-07",
+          "gmp": 5.0,
+          "pct": 2.86,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
+        },
+        {
+          "date": "2026-08-10",
           "gmp": 5.0,
           "pct": 2.86,
           "kostak": 0.0,
@@ -115,7 +130,7 @@
       ],
       "peak": 5.0,
       "trough": 5.0,
-      "days_tracked": 1
+      "days_tracked": 2
     },
     "subscription": {
       "has_data": false,
@@ -142,6 +157,57 @@
       "high": 0.0,
       "low_pct": -100.0,
       "high_pct": -100.0
+    },
+    "score": {
+      "value": 3.1,
+      "components": [
+        {
+          "key": "grey",
+          "weight": 25,
+          "has_data": true,
+          "mark": 3.1,
+          "detail": "GMP is 2.86% of the ₹175 band"
+        },
+        {
+          "key": "demand",
+          "weight": 20,
+          "has_data": false,
+          "mark": null,
+          "detail": "issue has not opened / no subscription read"
+        },
+        {
+          "key": "fundamentals",
+          "weight": 30,
+          "has_data": false,
+          "mark": null,
+          "detail": "no financials entered"
+        },
+        {
+          "key": "valuation",
+          "weight": 15,
+          "has_data": false,
+          "mark": null,
+          "detail": "no EPS / peer P/E"
+        },
+        {
+          "key": "structure",
+          "weight": 10,
+          "has_data": false,
+          "mark": null,
+          "detail": "fresh/OFS split not disclosed"
+        }
+      ],
+      "covered_pct": 25,
+      "has_data": false,
+      "missing": [
+        "demand",
+        "fundamentals",
+        "valuation",
+        "structure"
+      ],
+      "manual": 0.0,
+      "source": "auto",
+      "effective": 3.1
     }
   }
 }

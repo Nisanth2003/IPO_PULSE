@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T15:40:30",
+  "generated_at": "2026-08-10T23:07:15",
   "ipo": {
     "slug": "molbio-diagnostics",
     "company": "Molbio Diagnostics Limited",
@@ -52,6 +52,13 @@
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
+      },
+      {
+        "date": "2026-08-10",
+        "gmp": 135.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
       }
     ],
     "subscription": [
@@ -59,10 +66,10 @@
         "day": 1,
         "date": "2026-08-10",
         "qib": 1.0,
-        "nii": 0.58,
-        "retail": 0.65,
-        "employee": 1.89,
-        "total": 0.74
+        "nii": 0.73,
+        "retail": 0.77,
+        "employee": 2.12,
+        "total": 0.83
       }
     ],
     "analysis": {
@@ -103,16 +110,16 @@
       "is_fresh_heavy": true
     },
     "gmp": {
-      "gmp": 205.0,
-      "prev": 0.0,
-      "delta": 205.0,
-      "pct": 25.4,
-      "est_listing": 1012.0,
-      "gain_per_lot": 3690,
-      "movement": "stable",
+      "gmp": 135.0,
+      "prev": 205.0,
+      "delta": -70.0,
+      "pct": 16.73,
+      "est_listing": 942.0,
+      "gain_per_lot": 2430,
+      "movement": "drop",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-07",
+      "updated": "2026-08-10",
       "series": [
         {
           "date": "2026-08-07",
@@ -121,21 +128,29 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-10",
+          "gmp": 135.0,
+          "pct": 16.73,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
         }
       ],
       "peak": 205.0,
-      "trough": 205.0,
-      "days_tracked": 1
+      "trough": 135.0,
+      "days_tracked": 2
     },
     "subscription": {
       "has_data": true,
       "day": 1,
       "qib": 1.0,
-      "nii": 0.58,
-      "retail": 0.65,
-      "employee": 1.89,
-      "total": 0.74,
-      "max_category": 1.89,
+      "nii": 0.73,
+      "retail": 0.77,
+      "employee": 2.12,
+      "total": 0.83,
+      "max_category": 2.12,
       "sentiment": "weak",
       "leader": "qib",
       "days": [
@@ -143,10 +158,10 @@
           "day": 1,
           "date": "2026-08-10",
           "qib": 1.0,
-          "nii": 0.58,
-          "retail": 0.65,
-          "employee": 1.89,
-          "total": 0.74
+          "nii": 0.73,
+          "retail": 0.77,
+          "employee": 2.12,
+          "total": 0.83
         }
       ]
     },
@@ -171,6 +186,56 @@
       "high": 0.0,
       "low_pct": -100.0,
       "high_pct": -100.0
+    },
+    "score": {
+      "value": 5.2,
+      "components": [
+        {
+          "key": "grey",
+          "weight": 25,
+          "has_data": true,
+          "mark": 6.8,
+          "detail": "GMP is 16.73% of the ₹807 band"
+        },
+        {
+          "key": "demand",
+          "weight": 20,
+          "has_data": true,
+          "mark": 3.3,
+          "detail": "0.83x overall on day 1"
+        },
+        {
+          "key": "fundamentals",
+          "weight": 30,
+          "has_data": false,
+          "mark": null,
+          "detail": "no financials entered"
+        },
+        {
+          "key": "valuation",
+          "weight": 15,
+          "has_data": false,
+          "mark": null,
+          "detail": "no EPS / peer P/E"
+        },
+        {
+          "key": "structure",
+          "weight": 10,
+          "has_data": false,
+          "mark": null,
+          "detail": "fresh/OFS split not disclosed"
+        }
+      ],
+      "covered_pct": 45,
+      "has_data": true,
+      "missing": [
+        "fundamentals",
+        "valuation",
+        "structure"
+      ],
+      "manual": 0.0,
+      "source": "auto",
+      "effective": 5.2
     }
   }
 }

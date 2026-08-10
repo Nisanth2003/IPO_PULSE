@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T15:40:30",
+  "generated_at": "2026-08-10T23:07:15",
   "ipo": {
     "slug": "milky-mist-dairy-food",
     "company": "Milky Mist Dairy Food Limited",
@@ -52,6 +52,13 @@
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
+      },
+      {
+        "date": "2026-08-10",
+        "gmp": 23.5,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
       }
     ],
     "subscription": [],
@@ -93,16 +100,16 @@
       "is_fresh_heavy": true
     },
     "gmp": {
-      "gmp": 27.0,
-      "prev": 0.0,
-      "delta": 27.0,
-      "pct": 19.29,
-      "est_listing": 167.0,
-      "gain_per_lot": 2889,
-      "movement": "stable",
+      "gmp": 23.5,
+      "prev": 27.0,
+      "delta": -3.5,
+      "pct": 16.79,
+      "est_listing": 163.5,
+      "gain_per_lot": 2514,
+      "movement": "drop",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-07",
+      "updated": "2026-08-10",
       "series": [
         {
           "date": "2026-08-07",
@@ -111,11 +118,19 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-10",
+          "gmp": 23.5,
+          "pct": 16.79,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
         }
       ],
       "peak": 27.0,
-      "trough": 27.0,
-      "days_tracked": 1
+      "trough": 23.5,
+      "days_tracked": 2
     },
     "subscription": {
       "has_data": false,
@@ -142,6 +157,57 @@
       "high": 0.0,
       "low_pct": -100.0,
       "high_pct": -100.0
+    },
+    "score": {
+      "value": 6.9,
+      "components": [
+        {
+          "key": "grey",
+          "weight": 25,
+          "has_data": true,
+          "mark": 6.9,
+          "detail": "GMP is 16.79% of the ₹140 band"
+        },
+        {
+          "key": "demand",
+          "weight": 20,
+          "has_data": false,
+          "mark": null,
+          "detail": "issue has not opened / no subscription read"
+        },
+        {
+          "key": "fundamentals",
+          "weight": 30,
+          "has_data": false,
+          "mark": null,
+          "detail": "no financials entered"
+        },
+        {
+          "key": "valuation",
+          "weight": 15,
+          "has_data": false,
+          "mark": null,
+          "detail": "no EPS / peer P/E"
+        },
+        {
+          "key": "structure",
+          "weight": 10,
+          "has_data": false,
+          "mark": null,
+          "detail": "fresh/OFS split not disclosed"
+        }
+      ],
+      "covered_pct": 25,
+      "has_data": false,
+      "missing": [
+        "demand",
+        "fundamentals",
+        "valuation",
+        "structure"
+      ],
+      "manual": 0.0,
+      "source": "auto",
+      "effective": 6.9
     }
   }
 }

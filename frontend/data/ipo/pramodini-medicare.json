@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T15:40:30",
+  "generated_at": "2026-08-10T23:07:15",
   "ipo": {
     "slug": "pramodini-medicare",
     "company": "Pramodini Medicare Limited",
@@ -45,7 +45,15 @@
       "eps": 0.0,
       "pe_peer_avg": 0.0
     },
-    "gmp_history": [],
+    "gmp_history": [
+      {
+        "date": "2026-08-10",
+        "gmp": 0.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
+      }
+    ],
     "subscription": [],
     "analysis": {
       "overview": [],
@@ -94,11 +102,20 @@
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": null,
-      "series": [],
+      "updated": "2026-08-10",
+      "series": [
+        {
+          "date": "2026-08-10",
+          "gmp": 0.0,
+          "pct": 0.0,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
+        }
+      ],
       "peak": 0.0,
       "trough": 0.0,
-      "days_tracked": 0
+      "days_tracked": 1
     },
     "subscription": {
       "has_data": false,
@@ -125,6 +142,57 @@
       "high": 0.0,
       "low_pct": -100.0,
       "high_pct": -100.0
+    },
+    "score": {
+      "value": 2.0,
+      "components": [
+        {
+          "key": "grey",
+          "weight": 25,
+          "has_data": true,
+          "mark": 2.0,
+          "detail": "GMP is 0.0% of the ₹118 band"
+        },
+        {
+          "key": "demand",
+          "weight": 20,
+          "has_data": false,
+          "mark": null,
+          "detail": "issue has not opened / no subscription read"
+        },
+        {
+          "key": "fundamentals",
+          "weight": 30,
+          "has_data": false,
+          "mark": null,
+          "detail": "no financials entered"
+        },
+        {
+          "key": "valuation",
+          "weight": 15,
+          "has_data": false,
+          "mark": null,
+          "detail": "no EPS / peer P/E"
+        },
+        {
+          "key": "structure",
+          "weight": 10,
+          "has_data": false,
+          "mark": null,
+          "detail": "fresh/OFS split not disclosed"
+        }
+      ],
+      "covered_pct": 25,
+      "has_data": false,
+      "missing": [
+        "demand",
+        "fundamentals",
+        "valuation",
+        "structure"
+      ],
+      "manual": 0.0,
+      "source": "auto",
+      "effective": 2.0
     }
   }
 }

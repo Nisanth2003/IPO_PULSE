@@ -69,6 +69,13 @@ JOBS: dict[str, dict[str, Any]] = {
         "argv": ["translate"],
         "schedule": "Sun 03:00 IST",
     },
+    "doctor": {
+        "label": "Check & repair",
+        "detail": "Lists what is missing and which scene it blanks; repairs "
+                  "what is derivable (T+3 dates, issue total, registrar URL).",
+        "argv": ["doctor", "--fix"],
+        "schedule": "part of daily",
+    },
     "build": {
         "label": "Build site JSON",
         "detail": "Recompute and publish frontend/data/. No network, no key.",
@@ -95,7 +102,7 @@ JOBS: dict[str, dict[str, Any]] = {
     },
     "daily": {
         "label": "Daily chain",
-        "detail": "sync → build → push. The scheduled one; run this if you run one.",
+        "detail": "sync → doctor → build → push. The scheduled one; run this if you run one.",
         "argv": None,                       # composite; see CHAINS
         "schedule": "13:00 & 16:30 Mon-Fri, 18:00 daily",
     },
@@ -111,8 +118,12 @@ JOBS: dict[str, dict[str, Any]] = {
 # timed 15 minutes after a sync is a race, because a slow NSE day makes the
 # sheet publish yesterday's numbers. Inside a chain, step N+1 cannot start
 # until step N has exited 0.
+# `doctor` sits between sync and build so the T+3 calendar and the registrar
+# URL are filled from whatever NSE just supplied, before the JSON is written.
+# It never exits non-zero without --strict, so it cannot break the chain — a
+# repair step that could stop a publish would be worse than the gaps it fixes.
 CHAINS = {
-    "daily": ["sync", "build", "push"],
+    "daily": ["sync", "doctor", "build", "push"],
     "grey": ["gmp", "push-gmp"],
 }
 

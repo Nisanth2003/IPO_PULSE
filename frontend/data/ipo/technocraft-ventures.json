@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T15:40:30",
+  "generated_at": "2026-08-10T23:07:15",
   "ipo": {
     "slug": "technocraft-ventures",
     "company": "Technocraft Ventures Limited",
@@ -52,17 +52,24 @@
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
+      },
+      {
+        "date": "2026-08-10",
+        "gmp": 27.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
       }
     ],
     "subscription": [
       {
         "day": 4,
         "date": "2026-08-10",
-        "qib": 4.48,
-        "nii": 5.63,
-        "retail": 3.54,
+        "qib": 4.5,
+        "nii": 6.47,
+        "retail": 4.12,
         "employee": 0.0,
-        "total": 4.26
+        "total": 4.73
       }
     ],
     "analysis": {
@@ -103,16 +110,16 @@
       "is_fresh_heavy": true
     },
     "gmp": {
-      "gmp": 17.0,
-      "prev": 0.0,
-      "delta": 17.0,
-      "pct": 8.02,
-      "est_listing": 229.0,
-      "gain_per_lot": 1190,
-      "movement": "stable",
+      "gmp": 27.0,
+      "prev": 17.0,
+      "delta": 10.0,
+      "pct": 12.74,
+      "est_listing": 239.0,
+      "gain_per_lot": 1890,
+      "movement": "surge",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-07",
+      "updated": "2026-08-10",
       "series": [
         {
           "date": "2026-08-07",
@@ -121,32 +128,40 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-10",
+          "gmp": 27.0,
+          "pct": 12.74,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
         }
       ],
-      "peak": 17.0,
+      "peak": 27.0,
       "trough": 17.0,
-      "days_tracked": 1
+      "days_tracked": 2
     },
     "subscription": {
       "has_data": true,
       "day": 4,
-      "qib": 4.48,
-      "nii": 5.63,
-      "retail": 3.54,
+      "qib": 4.5,
+      "nii": 6.47,
+      "retail": 4.12,
       "employee": 0.0,
-      "total": 4.26,
-      "max_category": 5.63,
+      "total": 4.73,
+      "max_category": 6.47,
       "sentiment": "good",
       "leader": "nii",
       "days": [
         {
           "day": 4,
           "date": "2026-08-10",
-          "qib": 4.48,
-          "nii": 5.63,
-          "retail": 3.54,
+          "qib": 4.5,
+          "nii": 6.47,
+          "retail": 4.12,
           "employee": 0.0,
-          "total": 4.26
+          "total": 4.73
         }
       ]
     },
@@ -171,6 +186,56 @@
       "high": 0.0,
       "low_pct": -100.0,
       "high_pct": -100.0
+    },
+    "score": {
+      "value": 6.2,
+      "components": [
+        {
+          "key": "grey",
+          "weight": 25,
+          "has_data": true,
+          "mark": 6.0,
+          "detail": "GMP is 12.74% of the ₹212 band"
+        },
+        {
+          "key": "demand",
+          "weight": 20,
+          "has_data": true,
+          "mark": 6.4,
+          "detail": "4.73x overall on day 4"
+        },
+        {
+          "key": "fundamentals",
+          "weight": 30,
+          "has_data": false,
+          "mark": null,
+          "detail": "no financials entered"
+        },
+        {
+          "key": "valuation",
+          "weight": 15,
+          "has_data": false,
+          "mark": null,
+          "detail": "no EPS / peer P/E"
+        },
+        {
+          "key": "structure",
+          "weight": 10,
+          "has_data": false,
+          "mark": null,
+          "detail": "fresh/OFS split not disclosed"
+        }
+      ],
+      "covered_pct": 45,
+      "has_data": true,
+      "missing": [
+        "fundamentals",
+        "valuation",
+        "structure"
+      ],
+      "manual": 0.0,
+      "source": "auto",
+      "effective": 6.2
     }
   }
 }

@@ -229,9 +229,74 @@ function deriveInitials(ipo) {
   return (words.slice(0, 2).map((w) => w[0]).join('') || 'IP').toUpperCase();
 }
 
+// ── score ──────────────────────────────────────────────────────────────────
+// Mirror of compute.py's score_metrics — keep the weights and the bands in
+// step with it, or the studio will preview a number the published JSON does
+// not agree with.
+const SCORE_WEIGHTS = { grey: 25, demand: 20, fundamentals: 30, valuation: 15, structure: 10 };
+const HONEST_FLOOR = 40;
+const GREY_BAND   = [[-10, 0], [0, 2], [5, 4], [10, 5.5], [20, 7.5], [30, 9], [50, 10]];
+const DEMAND_BAND = [[0, 0], [0.5, 2], [1, 4], [3, 6], [10, 7.5], [30, 9], [50, 10]];
+const VALUE_BAND  = [[-50, 10], [-30, 9], [0, 6], [30, 3.5], [100, 1], [200, 0]];
+
+function curve(x, pts) {
+  if (x <= pts[0][0]) return pts[0][1];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+    if (x <= x1) { const span = x1 - x0; return y0 + (y1 - y0) * (span ? (x - x0) / span : 0); }
+  }
+  return pts[pts.length - 1][1];
+}
+
+function scoreMetrics(ipo, d) {
+  const { gmp, subscription: sub, financials: fin, issue: iss } = d;
+  const parts = [];
+  const add = (key, has, mark, detail) => parts.push({
+    key, weight: SCORE_WEIGHTS[key], has_data: !!has,
+    mark: has ? round(Math.max(0, Math.min(10, mark)), 1) : null, detail,
+  });
+
+  const band = num(ipo.issue?.price_high);
+  const hasGrey = !!(ipo.gmp_history || []).length && band > 0;
+  add('grey', hasGrey, curve(gmp.pct, GREY_BAND),
+      hasGrey ? `GMP is ${gmp.pct}% of the ₹${band} band` : 'no GMP logged yet');
+
+  add('demand', sub.has_data, curve(sub.total || 0, DEMAND_BAND),
+      sub.has_data ? `${sub.total}x overall on day ${sub.day}`
+                   : 'issue has not opened / no subscription read');
+
+  const hasFun = fin.has_data && fin.score_total > 0;
+  add('fundamentals', hasFun, 10 * (fin.score_good || 0) / (fin.score_total || 1),
+      hasFun ? `${fin.score_good} of ${fin.score_total} benchmarks met`
+             : 'no financials entered');
+
+  const hasVal = fin.has_data && fin.pe > 0 && fin.pe_peer_avg > 0;
+  add('valuation', hasVal, curve(fin.pe_premium_pct || 0, VALUE_BAND),
+      hasVal ? `P/E ${fin.pe} vs peers ${fin.pe_peer_avg} (${fin.pe_premium_pct > 0 ? '+' : ''}${fin.pe_premium_pct}%)`
+             : 'no EPS / peer P/E');
+
+  add('structure', iss.has_split, 2 + (iss.fresh_pct || 0) / 100 * 8,
+      iss.has_split ? `${iss.fresh_pct}% fresh issue` : 'fresh/OFS split not disclosed');
+
+  const covered = parts.filter((p) => p.has_data).reduce((a, p) => a + p.weight, 0);
+  const totalW = Object.values(SCORE_WEIGHTS).reduce((a, b) => a + b, 0);
+  const earned = parts.filter((p) => p.has_data).reduce((a, p) => a + p.weight * p.mark, 0);
+  const value = covered ? round(earned / covered, 1) : 0;
+  const coveredPct = Math.round(covered / totalW * 100);
+  const manual = num(ipo.analysis?.score);
+
+  return {
+    value, components: parts, covered_pct: coveredPct,
+    has_data: coveredPct >= HONEST_FLOOR,
+    missing: parts.filter((p) => !p.has_data).map((p) => p.key),
+    manual, source: manual > 0 ? 'manual' : 'auto',
+    effective: manual > 0 ? manual : value,
+  };
+}
+
 /** The full derived block — same keys the backend publishes. */
 function derive(ipo, now = new Date()) {
-  return {
+  const out = {
     initials: deriveInitials(ipo),
     issue: issueMetrics(ipo),
     gmp: gmpMetrics(ipo),
@@ -240,4 +305,6 @@ function derive(ipo, now = new Date()) {
     dates: dateMetrics(ipo, now),
     listing: listingMetrics(ipo),
   };
+  out.score = scoreMetrics(ipo, out);
+  return out;
 }

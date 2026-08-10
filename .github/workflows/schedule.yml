@@ -51,6 +51,29 @@ jobs:
 
       - run: pip install -r backend/requirements.txt
 
+      # Secrets never touch the repo. The service-account key is one secret
+      # holding the whole JSON; write it out, point the CLI at it, delete it.
+      # Passed through env rather than interpolated into the script: the JSON
+      # contains quotes and braces, and `${{ }}` inside a shell string would
+      # end the quoting at the first one.
+      #
+      # Runs BEFORE `pick`, because whether the key exists decides which jobs
+      # are worth running at all.
+      - name: Write service-account key
+        id: key
+        shell: bash
+        env:
+          SA_JSON: ${{ secrets.GOOGLE_SHEETS_KEY_JSON }}
+        run: |
+          if [ -z "$SA_JSON" ]; then
+            echo "No GOOGLE_SHEETS_KEY_JSON secret — push jobs will be skipped."
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_SHEETS_KEY=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+          echo "has_key=true" >> "$GITHUB_OUTPUT"
+
       # Which job? A dispatch says so explicitly; a cron is identified by the
       # schedule string that fired it.
       - id: pick
@@ -63,24 +86,24 @@ jobs:
             '')             JOBS='${{ inputs.jobs }}' ;;   # manual dispatch
             *)              JOBS=daily ;;                  # the three data pulls
           esac
-          echo "jobs=${JOBS:-daily}" >> "$GITHUB_OUTPUT"
-          echo "Running: ${JOBS:-daily}"
+          JOBS="${JOBS:-daily}"
 
-      # Secrets never touch the repo. The service-account key is one secret
-      # holding the whole JSON; write it out, point the CLI at it, delete it.
-      # Passed through env rather than interpolated into the script: the JSON
-      # contains quotes and braces, and `${{ }}` inside a shell string would
-      # end the quoting at the first one.
-      - name: Write service-account key
-        env:
-          SA_JSON: ${{ secrets.GOOGLE_SHEETS_KEY_JSON }}
-        run: |
-          if [ -z "$SA_JSON" ]; then
-            echo "No GOOGLE_SHEETS_KEY_JSON secret — push jobs will be skipped."
-            exit 0
+          # Without a Sheets key `push` exits 1, and a failed step stops the
+          # rest of its chain. That is right for `daily` (never publish a sheet
+          # behind a failed sync) but it made the *whole run* fail on a step
+          # that was never going to work, so a good GMP read was thrown away
+          # because a spreadsheet could not be written. Drop the push steps
+          # instead of running them into a certain failure.
+          if [ "${{ steps.key.outputs.has_key }}" != 'true' ]; then
+            JOBS="${JOBS//daily/sync doctor build}"
+            JOBS="${JOBS//grey/gmp}"
+            JOBS="$(printf '%s' "$JOBS" | tr ' ' '\n' \
+                    | grep -vx -e push -e push-gmp -e '' | tr '\n' ' ' || true)"
+            JOBS="${JOBS:-build}"
+            echo "::notice::No Sheets key — running '$JOBS' without the push step(s)."
           fi
-          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
-          echo "GOOGLE_SHEETS_KEY=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+          echo "jobs=$JOBS" >> "$GITHUB_OUTPUT"
+          echo "Running: $JOBS"
 
       - name: Run
         working-directory: backend
@@ -96,7 +119,13 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/sa.json"
 
+      # `always()`, and this is the important part: the jobs write to disk as
+      # they go, so by the time a later step fails the earlier ones have
+      # already produced real data. Without this, one failing push discarded a
+      # whole run's GMP — the site sat on stale numbers for days while the
+      # refresh "ran" every night and succeeded at reading them.
       - name: Commit refreshed data
+        if: always()
         run: |
           git config user.name  'ipopulse-bot'
           git config user.email 'ipopulse-bot@users.noreply.github.com'

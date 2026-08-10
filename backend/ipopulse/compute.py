@@ -34,6 +34,23 @@ def _safe(seq: list[float], i: int) -> float:
         return 0.0
 
 
+def _curve(x: float, points: list[tuple[float, float]]) -> float:
+    """Piecewise-linear lookup over ascending (x, y) anchors.
+
+    Used for the score bands. A formula would be shorter, but anchors are the
+    thing worth arguing about — "10x subscribed is a 7.5" is a judgement you
+    can see and change, where a tuned logarithm hides the same judgement
+    inside a constant.
+    """
+    if x <= points[0][0]:
+        return points[0][1]
+    for (x0, y0), (x1, y1) in zip(points, points[1:]):
+        if x <= x1:
+            span = x1 - x0
+            return y0 + (y1 - y0) * ((x - x0) / span if span else 0.0)
+    return points[-1][1]
+
+
 # ── benchmarks ─────────────────────────────────────────────────────────────
 # A number on its own means nothing to a retail viewer: is a 15% EBITDA margin
 # good? These give every headline metric a reference line so the card can say
@@ -327,11 +344,107 @@ def listing_metrics(ipo: Ipo) -> dict[str, Any]:
     }
 
 
+# ── score ──────────────────────────────────────────────────────────────────
+# Five inputs, each marked out of 10, then weighted. A component only counts
+# when the data behind it exists, and the total is rescaled by the weight that
+# actually applied — so a brand-new IPO with nothing but a GMP is scored *on
+# its GMP*, and says so, rather than being marked down to near-zero for the
+# four things nobody has typed in yet. That was the old behaviour: the score
+# was a hand-moved slider defaulting to 0.0, so every IPO published a
+# confident "0.0/10" that meant "no one has judged this", and read as "this is
+# a terrible IPO".
+#
+# `covered_pct` is the honesty valve. Below HONEST_FLOOR the number is not
+# worth showing as a verdict, and `has_data` goes False.
+
+SCORE_WEIGHTS = {
+    "grey":         25,   # what the grey market will pay over the band
+    "demand":       20,   # how many times the book is covered
+    "fundamentals": 30,   # the benchmark marks — margins, growth, RoNW, D/E
+    "valuation":    15,   # P/E against this issue's own peer set
+    "structure":    10,   # fresh money into the company vs a promoter exit
+}
+HONEST_FLOOR = 40.0       # % of weight that must have data to call it a score
+
+# (input value -> mark out of 10). Read these as the editorial line.
+GREY_BAND    = [(-10.0, 0.0), (0.0, 2.0), (5.0, 4.0), (10.0, 5.5),
+                (20.0, 7.5), (30.0, 9.0), (50.0, 10.0)]
+DEMAND_BAND  = [(0.0, 0.0), (0.5, 2.0), (1.0, 4.0), (3.0, 6.0),
+                (10.0, 7.5), (30.0, 9.0), (50.0, 10.0)]
+VALUE_BAND   = [(-50.0, 10.0), (-30.0, 9.0), (0.0, 6.0), (30.0, 3.5),
+                (100.0, 1.0), (200.0, 0.0)]      # x = P/E premium to peers, %
+
+
+def score_metrics(ipo: Ipo, d: dict[str, Any]) -> dict[str, Any]:
+    """A 0-10 score built only from figures already derived above.
+
+    Returns the mark, and the full breakdown that produced it, so a scene can
+    show *why* rather than asking anyone to trust a number.
+    """
+    gmp, sub, fin, iss = d["gmp"], d["subscription"], d["financials"], d["issue"]
+    parts: list[dict[str, Any]] = []
+
+    def add(key: str, has: bool, mark: float, detail: str) -> None:
+        parts.append({
+            "key": key,
+            "weight": SCORE_WEIGHTS[key],
+            "has_data": bool(has),
+            "mark": round(max(0.0, min(10.0, mark)), 1) if has else None,
+            "detail": detail,
+        })
+
+    has_grey = bool(ipo.gmp_history) and ipo.issue.price_high > 0
+    add("grey", has_grey, _curve(gmp["pct"], GREY_BAND),
+        f"GMP is {gmp['pct']}% of the ₹{ipo.issue.price_high:g} band"
+        if has_grey else "no GMP logged yet")
+
+    has_demand = bool(sub.get("has_data"))
+    add("demand", has_demand, _curve(sub.get("total") or 0.0, DEMAND_BAND),
+        f"{sub.get('total')}x overall on day {sub.get('day')}"
+        if has_demand else "issue has not opened / no subscription read")
+
+    has_fun = bool(fin.get("has_data")) and fin.get("score_total", 0) > 0
+    add("fundamentals", has_fun,
+        10.0 * fin.get("score_good", 0) / (fin.get("score_total") or 1),
+        f"{fin.get('score_good')} of {fin.get('score_total')} benchmarks met"
+        if has_fun else "no financials entered")
+
+    has_val = bool(fin.get("has_data")) and fin.get("pe", 0) > 0 and fin.get("pe_peer_avg", 0) > 0
+    add("valuation", has_val, _curve(fin.get("pe_premium_pct") or 0.0, VALUE_BAND),
+        f"P/E {fin.get('pe')} vs peers {fin.get('pe_peer_avg')} "
+        f"({fin.get('pe_premium_pct'):+g}%)" if has_val else "no EPS / peer P/E")
+
+    has_struct = bool(iss.get("has_split"))
+    add("structure", has_struct, 2.0 + (iss.get("fresh_pct") or 0.0) / 100.0 * 8.0,
+        f"{iss.get('fresh_pct')}% fresh issue" if has_struct
+        else "fresh/OFS split not disclosed")
+
+    covered = sum(p["weight"] for p in parts if p["has_data"])
+    total_w = sum(SCORE_WEIGHTS.values())
+    earned = sum(p["weight"] * p["mark"] for p in parts if p["has_data"])
+    value = round(earned / covered, 1) if covered else 0.0
+    covered_pct = round(covered / total_w * 100)
+
+    # A hand-set score in the YAML always wins — the slider is the editor's
+    # override, and an editor who has read the DRHP knows more than this does.
+    manual = float(ipo.analysis.score or 0.0)
+    return {
+        "value": value,
+        "components": parts,
+        "covered_pct": covered_pct,
+        "has_data": covered_pct >= HONEST_FLOOR,
+        "missing": [p["key"] for p in parts if not p["has_data"]],
+        "manual": manual,
+        "source": "manual" if manual > 0 else "auto",
+        "effective": manual if manual > 0 else value,
+    }
+
+
 # ── everything, in one bag ─────────────────────────────────────────────────
 
 def derive(ipo: Ipo, now: datetime | None = None) -> dict[str, Any]:
     """The full derived block the frontend and the Excel report both consume."""
-    return {
+    out = {
         "initials": ipo.display_initials,
         "issue": issue_metrics(ipo),
         "gmp": gmp_metrics(ipo),
@@ -340,3 +453,7 @@ def derive(ipo: Ipo, now: datetime | None = None) -> dict[str, Any]:
         "dates": date_metrics(ipo, now),
         "listing": listing_metrics(ipo),
     }
+    # Last, and it takes `out`: the score is a weighting of the blocks above,
+    # never a fresh reading of the IPO.
+    out["score"] = score_metrics(ipo, out)
+    return out

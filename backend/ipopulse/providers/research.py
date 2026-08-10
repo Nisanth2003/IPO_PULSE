@@ -102,12 +102,14 @@ class ResearchProvider:
             out["sector"] = raw["sector"]
 
         issue = {k: raw[k] for k in
-                 ("fresh_cr", "ofs_cr", "price_low", "price_high", "lot_size", "registrar")
+                 ("fresh_cr", "ofs_cr", "price_low", "price_high", "lot_size",
+                  "shares_post_issue_cr", "registrar")
                  if raw.get(k) is not None}
         if issue:
             out["issue"] = issue
 
-        dates = {k: raw[k] for k in ("open", "close", "allotment", "listing")
+        dates = {k: raw[k] for k in
+                 ("announced", "open", "close", "allotment", "listing")
                  if raw.get(k)}
         if dates:
             out["dates"] = dates
@@ -116,6 +118,64 @@ class ResearchProvider:
             "confidence": raw.get("confidence", "low"),
             "note": raw.get("note", ""),
             "sources": raw.get("sources", []),
+        }
+        return out
+
+    def fetch_financials(self, slug: str, company: str | None = None,
+                         ipo: Any = None) -> dict[str, Any]:
+        """The FY table, vetted for shape before it is offered.
+
+        A financials block that is the wrong *length* is more dangerous than
+        one that is absent: compute.py zips years against values by index, so
+        a short array silently slides FY25's revenue into FY24's row and every
+        CAGR, margin and benchmark downstream is then computed from a table
+        nobody typed. Length is checked here, once, rather than trusted.
+        """
+        name = company or slug.replace("-", " ")
+        years = list(getattr(getattr(ipo, "financials", None), "years", None)
+                     or ["FY23", "FY24", "FY25"])
+        raw = self.ai.research_financials(name, years=years,
+                                          urls=self.urls_for("issue", ipo))
+
+        n = len(years)
+        series: dict[str, list[float]] = {}
+        problems: list[str] = []
+        for key in ("revenue", "ebitda", "pat", "net_worth", "total_debt"):
+            vals = raw.get(key) or []
+            if not vals:
+                continue
+            if len(vals) != n:
+                problems.append(f"{key}: {len(vals)} values for {n} years")
+                continue
+            if any(v is None for v in vals):
+                problems.append(f"{key}: has a null year")
+                continue
+            try:
+                series[key] = [float(v) for v in vals]
+            except (TypeError, ValueError):
+                problems.append(f"{key}: non-numeric value")
+
+        out: dict[str, Any] = {"years": years, **series}
+        for key in ("eps", "pe_peer_avg"):
+            if raw.get(key) is not None:
+                try:
+                    out[key] = float(raw[key])
+                except (TypeError, ValueError):
+                    problems.append(f"{key}: non-numeric")
+
+        confidence = raw.get("confidence", "low")
+        # Financials feed 45% of the score's weight. Anything less than a
+        # clean, full-length, high-confidence read gets a human's eyes first.
+        needs_review = bool(problems) or confidence != "high" or not series
+        out["_meta"] = {
+            "confidence": confidence,
+            "note": raw.get("note", ""),
+            "sources": raw.get("sources", []),
+            "problems": problems,
+            "needs_review": needs_review,
+            "review_reason": "; ".join(problems) if problems else
+                             ("nothing found" if not series
+                              else f"confidence {confidence}"),
         }
         return out
 

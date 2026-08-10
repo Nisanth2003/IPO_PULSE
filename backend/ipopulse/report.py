@@ -34,6 +34,7 @@ FILL_HEAD = PatternFill("solid", fgColor=INK)
 FILL_SUB = PatternFill("solid", fgColor="1E293B")
 FILL_GREEN = PatternFill("solid", fgColor="DCFCE7")
 FILL_RED = PatternFill("solid", fgColor="FEE2E2")
+FILL_AMBER = PatternFill("solid", fgColor="FEF3C7")   # missing, but not blanking a scene
 FILL_ALT = PatternFill("solid", fgColor="F8FAFC")
 
 THIN = Side(style="thin", color="E2E8F0")
@@ -119,7 +120,13 @@ def _sheet_summary(wb: Workbook, ipo: Ipo, d: dict) -> None:
         r = _kv(ws, r, "  NII / HNI", s["nii"], MULT)
         r = _kv(ws, r, "  Retail", s["retail"], MULT)
     r += 1
-    r = _kv(ws, r, "IPO Pulse score", ipo.analysis.score)
+    sc = d["score"]
+    r = _kv(ws, r, "IPO Pulse score", sc["effective"])
+    r = _kv(ws, r, "  basis", f"{sc['source']}, scored on {sc['covered_pct']}% of the inputs")
+    for part in sc["components"]:
+        if part["has_data"]:
+            r = _kv(ws, r, f"  {part['key']} ({part['weight']}%)",
+                    f"{part['mark']}/10 — {part['detail']}")
     r = _kv(ws, r, "Verdict", ipo.analysis.verdict_text or ipo.analysis.verdict)
 
     ws.cell(row=r + 1, column=1,
@@ -275,7 +282,7 @@ def _sheet_analysis(wb: Workbook, ipo: Ipo, d: dict) -> None:
     r += 1
     for label, value in [
         ("Growth", a.growth), ("Valuation", a.valuation), ("Key risk", a.risk),
-        ("Score (0-10)", a.score),
+        ("Score (0-10)", d["score"]["effective"]),
         ("Verdict", a.verdict_text or a.verdict),
         ("Retail", a.reco_retail), ("HNI / NII", a.reco_hni), ("Long term", a.reco_long),
     ]:
@@ -322,49 +329,49 @@ def _sheet_gaps(wb: Workbook, ipos: list[Ipo]) -> None:
     worse than a blank, so this sheet exists to make the holes findable
     before a scene is recorded rather than after.
     """
+    from .doctor import CHECKS, FILLERS, gmp_gaps
+
     ws = wb.create_sheet("Data gaps", 1)
     _title(ws, "Missing data — fill these before recording", span=9)
 
-    # field label -> (getter, who fills it)
-    checks: list[tuple[str, Any, str]] = [
-        ("Price band",    lambda i: i.issue.price_high, "NSE"),
-        ("Lot size",      lambda i: i.issue.lot_size, "NSE"),
-        ("Issue size",    lambda i: i.issue.fresh_cr + i.issue.ofs_cr or i.issue.total_cr, "NSE"),
-        ("Fresh/OFS split", lambda i: i.issue.fresh_cr + i.issue.ofs_cr, "you — RHP"),
-        ("Open / close",  lambda i: 1 if i.dates.close else 0, "NSE"),
-        ("Listing date",  lambda i: 1 if i.dates.listing else 0, "derived T+3"),
-        ("Announced",     lambda i: 1 if i.dates.announced else 0, "you"),
-        ("GMP",           lambda i: len(i.gmp_history), "research"),
-        ("Subscription",  lambda i: len(i.subscription), "NSE"),
-        ("Revenue",       lambda i: len(i.financials.revenue), "you — RHP"),
-        ("EBITDA",        lambda i: len(i.financials.ebitda), "you — RHP"),
-        ("PAT",           lambda i: len(i.financials.pat), "you — RHP"),
-        ("EPS",           lambda i: i.financials.eps, "you — RHP"),
-        ("Peer P/E",      lambda i: i.financials.pe_peer_avg, "you"),
-        ("Sector",        lambda i: 1 if i.sector else 0, "you"),
-        ("Analysis prose", lambda i: len(i.analysis.overview), "analyse"),
-    ]
-
-    _header_row(ws, 3, ["Field", "Filled by"] + [(i.company or i.slug)[:22] for i in ipos])
-    for r, (label, getter, who) in enumerate(checks, start=4):
+    # Same list `ipopulse doctor` prints, so the sheet and the terminal can
+    # never disagree about what counts as missing.
+    _header_row(ws, 3, ["Field", "Breaks", "Filled by"]
+                + [(i.company or i.slug)[:22] for i in ipos])
+    for r, (label, getter, who, severity, breaks) in enumerate(CHECKS, start=4):
         ws.cell(row=r, column=1, value=label).border = BOX
-        ws.cell(row=r, column=2, value=who).border = BOX
-        for c, ipo in enumerate(ipos, start=3):
+        ws.cell(row=r, column=2, value=breaks).border = BOX
+        ws.cell(row=r, column=3, value=FILLERS[who]).border = BOX
+        for c, ipo in enumerate(ipos, start=4):
             try:
                 ok = bool(getter(ipo))
             except Exception:
                 ok = False
-            cell = ws.cell(row=r, column=c, value="ok" if ok else "MISSING")
+            cell = ws.cell(row=r, column=c,
+                           value="ok" if ok else ("MISSING" if severity == "blank" else "—"))
             cell.border = BOX
             cell.alignment = Alignment(horizontal="center")
-            cell.fill = FILL_GREEN if ok else FILL_RED
+            cell.fill = FILL_GREEN if ok else (FILL_RED if severity == "blank" else FILL_AMBER)
 
-    note = ws.cell(row=len(checks) + 5, column=1,
+    # A weekday with no reading makes reel 2's "daily" trail imply the premium
+    # held steady when in fact nobody looked.
+    gap_row = len(CHECKS) + 4
+    ws.cell(row=gap_row, column=1, value="GMP trail gaps").border = BOX
+    ws.cell(row=gap_row, column=2, value="reel 2 trail implies no movement").border = BOX
+    ws.cell(row=gap_row, column=3, value="ipopulse gmp <slug> <value> --date <day>").border = BOX
+    for c, ipo in enumerate(ipos, start=4):
+        gaps = gmp_gaps(ipo)
+        cell = ws.cell(row=gap_row, column=c, value="ok" if not gaps else f"{len(gaps)} day(s)")
+        cell.border = BOX
+        cell.alignment = Alignment(horizontal="center")
+        cell.fill = FILL_GREEN if not gaps else FILL_AMBER
+
+    note = ws.cell(row=len(CHECKS) + 6, column=1,
                    value="Financials are not published as data anywhere free — "
                          "they are in the RHP PDF. Type them into "
                          "backend/data/ipos/<slug>.yaml, then run: ipopulse build")
     note.alignment = Alignment(vertical="center")
-    ws.freeze_panes = "C4"
+    ws.freeze_panes = "D4"
     _autosize(ws)
 
 

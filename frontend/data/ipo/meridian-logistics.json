@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T15:40:30",
+  "generated_at": "2026-08-10T23:07:15",
   "ipo": {
     "slug": "meridian-logistics",
     "company": "Meridian Logistics Ltd",
@@ -10,7 +10,7 @@
     "issue": {
       "fresh_cr": 180.0,
       "ofs_cr": 540.0,
-      "total_cr": 0.0,
+      "total_cr": 720.0,
       "price_low": 271.0,
       "price_high": 285.0,
       "lot_size": 52,
@@ -445,6 +445,54 @@
       "high": 292.0,
       "low_pct": -3.5,
       "high_pct": 2.5
+    },
+    "score": {
+      "value": 2.4,
+      "components": [
+        {
+          "key": "grey",
+          "weight": 25,
+          "has_data": true,
+          "mark": 2.6,
+          "detail": "GMP is 1.4% of the ₹285 band"
+        },
+        {
+          "key": "demand",
+          "weight": 20,
+          "has_data": false,
+          "mark": null,
+          "detail": "issue has not opened / no subscription read"
+        },
+        {
+          "key": "fundamentals",
+          "weight": 30,
+          "has_data": true,
+          "mark": 1.4,
+          "detail": "1 of 7 benchmarks met"
+        },
+        {
+          "key": "valuation",
+          "weight": 15,
+          "has_data": true,
+          "mark": 3.2,
+          "detail": "P/E 42.5 vs peers 31.0 (+37.1%)"
+        },
+        {
+          "key": "structure",
+          "weight": 10,
+          "has_data": true,
+          "mark": 4.0,
+          "detail": "25.0% fresh issue"
+        }
+      ],
+      "covered_pct": 80,
+      "has_data": true,
+      "missing": [
+        "demand"
+      ],
+      "manual": 3.4,
+      "source": "manual",
+      "effective": 3.4
     }
   }
 }

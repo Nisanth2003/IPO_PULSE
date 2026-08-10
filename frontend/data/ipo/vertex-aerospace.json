@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T15:40:30",
+  "generated_at": "2026-08-10T23:07:15",
   "ipo": {
     "slug": "vertex-aerospace",
     "company": "Vertex Aerospace Ltd",
@@ -540,6 +540,52 @@
       "high": 180.0,
       "low_pct": 33.1,
       "high_pct": 45.2
+    },
+    "score": {
+      "value": 8.6,
+      "components": [
+        {
+          "key": "grey",
+          "weight": 25,
+          "has_data": true,
+          "mark": 9.4,
+          "detail": "GMP is 37.1% of the ₹124 band"
+        },
+        {
+          "key": "demand",
+          "weight": 20,
+          "has_data": true,
+          "mark": 7.8,
+          "detail": "14.63x overall on day 2"
+        },
+        {
+          "key": "fundamentals",
+          "weight": 30,
+          "has_data": true,
+          "mark": 8.6,
+          "detail": "6 of 7 benchmarks met"
+        },
+        {
+          "key": "valuation",
+          "weight": 15,
+          "has_data": true,
+          "mark": 9.1,
+          "detail": "P/E 23.8 vs peers 35.0 (-32%)"
+        },
+        {
+          "key": "structure",
+          "weight": 10,
+          "has_data": true,
+          "mark": 7.8,
+          "detail": "72.7% fresh issue"
+        }
+      ],
+      "covered_pct": 100,
+      "has_data": true,
+      "missing": [],
+      "manual": 7.8,
+      "source": "manual",
+      "effective": 7.8
     }
   }
 }

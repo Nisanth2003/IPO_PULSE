@@ -106,17 +106,17 @@ ${fin.pe ? `₹${iss.price_high} వద్ద ఇది ${fin.pe} రెట్�
 అతిపెద్ద రిస్క్ — ${L.risk}.`,
       ],
       5: [
-`Final verdict on ${ipo.company}. IPO Pulse score: ${Number(ipo.analysis.score).toFixed(1)} out of 10. ${this.verdictText}.
+`Final verdict on ${ipo.company}. IPO Pulse score: ${Number(d.score.effective).toFixed(1)} out of 10. ${this.verdictText}.
 Retail — ${this.t('r_' + ipo.analysis.reco_retail)}. HNI — ${this.t('r_' + ipo.analysis.reco_hni)}. Long term — ${this.t('r_' + ipo.analysis.reco_long)}.
 The issue closes ${dt(ipo.dates.close)} at ${ipo.dates.close_time}. Apply before the cut-off.
 This is not investment advice — do your own research.`,
 
-`${ipo.company} पर फाइनल फैसला। IPO पल्स स्कोर: 10 में से ${Number(ipo.analysis.score).toFixed(1)}। ${this.verdictText}।
+`${ipo.company} पर फाइनल फैसला। IPO पल्स स्कोर: 10 में से ${Number(d.score.effective).toFixed(1)}। ${this.verdictText}।
 रिटेल — ${this.t('r_' + ipo.analysis.reco_retail)}। HNI — ${this.t('r_' + ipo.analysis.reco_hni)}। लॉन्ग टर्म — ${this.t('r_' + ipo.analysis.reco_long)}।
 इश्यू ${dt(ipo.dates.close)} को ${ipo.dates.close_time} बजे बंद होगा। कट-ऑफ से पहले अप्लाई करें।
 यह निवेश सलाह नहीं है — खुद रिसर्च करें।`,
 
-`${ipo.company}పై తుది తీర్పు. IPO పల్స్ స్కోర్: 10కి ${Number(ipo.analysis.score).toFixed(1)}. ${this.verdictText}.
+`${ipo.company}పై తుది తీర్పు. IPO పల్స్ స్కోర్: 10కి ${Number(d.score.effective).toFixed(1)}. ${this.verdictText}.
 రిటైల్ — ${this.t('r_' + ipo.analysis.reco_retail)}. HNI — ${this.t('r_' + ipo.analysis.reco_hni)}. లాంగ్ టర్మ్ — ${this.t('r_' + ipo.analysis.reco_long)}.
 ఇష్యూ ${dt(ipo.dates.close)}న ${ipo.dates.close_time}కి ముగుస్తుంది. కట్-ఆఫ్‌కి ముందే అప్లై చేయండి.
 ఇది పెట్టుబడి సలహా కాదు — మీరే పరిశోధించండి.`,
@@ -226,7 +226,7 @@ Follow for the allotment alert.`,
     this.loc.overview.forEach((x, n) => push(`Overview ${n + 1}`, x));
     this.loc.green_flags.forEach((x, n) => push(`Green flag ${n + 1}`, x));
     this.loc.red_flags.forEach((x, n) => push(`Red flag ${n + 1}`, x));
-    push('Score', ipo.analysis.score); push('Verdict', this.verdictText);
+    push('Score', Number(d.score.effective).toFixed(1)); push('Verdict', this.verdictText);
     push('Retail', ipo.analysis.reco_retail); push('HNI', ipo.analysis.reco_hni);
     push('Long term', ipo.analysis.reco_long);
 

@@ -624,11 +624,65 @@ Return ONLY JSON:
   "fresh_cr": <number or null>, "ofs_cr": <number or null>,
   "price_low": <number or null>, "price_high": <number or null>,
   "lot_size": <number or null>,
+  "shares_post_issue_cr": <number or null>,
   "registrar": "<name or null>",
+  "announced": "YYYY-MM-DD or null",
   "open": "YYYY-MM-DD or null", "close": "YYYY-MM-DD or null",
   "allotment": "YYYY-MM-DD or null", "listing": "YYYY-MM-DD or null",
   "confidence": "high" | "medium" | "low",
-  "note": "<sources used, or what was missing>"}}"""
+  "note": "<sources used, or what was missing>"}}
+
+"announced" is the date the price band was made public (the RHP filing or
+band announcement), NOT the opening date. No exchange feed carries it, so it
+is null unless a page states it outright."""
+
+        text, sources = self._generate_grounded(prompt, urls)
+        data = _parse_json(text, default={})
+        data["sources"] = sources
+        return data
+
+    def research_financials(
+        self, company: str, *, years: list[str] | None = None,
+        urls: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """The three-year table out of the RHP, plus EPS and the peer P/E.
+
+        The one block nothing free publishes as data — it lives in a PDF
+        hundreds of pages long, which is why it stayed empty on every IPO and
+        blanked reel 4 entirely. Grounded search can read the summary pages
+        that reproduce it. Returned for review like everything else: these
+        numbers drive the fundamentals and valuation halves of the score, so a
+        wrong one is worse than a missing one.
+        """
+        if not self.available():
+            raise AiUnavailable("Gemini not configured; cannot research.")
+
+        span = years or ["FY23", "FY24", "FY25"]
+        target = ("\nRead these pages:\n" + "\n".join(urls)) if urls else ""
+        prompt = f"""Find the restated financials for the Indian IPO
+"{company}" as disclosed in its RHP / DRHP.{target}
+
+Return one value per financial year, oldest first, for exactly these years:
+{", ".join(span)}. All amounts in RUPEES CRORE.
+
+Rules that matter more than completeness:
+  * Use only figures stated on pages you actually retrieved.
+  * If a year is missing, put null in that position — do not interpolate,
+    do not shift the other years along, and do not substitute a nine-month
+    or half-year figure for a full year.
+  * If you cannot find the table at all, return every array empty. That is
+    a correct answer.
+  * "eps" is post-issue diluted EPS for the latest year, in rupees.
+  * "pe_peer_avg" is the average P/E of the listed peer group as printed in
+    the RHP's "Comparison with listed industry peers" section.
+
+Return ONLY JSON:
+{{"years": {json.dumps(span)},
+  "revenue": [<number or null>, ...],
+  "ebitda": [...], "pat": [...], "net_worth": [...], "total_debt": [...],
+  "eps": <number or null>, "pe_peer_avg": <number or null>,
+  "confidence": "high" | "medium" | "low",
+  "note": "<which document/section, or what was missing>"}}"""
 
         text, sources = self._generate_grounded(prompt, urls)
         data = _parse_json(text, default={})

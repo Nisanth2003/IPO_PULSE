@@ -11,6 +11,7 @@
     ipopulse sub <slug> 2 --qib 12.4 --nii 24.9 --retail 9.2 --total 14.6
     ipopulse translate [slug]        Gemini -> hi/te, cached, written to YAML
     ipopulse analyse <slug>          Gemini drafts overview / flags
+    ipopulse doctor [slug] [--fix]   what is missing; repair what is derivable
     ipopulse cache --prune           drop Gemini responses past their TTL
     ipopulse build                   compute + publish JSON for the frontend
     ipopulse report [slug]           Excel workbook into backend/out/
@@ -453,6 +454,42 @@ def cmd_research(args) -> int:
             else:
                 print("  (not saved — re-run with --write)")
 
+    if args.what in ("financials", "all"):
+        print(f"\nResearching financials for {ipo.company or args.slug}…")
+        try:
+            fin = provider.fetch_financials(args.slug, company=ipo.company, ipo=ipo)
+        except AiUnavailable as exc:
+            print(f"  ! {exc}")
+            return 1
+        meta = fin.pop("_meta", {})
+        rows = {k: v for k, v in fin.items() if k != "years" and v}
+        print(f"  confidence: {meta.get('confidence')}  |  {meta.get('note', '')[:160]}")
+        for u in meta.get("sources", [])[:4]:
+            print(f"    source: {u}")
+        if not rows:
+            print("  Nothing usable found. The RHP PDF is the fallback — type it in:")
+            print(f"    backend/data/ipos/{args.slug}.yaml  (financials: block)")
+        else:
+            print(f"  years: {', '.join(fin['years'])}")
+            for key, vals in rows.items():
+                print(f"    {key:<13} {vals}")
+
+        if meta.get("needs_review"):
+            flagged = True
+            print(f"\n  ⚠ FLAGGED: {meta.get('review_reason')}")
+            print("  These drive the fundamentals and valuation halves of the "
+                  "score, so a wrong figure is worse than a missing one.")
+
+        if args.write and rows and (not meta.get("needs_review") or args.force):
+            base = store.load(args.slug).to_dict()
+            base.setdefault("financials", {}).update(fin)
+            store.save(Ipo.from_dict(base))
+            print("  written to the YAML")
+        elif args.write and rows:
+            print("  not written (flagged) — re-run with --force to accept")
+        elif rows:
+            print("  (not saved — re-run with --write)")
+
     if args.what in ("sub", "subscription", "all"):
         print(f"\nResearching subscription for {ipo.company or args.slug}…")
         print(f"  reading: {', '.join(provider.urls_for('subscription', ipo)[:2])}")
@@ -647,6 +684,72 @@ def cmd_analyse(args) -> int:
     return 0
 
 
+def cmd_doctor(args) -> int:
+    """What is missing, what it breaks, and what can be repaired from here."""
+    from . import doctor
+
+    ipos = [store.load(args.slug)] if args.slug else store.load_all()
+    if not ipos:
+        print("Nothing to check.")
+        return 1
+
+    total_blank = fixed_total = 0
+    for ipo in ipos:
+        rep = doctor.inspect(ipo)
+        gaps = rep["gmp_gaps"]
+        clean = not rep["missing"] and not gaps
+
+        print(f"\n── {rep['company']}  ({ipo.slug})")
+        if clean:
+            print("  ✓ complete")
+            continue
+
+        for m in rep["blank"]:
+            print(f"  ✗ {m['field']:<24} blank → {m['breaks']}")
+        for m in rep["missing"]:
+            if m["severity"] != "blank":
+                print(f"  · {m['field']:<24} → {m['breaks']}")
+        total_blank += len(rep["blank"])
+
+        if gaps:
+            shown = ", ".join(gaps[:6]) + (f" … +{len(gaps) - 6}" if len(gaps) > 6 else "")
+            print(f"  ⚠ GMP trail has {len(gaps)} weekday gap(s): {shown}")
+            print("    The reel 2 trail is billed as daily, so a gap reads as "
+                  "'no movement'.")
+            print(f"    Backfill one:  ipopulse gmp {ipo.slug} <value> --date {gaps[0]}")
+
+        if args.fix:
+            updated, done = doctor.repair(ipo)
+            if done:
+                store.save(updated)
+                fixed_total += len(done)
+                for what in done:
+                    print(f"  ✓ fixed: {what}")
+        elif rep["repairs"]:
+            for what in rep["repairs"]:
+                print(f"  → repairable: {what}")
+
+        # Only name a filler once per IPO, not once per missing field.
+        for who in dict.fromkeys(m["who"] for m in rep["missing"]):
+            print(f"    {who:<9} {doctor.FILLERS[who]}")
+
+    print()
+    if args.fix:
+        print(f"Repaired {fixed_total} field(s) across {len(ipos)} IPO(s).")
+        if fixed_total:
+            publish(store.load_all())
+            print(f"Republished -> {store.FRONTEND_DATA}")
+    else:
+        print(f"{total_blank} field(s) would render a scene blank or as a "
+              f"confident zero.")
+        print("Repair what is derivable:  ipopulse doctor --fix")
+
+    # Findings are the normal state of a live IPO — an exit code of 1 here
+    # would make the daily chain stop on an IPO that simply has no financials
+    # yet. --strict is for a pre-recording gate, where blanks matter.
+    return 1 if (args.strict and total_blank) else 0
+
+
 def cmd_build(args) -> int:
     ipos = store.load_all()
     if not ipos:
@@ -825,7 +928,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("research", help="Gemini web lookup for GMP / subscription / issue")
     sp.add_argument("slug")
     sp.add_argument("--what", default="gmp",
-                    choices=["gmp", "sub", "subscription", "ipo", "both", "all"])
+                    choices=["gmp", "sub", "subscription", "ipo", "financials",
+                             "both", "all"])
     sp.add_argument("--url", help="comma-separated pages to read instead of searching")
     sp.add_argument("--write", action="store_true", help="save the result")
     sp.add_argument("--force", action="store_true", help="save even if flagged for review")
@@ -852,6 +956,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--prune", action="store_true", help="delete entries past the TTL")
     sp.add_argument("--clear", action="store_true", help="delete everything")
     sp.set_defaults(func=cmd_cache)
+
+    sp = sub.add_parser("doctor", help="what is missing, and repair what is derivable")
+    sp.add_argument("slug", nargs="?", help="just this one; default is every IPO")
+    sp.add_argument("--fix", action="store_true",
+                    help="apply the derivable repairs and republish")
+    sp.add_argument("--strict", action="store_true",
+                    help="exit 1 if anything would render blank (for a pre-record gate)")
+    sp.set_defaults(func=cmd_doctor)
 
     sp = sub.add_parser("build", help="publish JSON for the frontend")
     sp.add_argument("--prune-cache", action="store_true",
