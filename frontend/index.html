@@ -552,7 +552,16 @@
               <div class="lbl text-center" x-text="t('gmpTrail')"></div>
               <template x-if="spark">
                 <div class="glass p-2">
-                  <svg :viewBox="`0 0 ${spark.w} ${spark.h}`" :width="spark.w" :height="spark.h"
+                  <!-- viewBox is written out literally, NOT bound with
+                       `:viewBox`. HTML lowercases attribute names, so Alpine
+                       saw `:viewbox` and called setAttribute('viewbox', …) —
+                       and SVG attribute names are case-sensitive, so the
+                       viewBox never applied. With no viewBox there is no
+                       coordinate mapping: the 300×70 drawing was cropped to
+                       whatever the box happened to be (232×33), which is why
+                       the trail graph appeared cut off. SPARK_W/SPARK_H in
+                       studio.js are the matching constants. -->
+                  <svg viewBox="0 0 300 70" width="300" height="70"
                        preserveAspectRatio="none" class="w-full" style="height:calc(var(--fs)*3.4)">
                     <path :d="spark.area" :fill="gmpPositive ? 'rgba(34,197,94,.18)' : 'rgba(239,68,68,.18)'"/>
                     <path :d="spark.line" fill="none" :stroke="gmpPositive ? '#22C55E' : '#EF4444'"
@@ -583,7 +592,7 @@
                     <th>GMP</th><th>%</th><th x-text="t('estListing').split(' ').pop()"></th>
                   </tr></thead>
                   <tbody>
-                    <template x-for="(p,i) in trailRows()" :key="p.date">
+                    <template x-for="(p,i) in trailTable.rows" :key="p.date">
                       <tr>
                         <td x-text="fmtShort(p.date)"></td>
                         <td class="tnum" x-text="'₹'+p.gmp"></td>
@@ -595,6 +604,10 @@
                   </tbody>
                 </table>
               </div>
+              <!-- Same rule as the board: a dropped day is stated, never
+                   silently cut. The shorter frames only fit four rows. -->
+              <div class="text-2xs font-bold text-center text-slate-400" x-show="trailTable.hidden"
+                   x-text="'+ '+trailTable.hidden+' '+t('more')"></div>
             </div>
 
             <!-- ─── REEL 2 · GMP BOARD (all IPOs) ──────────────────── -->
@@ -615,9 +628,9 @@
                     <th>IPO</th><th>GMP</th><th>%</th><th x-text="t('closes')"></th>
                   </tr></thead>
                   <tbody>
-                    <template x-for="r in boardRows.slice(0,7)" :key="r.slug">
+                    <template x-for="r in boardTable.rows" :key="r.slug">
                       <tr>
-                        <td class="truncate" style="max-width:calc(var(--fs)*8)" x-text="r.company"></td>
+                        <td class="truncate" style="max-width:calc(var(--fs)*10)" x-text="r.company"></td>
                         <td class="tnum" x-text="'₹'+r.gmp"></td>
                         <td class="tnum font-black"
                             :class="r.gmp_pct>=0?'text-emerald-400':'text-red-400'"
@@ -628,6 +641,10 @@
                   </tbody>
                 </table>
               </div>
+              <!-- Never drop rows without saying so: the hook scene has just
+                   announced the full count. -->
+              <div class="text-2xs font-bold text-center text-slate-400" x-show="boardTable.hidden"
+                   x-text="'+ '+boardTable.hidden+' '+t('more')"></div>
               <div class="text-2xs text-slate-500 font-semibold text-center" x-text="'ⓘ '+t('gmpNote')"></div>
             </div>
 

@@ -7,6 +7,12 @@
 
 const RING = 2 * Math.PI * 66;                 // gauge circumference, r=66
 
+// Sparkline coordinate space. These MUST match the literal viewBox on the
+// trail <svg> in index.html — it is written out rather than bound, because a
+// `:viewBox` binding silently does nothing (HTML lowercases the attribute
+// name; SVG's is case-sensitive).
+const SPARK_W = 300, SPARK_H = 70;
+
 function studio() {
   const component = {
     // ── catalogue / selection ──────────────────────────────────────────
@@ -486,15 +492,33 @@ function studio() {
       return Math.max(4, (Number(v) || 0) / max * 100);
     },
     /** Sparkline path for the GMP trail. */
+    /**
+     * GMP sparkline path, in a fixed 300×70 coordinate space.
+     *
+     * The literal `viewBox="0 0 300 70"` in index.html must match SPARK_W /
+     * SPARK_H — it cannot be bound, see the comment on that element.
+     *
+     * Inset by PAD so nothing is drawn on the boundary. The first and last
+     * points used to sit exactly on x=0 and x=300, which put half of the
+     * 3-wide stroke and most of the r=5 end dot outside the viewBox, so both
+     * ends were sheared off even once the coordinate system worked.
+     */
     get spark() {
       const pts = (this.d?.gmp?.series || []).map((p) => p.gmp);
       if (pts.length < 2) return null;
-      const w = 300, h = 70, mn = Math.min(...pts), mx = Math.max(...pts), r = (mx - mn) || 1;
-      const xy = pts.map((v, i) => [i * (w / (pts.length - 1)), h - ((v - mn) / r) * (h - 12) - 6]);
+      const w = SPARK_W, h = SPARK_H, PAD_X = 7, PAD_Y = 8;
+      const mn = Math.min(...pts), mx = Math.max(...pts), r = (mx - mn) || 1;
+      const innerW = w - PAD_X * 2, innerH = h - PAD_Y * 2;
+      const xy = pts.map((v, i) => [
+        PAD_X + (i * innerW) / (pts.length - 1),
+        h - PAD_Y - ((v - mn) / r) * innerH,
+      ]);
       const line = 'M' + xy.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' L');
+      const last = xy[xy.length - 1];
       return {
-        w, h, line, area: `${line} L${w},${h} L0,${h} Z`,
-        lastX: xy[xy.length - 1][0].toFixed(1), lastY: xy[xy.length - 1][1].toFixed(1),
+        w, h, line,
+        area: `${line} L${(w - PAD_X).toFixed(1)},${h} L${PAD_X.toFixed(1)},${h} Z`,
+        lastX: last[0].toFixed(1), lastY: last[1].toFixed(1),
       };
     },
     /**
@@ -505,6 +529,27 @@ function studio() {
     trailRows(limit) {
       const cap = limit ?? (this.P.h >= 700 ? 7 : 4);
       return (this.d?.gmp?.series || []).slice(-cap).reverse();
+    },
+    /** Trail rows plus how many older days were dropped to fit the frame. */
+    get trailTable() {
+      const all = this.d?.gmp?.series || [];
+      const rows = this.trailRows();
+      return { rows, hidden: Math.max(0, all.length - rows.length) };
+    },
+
+    /**
+     * The all-IPOs board, capped to what the frame can hold.
+     *
+     * This was a hardcoded `.slice(0, 7)` while the scene immediately before
+     * it announces the full count — so an 11-IPO board promised 11 and then
+     * showed 7, with half the card empty underneath. The cap now follows the
+     * frame height like trailRows does, and `hidden` lets the scene admit
+     * what it left out instead of truncating silently.
+     */
+    get boardTable() {
+      const rows = this.boardRows || [];
+      const cap = this.P.h >= 700 ? 12 : (this.P.h >= 520 ? 8 : 6);
+      return { rows: rows.slice(0, cap), hidden: Math.max(0, rows.length - cap) };
     },
     get countdown() {
       const at = this.d?.dates?.close_at;
@@ -526,7 +571,7 @@ function studio() {
       if (!this.ipo) return;
       const v = Number(value);
       if (!Number.isFinite(v)) return;
-      const today = new Date().toISOString().slice(0, 10);
+      const today = isoDate();
       const hist = this.ipo.gmp_history || (this.ipo.gmp_history = []);
       const row = hist.find((p) => p.date === today);
       if (row) row.gmp = v;
@@ -534,7 +579,7 @@ function studio() {
       this.recompute();
     },
     get todayGmpValue() {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = isoDate();
       const row = (this.ipo?.gmp_history || []).find((p) => p.date === today);
       return row ? row.gmp : (this.d?.gmp.gmp ?? 0);
     },
@@ -542,7 +587,7 @@ function studio() {
       if (!this.ipo) return;
       const days = this.ipo.subscription || (this.ipo.subscription = []);
       let last = days[days.length - 1];
-      if (!last) { last = { day: 1, date: new Date().toISOString().slice(0, 10) }; days.push(last); }
+      if (!last) { last = { day: 1, date: isoDate() }; days.push(last); }
       last[field] = Number(value) || 0;
       this.recompute();
     },

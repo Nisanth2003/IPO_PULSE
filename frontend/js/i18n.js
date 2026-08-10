@@ -139,6 +139,7 @@ const LABELS = {
                 'నేటి GMP ఆధారంగా'],
   noRange:     ['No expected range set', 'कोई अनुमानित रेंज सेट नहीं',
                 'అంచనా శ్రేణి సెట్ కాలేదు'],
+  more:        ['more not shown', 'और भी हैं', 'ఇంకా ఉన్నాయి'],
   gmpAsOf:     ['GMP as of', 'GMP इस तारीख का', 'GMP ఈ తేదీ నాటికి'],
   gmpStale1:   ['not updated today', 'आज अपडेट नहीं हुआ', 'ఈరోజు అప్‌డేట్ కాలేదు'],
   gmpStaleN:   ['days old', 'दिन पुराना', 'రోజుల నాటిది'],
