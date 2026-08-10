@@ -32,7 +32,7 @@ import re
 import time
 import urllib.error
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 BASE = "https://www.nseindia.com"
@@ -134,6 +134,26 @@ def _num(value: Any) -> float:
         return 0.0
 
 
+def _working_days_after(start: str, days: int) -> str | None:
+    """`start` + N working days, skipping weekends.
+
+    SEBI's T+3 rule fixes the post-close calendar relative to the close date,
+    so allotment / refund / listing are derivable rather than unknowable. It
+    does not know about exchange holidays, so a date landing on one will be a
+    day early — these fill blanks only, and a hand-typed value always wins.
+    """
+    try:
+        day = date.fromisoformat(start)
+    except (TypeError, ValueError):
+        return None
+    added = 0
+    while added < days:
+        day += timedelta(days=1)
+        if day.weekday() < 5:               # Mon-Fri
+            added += 1
+    return day.isoformat()
+
+
 def slugify(text: str) -> str:
     """Same shape as the sheet importer's, so both agree on a slug."""
     s = re.sub(r"[^a-z0-9]+", "-", str(text).lower()).strip("-")
@@ -199,6 +219,13 @@ class NseProvider:
             }
             issue = {k: v for k, v in
                      (("price_low", low), ("price_high", high)) if v}
+            # issueSize is a SHARE COUNT, not rupees — 24,956,363 for Dhoot,
+            # not 24,956,363 crore. Multiplied by the upper band it gives the
+            # total issue size, which is what the headline needs. It says
+            # nothing about the fresh/OFS split, so that stays blank.
+            shares = _int(str(row.get("issueSize") or ""))
+            if shares and high:
+                issue["total_cr"] = round(shares * high / 1e7, 2)
             if issue:
                 rec["issue"] = issue
             dates = {k: v for k, v in (
@@ -262,12 +289,26 @@ class NseProvider:
         if issue:
             out["issue"] = issue
 
+        dates = dict(out.get("dates") or {})
         period = info.get("issue period", "")
         if " to " in period:
             start, _, end = period.partition(" to ")
-            dates = dict(out.get("dates") or {})
             dates["open"] = _date(start) or dates.get("open")
             dates["close"] = _date(end) or dates.get("close")
+
+        # NSE publishes the bidding window and nothing after it, which left
+        # the whole post-close timeline blank on screen. SEBI's T+3 rule fixes
+        # that calendar relative to the close, so derive it. `announced` is
+        # not derivable from anything here and stays empty.
+        close = dates.get("close")
+        if close:
+            for field, offset in (("allotment", 1), ("refund", 2), ("listing", 3)):
+                if not dates.get(field):
+                    derived = _working_days_after(close, offset)
+                    if derived:
+                        dates[field] = derived
+
+        if dates:
             out["dates"] = {k: v for k, v in dates.items() if v}
         return out
 

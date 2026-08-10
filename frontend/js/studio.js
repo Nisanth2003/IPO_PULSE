@@ -402,7 +402,13 @@ function studio() {
       return f?.score_total ? `${f.score_good}/${f.score_total}` : '';
     },
 
-    get gaugeFrac() { return Math.min(1, Math.abs(this.d?.gmp.pct || 0) / 50); },
+    /* The ring is drawn against the number printed inside it, so it has to be
+       that number. It used to divide by 50 — a 0-50% scale, which is a
+       defensible choice for making typical GMPs look substantial, except
+       nothing on screen said so: 25.4% drew a half-full ring and looked like
+       a bug to everyone who saw it. A ring around a figure is read as that
+       figure. Over 100% still caps at full. */
+    get gaugeFrac() { return Math.min(1, Math.abs(this.d?.gmp.pct || 0) / 100); },
     get gmpPositive() { return (this.d?.gmp.gmp || 0) >= 0; },
     get shortUrl() {
       return String(this.ipo?.issue?.registrar_url || '')

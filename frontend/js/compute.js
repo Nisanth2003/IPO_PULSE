@@ -55,11 +55,15 @@ function judge(metric, value, goodAt = null, overrides = null) {
 
 function issueMetrics(ipo) {
   const i = ipo.issue || {};
-  const total = num(i.fresh_cr) + num(i.ofs_cr);
+  // Mirrors compute.py issue_metrics: fall back to a stated total when the
+  // fresh/OFS split is unknown, and flag that so a scene can say so.
+  const split = num(i.fresh_cr) + num(i.ofs_cr);
+  const total = split || num(i.total_cr);
   return {
     total_cr: round(total, 2),
-    fresh_pct: round(pct(num(i.fresh_cr), total), 1),
-    ofs_pct: round(pct(num(i.ofs_cr), total), 1),
+    has_split: split > 0,
+    fresh_pct: round(pct(num(i.fresh_cr), split), 1),
+    ofs_pct: round(pct(num(i.ofs_cr), split), 1),
     min_investment: Math.round(num(i.lot_size) * num(i.price_high)),
     is_fresh_heavy: num(i.fresh_cr) >= num(i.ofs_cr),
   };
@@ -133,7 +137,12 @@ function subscriptionMetrics(ipo) {
 function financialMetrics(ipo) {
   const f = ipo.financials || {};
   const years = f.years || [];
-  if (!years.length) return { has_data: false, rows: [] };
+  // Mirrors compute.py: `years` alone is not data. The scaffold pre-fills
+  // FY23/FY24/FY25, so an unfilled IPO would render a scene of confident
+  // zeros. Require at least one real figure.
+  const anyFigure = [f.revenue, f.ebitda, f.pat, f.net_worth]
+    .some((a) => (a || []).some((v) => num(v) !== 0));
+  if (!years.length || !anyFigure) return { has_data: false, rows: [] };
 
   const at = (arr, i) => num((arr || [])[i]);
   const rows = years.map((yr, i) => {

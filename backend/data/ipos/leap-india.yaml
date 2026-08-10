@@ -6,6 +6,7 @@ sector: ''
 issue:
   fresh_cr: 0.0
   ofs_cr: 0.0
+  total_cr: 1828.37
   price_low: 151.0
   price_high: 159.0
   lot_size: 94
@@ -20,9 +21,9 @@ dates:
   open: '2026-08-07'
   close: '2026-08-11'
   close_time: '17:00'
-  allotment: null
-  refund: null
-  listing: null
+  allotment: '2026-08-12'
+  refund: '2026-08-13'
+  listing: '2026-08-14'
 financials:
   years:
   - FY23
@@ -45,10 +46,10 @@ subscription:
 - day: 4
   date: '2026-08-10'
   qib: 0.61
-  nii: 0.28
-  retail: 0.29
-  employee: 2.15
-  total: 0.38
+  nii: 0.38
+  retail: 0.36
+  employee: 2.46
+  total: 0.44
 analysis:
   overview: []
   green_flags: []

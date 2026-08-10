@@ -6,6 +6,7 @@ sector: ''
 issue:
   fresh_cr: 0.0
   ofs_cr: 0.0
+  total_cr: 69.04
   price_low: 110.0
   price_high: 118.0
   lot_size: 0
@@ -20,9 +21,9 @@ dates:
   open: '2026-08-12'
   close: '2026-08-14'
   close_time: '17:00'
-  allotment: null
-  refund: null
-  listing: null
+  allotment: '2026-08-17'
+  refund: '2026-08-18'
+  listing: '2026-08-19'
 financials:
   years:
   - FY23

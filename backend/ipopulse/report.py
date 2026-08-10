@@ -312,6 +312,62 @@ def _sheet_board(wb: Workbook, ipos: list[Ipo]) -> None:
     _autosize(ws)
 
 
+def _sheet_gaps(wb: Workbook, ipos: list[Ipo]) -> None:
+    """What is missing, per IPO, and who can fill it.
+
+    NSE supplies issue terms, dates and subscription; Gemini supplies GMP.
+    Nothing free supplies financials — they live in the RHP PDF — so revenue,
+    EBITDA, PAT and the valuation that depends on them stay zero until they
+    are typed in. A zero renders on the reels as a confident "₹0", which is
+    worse than a blank, so this sheet exists to make the holes findable
+    before a scene is recorded rather than after.
+    """
+    ws = wb.create_sheet("Data gaps", 1)
+    _title(ws, "Missing data — fill these before recording", span=9)
+
+    # field label -> (getter, who fills it)
+    checks: list[tuple[str, Any, str]] = [
+        ("Price band",    lambda i: i.issue.price_high, "NSE"),
+        ("Lot size",      lambda i: i.issue.lot_size, "NSE"),
+        ("Issue size",    lambda i: i.issue.fresh_cr + i.issue.ofs_cr or i.issue.total_cr, "NSE"),
+        ("Fresh/OFS split", lambda i: i.issue.fresh_cr + i.issue.ofs_cr, "you — RHP"),
+        ("Open / close",  lambda i: 1 if i.dates.close else 0, "NSE"),
+        ("Listing date",  lambda i: 1 if i.dates.listing else 0, "derived T+3"),
+        ("Announced",     lambda i: 1 if i.dates.announced else 0, "you"),
+        ("GMP",           lambda i: len(i.gmp_history), "research"),
+        ("Subscription",  lambda i: len(i.subscription), "NSE"),
+        ("Revenue",       lambda i: len(i.financials.revenue), "you — RHP"),
+        ("EBITDA",        lambda i: len(i.financials.ebitda), "you — RHP"),
+        ("PAT",           lambda i: len(i.financials.pat), "you — RHP"),
+        ("EPS",           lambda i: i.financials.eps, "you — RHP"),
+        ("Peer P/E",      lambda i: i.financials.pe_peer_avg, "you"),
+        ("Sector",        lambda i: 1 if i.sector else 0, "you"),
+        ("Analysis prose", lambda i: len(i.analysis.overview), "analyse"),
+    ]
+
+    _header_row(ws, 3, ["Field", "Filled by"] + [(i.company or i.slug)[:22] for i in ipos])
+    for r, (label, getter, who) in enumerate(checks, start=4):
+        ws.cell(row=r, column=1, value=label).border = BOX
+        ws.cell(row=r, column=2, value=who).border = BOX
+        for c, ipo in enumerate(ipos, start=3):
+            try:
+                ok = bool(getter(ipo))
+            except Exception:
+                ok = False
+            cell = ws.cell(row=r, column=c, value="ok" if ok else "MISSING")
+            cell.border = BOX
+            cell.alignment = Alignment(horizontal="center")
+            cell.fill = FILL_GREEN if ok else FILL_RED
+
+    note = ws.cell(row=len(checks) + 5, column=1,
+                   value="Financials are not published as data anywhere free — "
+                         "they are in the RHP PDF. Type them into "
+                         "backend/data/ipos/<slug>.yaml, then run: ipopulse build")
+    note.alignment = Alignment(vertical="center")
+    ws.freeze_panes = "C4"
+    _autosize(ws)
+
+
 # ── entry points ───────────────────────────────────────────────────────────
 
 def build_workbook(ipos: list[Ipo], *, board: bool = False) -> Workbook:
@@ -328,6 +384,8 @@ def build_workbook(ipos: list[Ipo], *, board: bool = False) -> Workbook:
             _sheet_analysis(wb, ipo, d)
     if board or len(ipos) > 1:
         _sheet_board(wb, ipos)
+    if ipos:
+        _sheet_gaps(wb, ipos)
     if not wb.sheetnames:                      # nothing to write
         wb.create_sheet("Empty")
     return wb

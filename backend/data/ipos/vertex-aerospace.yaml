@@ -6,6 +6,7 @@ sector: Aerospace & Precision Components
 issue:
   fresh_cr: 670.0
   ofs_cr: 252.0
+  total_cr: 0.0
   price_low: 118.0
   price_high: 124.0
   lot_size: 121

@@ -93,11 +93,16 @@ def judge(metric: str, value: float, good_at: float | None = None,
 
 def issue_metrics(ipo: Ipo) -> dict[str, Any]:
     iss = ipo.issue
-    total = iss.fresh_cr + iss.ofs_cr
+    split = iss.fresh_cr + iss.ofs_cr
+    # Fall back to the stated total when the split is unknown, so the headline
+    # size is right even though fresh-vs-OFS is not. `has_split` lets a scene
+    # say "not disclosed" instead of drawing a 0/0 bar that reads as a fact.
+    total = split or iss.total_cr
     return {
         "total_cr": round(total, 2),
-        "fresh_pct": round(_pct(iss.fresh_cr, total), 1),
-        "ofs_pct": round(_pct(iss.ofs_cr, total), 1),
+        "has_split": split > 0,
+        "fresh_pct": round(_pct(iss.fresh_cr, split), 1),
+        "ofs_pct": round(_pct(iss.ofs_cr, split), 1),
         "min_investment": round(iss.lot_size * iss.price_high),
         # a fresh-heavy issue funds the company; an OFS-heavy one cashes out
         "is_fresh_heavy": iss.fresh_cr >= iss.ofs_cr,
@@ -202,7 +207,11 @@ def subscription_metrics(ipo: Ipo) -> dict[str, Any]:
 def financial_metrics(ipo: Ipo) -> dict[str, Any]:
     f = ipo.financials
     n = len(f.years)
-    if n == 0:
+    # `years` alone is not data. The scaffold pre-fills FY23/FY24/FY25, so a
+    # brand-new IPO passed this check with every figure empty and rendered a
+    # financials scene of confident zeros — revenue ₹0, margin 0%, "poor" on
+    # every mark. Require an actual number somewhere before claiming data.
+    if n == 0 or not any(f.revenue or f.ebitda or f.pat or f.net_worth):
         return {"has_data": False, "rows": []}
 
     rows = []

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-10T14:00:35",
+  "generated_at": "2026-08-10T15:40:30",
   "ipo": {
     "slug": "fascinate-textiles",
     "company": "Fascinate Textiles Limited",
@@ -10,6 +10,7 @@
     "issue": {
       "fresh_cr": 0.0,
       "ofs_cr": 0.0,
+      "total_cr": 66.98,
       "price_low": 148.0,
       "price_high": 156.0,
       "lot_size": 0,
@@ -26,9 +27,9 @@
       "open": "2026-08-11",
       "close": "2026-08-13",
       "close_time": "17:00",
-      "allotment": null,
-      "refund": null,
-      "listing": null
+      "allotment": "2026-08-14",
+      "refund": "2026-08-17",
+      "listing": "2026-08-18"
     },
     "financials": {
       "years": [
@@ -84,7 +85,8 @@
   "derived": {
     "initials": "FT",
     "issue": {
-      "total_cr": 0.0,
+      "total_cr": 66.98,
+      "has_split": false,
       "fresh_pct": 0.0,
       "ofs_pct": 0.0,
       "min_investment": 0,
@@ -120,148 +122,17 @@
       "days": []
     },
     "financials": {
-      "has_data": true,
-      "rows": [
-        {
-          "year": "FY23",
-          "revenue": 0.0,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
-          "pat": 0.0,
-          "pat_margin": 0.0,
-          "net_worth": 0.0,
-          "total_debt": 0.0,
-          "ronw": 0.0,
-          "debt_equity": 0.0
-        },
-        {
-          "year": "FY24",
-          "revenue": 0.0,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
-          "pat": 0.0,
-          "pat_margin": 0.0,
-          "net_worth": 0.0,
-          "total_debt": 0.0,
-          "ronw": 0.0,
-          "debt_equity": 0.0
-        },
-        {
-          "year": "FY25",
-          "revenue": 0.0,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
-          "pat": 0.0,
-          "pat_margin": 0.0,
-          "net_worth": 0.0,
-          "total_debt": 0.0,
-          "ronw": 0.0,
-          "debt_equity": 0.0
-        }
-      ],
-      "latest": {
-        "year": "FY25",
-        "revenue": 0.0,
-        "ebitda": 0.0,
-        "ebitda_margin": 0.0,
-        "pat": 0.0,
-        "pat_margin": 0.0,
-        "net_worth": 0.0,
-        "total_debt": 0.0,
-        "ronw": 0.0,
-        "debt_equity": 0.0
-      },
-      "revenue_cagr": 0.0,
-      "ebitda_cagr": 0.0,
-      "pat_cagr": 0.0,
-      "margin_shift_bps": 0,
-      "eps": 0.0,
-      "pe": 0.0,
-      "pe_peer_avg": 0.0,
-      "pe_premium_pct": 0.0,
-      "market_cap_cr": 0.0,
-      "marks": {
-        "ebitda_margin": {
-          "value": 0.0,
-          "good_at": 15.0,
-          "higher_is_better": true,
-          "verdict": "poor",
-          "unit": "%",
-          "pos": 0,
-          "mark": 50,
-          "gap_pct": -100.0
-        },
-        "pat_margin": {
-          "value": 0.0,
-          "good_at": 8.0,
-          "higher_is_better": true,
-          "verdict": "poor",
-          "unit": "%",
-          "pos": 0,
-          "mark": 50,
-          "gap_pct": -100.0
-        },
-        "revenue_cagr": {
-          "value": 0.0,
-          "good_at": 15.0,
-          "higher_is_better": true,
-          "verdict": "poor",
-          "unit": "%",
-          "pos": 0,
-          "mark": 50,
-          "gap_pct": -100.0
-        },
-        "pat_cagr": {
-          "value": 0.0,
-          "good_at": 15.0,
-          "higher_is_better": true,
-          "verdict": "poor",
-          "unit": "%",
-          "pos": 0,
-          "mark": 50,
-          "gap_pct": -100.0
-        },
-        "ronw": {
-          "value": 0.0,
-          "good_at": 15.0,
-          "higher_is_better": true,
-          "verdict": "poor",
-          "unit": "%",
-          "pos": 0,
-          "mark": 50,
-          "gap_pct": -100.0
-        },
-        "debt_equity": {
-          "value": 0.0,
-          "good_at": 1.0,
-          "higher_is_better": false,
-          "verdict": "good",
-          "unit": "x",
-          "pos": 0,
-          "mark": 50,
-          "gap_pct": -100.0
-        },
-        "pe": {
-          "value": 0.0,
-          "good_at": null,
-          "higher_is_better": false,
-          "verdict": "na",
-          "unit": "x",
-          "pos": 0,
-          "mark": 0
-        }
-      },
-      "score_good": 1,
-      "score_total": 6
+      "has_data": false,
+      "rows": []
     },
     "dates": {
       "announced": null,
       "open": "2026-08-11",
       "close": "2026-08-13",
       "close_time": "17:00",
-      "allotment": null,
-      "refund": null,
-      "listing": null,
+      "allotment": "2026-08-14",
+      "refund": "2026-08-17",
+      "listing": "2026-08-18",
       "close_at": "2026-08-13T17:00:00",
       "status": "upcoming"
     },

@@ -160,14 +160,49 @@ GitHub's built-in `pages-build-deployment` ran on the same push, and whichever
 finished last won. That is why the site kept showing the README even after a
 green publish run.
 
+### Four ways a missing value rendered as a confident wrong one
+
+All found by looking at the deployed site rather than the data. The pattern is
+the same each time: a zero or a default reads on screen as a fact.
+
+**Issue size showed ₹0 Cr.** NSE's `issueSize` is a *share count*
+(24,956,363), not rupees crore, and the About IPO scene sums `fresh_cr +
+ofs_cr`. Shares x upper band / 1e7 gives the total — ₹2,174 Cr for Dhoot — but
+NSE never publishes the fresh-vs-OFS split, and inventing one would misstate
+how much money reaches the company rather than its selling shareholders. So
+`issue.total_cr` carries the total, `compute` falls back to it, and
+`has_split` lets the split scene stay honestly blank instead of drawing 0/0.
+
+**The whole post-close timeline was blank.** NSE publishes the bidding window
+and nothing after it. SEBI's T+3 rule fixes the rest relative to the close, so
+allotment/refund/listing are derived as close +1/+2/+3 working days, skipping
+weekends. Not holidays — a date landing on one will be a day early. These fill
+blanks only; a hand-typed value always wins. `announced` is not derivable from
+anything and stays empty.
+
+**The financials scene rendered zeros as data.** `has_data` was
+`len(years) > 0`, and the scaffold pre-fills FY23/FY24/FY25 — so an IPO with
+no figures at all passed the check and drew revenue ₹0, 0% margins and "poor"
+on every mark. It now requires at least one real figure.
+
+**The GMP ring looked half-full at 25%.** Not a bug: `gaugeFrac` divided by 50,
+a 0–50% scale that makes typical GMPs look substantial. But nothing on screen
+said so, and a ring drawn around a number is read as that number. Now /100, so
+the ring is the figure printed inside it. Over 100% still caps at full.
+
 ### Known and open
 
-- **Issue size renders as ₹0 Cr on the published site.** NSE's `issueSize` is a
-  *share count* (e.g. 24,956,363), not rupees crore, and nothing maps it to
-  `fresh_cr` / `ofs_cr` — which is what the About IPO scene adds up. Shares x
-  price band / 1e7 would give the total in crore, but NSE does not publish the
-  fresh-vs-OFS split, so only the total is recoverable from it. Until then the
-  number has to be typed into the YAML by hand.
+- **Financials are the one thing nothing free supplies.** Revenue, EBITDA, PAT,
+  net worth, debt, EPS and peer P/E live in the RHP PDF. NSE does not publish
+  them and GMP sites do not carry them, so they must be typed into the YAML.
+  Everything downstream — margins, CAGR, valuation, the Apply-or-Skip score —
+  is derived from them, so an unfilled IPO has an empty right half of the
+  studio. The **Data gaps** sheet in the Excel report shows exactly which
+  fields are missing per IPO, and who fills each.
+- **`analysis.verdict` defaults to `apply` with `score: 0`.** A freshly
+  discovered IPO therefore reads as a recommendation before anyone has looked
+  at it. Not changed yet because the fix is a judgement call: default to
+  `watch`, or make the verdict scene refuse to render until a score exists.
 - The two original IPOs (Vertex Aerospace, Meridian Logistics) are **fictional
   sample records**. Delete them once the real ones are established.
 - **Researched GMP lands on the page's own date**, not today's — e.g. 08-07

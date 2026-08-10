@@ -6,6 +6,7 @@ sector: ''
 issue:
   fresh_cr: 0.0
   ofs_cr: 0.0
+  total_cr: 2173.7
   price_low: 829.0
   price_high: 871.0
   lot_size: 17
@@ -20,9 +21,9 @@ dates:
   open: '2026-08-10'
   close: '2026-08-12'
   close_time: '17:00'
-  allotment: null
-  refund: null
-  listing: null
+  allotment: '2026-08-13'
+  refund: '2026-08-14'
+  listing: '2026-08-17'
 financials:
   years:
   - FY23
@@ -49,11 +50,11 @@ gmp_history:
 subscription:
 - day: 1
   date: '2026-08-10'
-  qib: 0.0
-  nii: 0.45
-  retail: 0.38
-  employee: 0.76
-  total: 0.29
+  qib: 0.01
+  nii: 0.78
+  retail: 0.64
+  employee: 1.1
+  total: 0.5
 analysis:
   overview: []
   green_flags: []

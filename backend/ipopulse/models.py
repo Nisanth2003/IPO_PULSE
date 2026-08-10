@@ -48,6 +48,13 @@ def _list(value: Any) -> list:
 class Issue:
     fresh_cr: float = 0.0            # fresh issue size, rupees crore
     ofs_cr: float = 0.0              # offer for sale, rupees crore
+    # Total issue size when the fresh/OFS split is not known. NSE publishes
+    # the share count and the price band, which multiply out to the total but
+    # say nothing about how it splits — and inventing a split would misstate
+    # how much money reaches the company rather than its selling shareholders.
+    # compute() falls back to this so the headline size is right while the
+    # split scene stays honestly blank.
+    total_cr: float = 0.0
     price_low: float = 0.0
     price_high: float = 0.0
     lot_size: int = 0
@@ -62,6 +69,7 @@ class Issue:
         return cls(
             fresh_cr=_f(d.get("fresh_cr")),
             ofs_cr=_f(d.get("ofs_cr")),
+            total_cr=_f(d.get("total_cr")),
             price_low=_f(d.get("price_low")),
             price_high=_f(d.get("price_high")),
             lot_size=int(_f(d.get("lot_size"))),
