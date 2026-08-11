@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T14:39:22",
+  "generated_at": "2026-08-11T16:02:00",
   "ipo": {
     "slug": "behari-lal-engineering",
     "company": "Behari Lal Engineering Limited",
@@ -42,14 +42,26 @@
         507.91,
         534.02
       ],
-      "ebitda": [],
+      "ebitda": [
+        60.99,
+        81.31,
+        101.33
+      ],
       "pat": [
         35.79,
         52.95,
         64.64
       ],
-      "net_worth": [],
-      "total_debt": [],
+      "net_worth": [
+        193.66,
+        241.62,
+        306.1
+      ],
+      "total_debt": [
+        41.21,
+        7.58,
+        17.78
+      ],
       "eps": 0.0,
       "pe_peer_avg": 0.0
     },
@@ -197,56 +209,56 @@
         {
           "year": "FY24",
           "revenue": 446.08,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
+          "ebitda": 60.99,
+          "ebitda_margin": 13.7,
           "pat": 35.79,
           "pat_margin": 8.0,
-          "net_worth": 0.0,
-          "total_debt": 0.0,
-          "ronw": 0.0,
-          "debt_equity": 0.0
+          "net_worth": 193.66,
+          "total_debt": 41.21,
+          "ronw": 18.5,
+          "debt_equity": 0.21
         },
         {
           "year": "FY25",
           "revenue": 507.91,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
+          "ebitda": 81.31,
+          "ebitda_margin": 16.0,
           "pat": 52.95,
           "pat_margin": 10.4,
-          "net_worth": 0.0,
-          "total_debt": 0.0,
-          "ronw": 0.0,
-          "debt_equity": 0.0
+          "net_worth": 241.62,
+          "total_debt": 7.58,
+          "ronw": 21.9,
+          "debt_equity": 0.03
         },
         {
           "year": "FY26",
           "revenue": 534.02,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
+          "ebitda": 101.33,
+          "ebitda_margin": 19.0,
           "pat": 64.64,
           "pat_margin": 12.1,
-          "net_worth": 0.0,
-          "total_debt": 0.0,
-          "ronw": 0.0,
-          "debt_equity": 0.0
+          "net_worth": 306.1,
+          "total_debt": 17.78,
+          "ronw": 21.1,
+          "debt_equity": 0.06
         }
       ],
       "latest": {
         "year": "FY26",
         "revenue": 534.02,
-        "ebitda": 0.0,
-        "ebitda_margin": 0.0,
+        "ebitda": 101.33,
+        "ebitda_margin": 19.0,
         "pat": 64.64,
         "pat_margin": 12.1,
-        "net_worth": 0.0,
-        "total_debt": 0.0,
-        "ronw": 0.0,
-        "debt_equity": 0.0
+        "net_worth": 306.1,
+        "total_debt": 17.78,
+        "ronw": 21.1,
+        "debt_equity": 0.06
       },
       "revenue_cagr": 9.4,
-      "ebitda_cagr": 0.0,
+      "ebitda_cagr": 28.9,
       "pat_cagr": 34.4,
-      "margin_shift_bps": 0,
+      "margin_shift_bps": 530,
       "eps": 0.0,
       "pe": 0.0,
       "pe_peer_avg": 0.0,
@@ -254,14 +266,14 @@
       "market_cap_cr": 0.0,
       "marks": {
         "ebitda_margin": {
-          "value": 0.0,
+          "value": 19.0,
           "good_at": 15.0,
           "higher_is_better": true,
-          "verdict": "na",
+          "verdict": "good",
           "unit": "%",
-          "pos": 0,
-          "mark": 0,
-          "gap_pct": 0.0
+          "pos": 50,
+          "mark": 39,
+          "gap_pct": 26.7
         },
         "pat_margin": {
           "value": 12.1,
@@ -294,24 +306,24 @@
           "gap_pct": 129.3
         },
         "ronw": {
-          "value": 0.0,
+          "value": 21.1,
           "good_at": 15.0,
           "higher_is_better": true,
-          "verdict": "na",
+          "verdict": "good",
           "unit": "%",
-          "pos": 0,
-          "mark": 0,
-          "gap_pct": 0.0
+          "pos": 50,
+          "mark": 36,
+          "gap_pct": 40.7
         },
         "debt_equity": {
-          "value": 0.0,
+          "value": 0.06,
           "good_at": 1.0,
           "higher_is_better": false,
-          "verdict": "na",
+          "verdict": "good",
           "unit": "x",
-          "pos": 0,
-          "mark": 0,
-          "gap_pct": 0.0
+          "pos": 3,
+          "mark": 50,
+          "gap_pct": -94.0
         },
         "pe": {
           "value": 0.0,
@@ -324,14 +336,14 @@
           "gap_pct": 0.0
         }
       },
-      "score_good": 2,
-      "score_total": 3,
+      "score_good": 5,
+      "score_total": 6,
       "present": {
         "revenue": true,
-        "ebitda": false,
+        "ebitda": true,
         "pat": true,
-        "net_worth": false,
-        "total_debt": false
+        "net_worth": true,
+        "total_debt": true
       }
     },
     "dates": {
@@ -353,7 +365,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 6.5,
+      "value": 7.2,
       "components": [
         {
           "key": "grey",
@@ -373,11 +385,11 @@
         },
         {
           "key": "fundamentals",
-          "weight": 12.9,
+          "weight": 25.7,
           "full_weight": 30,
           "has_data": true,
-          "mark": 6.7,
-          "detail": "2 of 3 benchmarks met (3 of 7 measurable)"
+          "mark": 8.3,
+          "detail": "5 of 6 benchmarks met (6 of 7 measurable)"
         },
         {
           "key": "valuation",
@@ -396,7 +408,7 @@
           "detail": "30.8% fresh issue"
         }
       ],
-      "covered_pct": 48,
+      "covered_pct": 61,
       "has_data": true,
       "missing": [
         "demand",
@@ -404,7 +416,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 6.5
+      "effective": 7.2
     }
   }
 }

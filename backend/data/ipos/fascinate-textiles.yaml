@@ -1,7 +1,7 @@
 slug: fascinate-textiles
 company: Fascinate Textiles Limited
 initials: ''
-board: Mainboard
+board: SME
 sector: Readymade garment manufacturing
 issue:
   fresh_cr: 53.94
@@ -40,8 +40,8 @@ financials:
   - 5.81
   net_worth: []
   total_debt: []
-  eps: 0.0
-  pe_peer_avg: 0.0
+  eps: 5.68
+  pe_peer_avg: 34.93
 gmp_history:
 - date: '2026-08-07'
   gmp: 0.0

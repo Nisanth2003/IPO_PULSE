@@ -722,8 +722,14 @@ def cmd_rhp(args) -> int:
         vals = raw.get(key) or []
         if not vals:
             continue
-        if len(vals) != n or any(v is None for v in vals):
+        if len(vals) != n:
             problems.append(f"{key}: {len(vals)} values for {n} years")
+            continue
+        if any(v is None for v in vals):
+            # Distinct from a length mismatch, and it used to print
+            # "3 values for 3 years", which reads as a contradiction.
+            missing = [years[i] for i, v in enumerate(vals) if v is None]
+            problems.append(f"{key}: no figure for {', '.join(missing)}")
             continue
         try:
             series_out[key] = [round(_f(v) * factor, 2) for v in vals]
@@ -942,7 +948,8 @@ def cmd_doctor(args) -> int:
     for ipo in ipos:
         rep = doctor.inspect(ipo)
         gaps = rep["gmp_gaps"]
-        clean = not rep["missing"] and not gaps and not rep["gmp_stale"]
+        clean = (not rep["missing"] and not gaps and not rep["gmp_stale"]
+                 and not rep["inconsistent"])
 
         print(f"\n── {rep['company']}  ({ipo.slug})")
         if clean:
@@ -955,6 +962,9 @@ def cmd_doctor(args) -> int:
             if m["severity"] != "blank":
                 print(f"  · {m['field']:<24} → {m['breaks']}")
         total_blank += len(rep["blank"])
+
+        for bad in rep["inconsistent"]:
+            print(f"  ‼ {bad}")
 
         if rep["gmp_stale"]:
             n = rep["gmp_age_days"]

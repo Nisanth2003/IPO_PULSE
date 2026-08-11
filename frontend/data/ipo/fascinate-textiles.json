@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T14:39:22",
+  "generated_at": "2026-08-11T16:02:00",
   "ipo": {
     "slug": "fascinate-textiles",
     "company": "Fascinate Textiles Limited",
     "initials": "",
-    "board": "Mainboard",
+    "board": "SME",
     "sector": "Readymade garment manufacturing",
     "issue": {
       "fresh_cr": 53.94,
@@ -50,8 +50,8 @@
       ],
       "net_worth": [],
       "total_debt": [],
-      "eps": 0.0,
-      "pe_peer_avg": 0.0
+      "eps": 5.68,
+      "pe_peer_avg": 34.93
     },
     "gmp_history": [
       {
@@ -241,10 +241,10 @@
       "ebitda_cagr": 0.0,
       "pat_cagr": 301.7,
       "margin_shift_bps": 0,
-      "eps": 0.0,
-      "pe": 0.0,
-      "pe_peer_avg": 0.0,
-      "pe_premium_pct": 0.0,
+      "eps": 5.68,
+      "pe": 27.5,
+      "pe_peer_avg": 34.93,
+      "pe_premium_pct": -21.3,
       "market_cap_cr": 0.0,
       "marks": {
         "ebitda_margin": {
@@ -308,18 +308,18 @@
           "gap_pct": 0.0
         },
         "pe": {
-          "value": 0.0,
-          "good_at": null,
+          "value": 27.5,
+          "good_at": 34.93,
           "higher_is_better": false,
-          "verdict": "na",
+          "verdict": "good",
           "unit": "x",
-          "pos": 0,
-          "mark": 0,
-          "gap_pct": 0.0
+          "pos": 39,
+          "mark": 50,
+          "gap_pct": -21.3
         }
       },
-      "score_good": 3,
-      "score_total": 3,
+      "score_good": 4,
+      "score_total": 4,
       "present": {
         "revenue": true,
         "ebitda": false,
@@ -347,7 +347,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 5.5,
+      "value": 6.4,
       "components": [
         {
           "key": "grey",
@@ -367,19 +367,19 @@
         },
         {
           "key": "fundamentals",
-          "weight": 12.9,
+          "weight": 17.1,
           "full_weight": 30,
           "has_data": true,
           "mark": 10.0,
-          "detail": "3 of 3 benchmarks met (3 of 7 measurable)"
+          "detail": "4 of 4 benchmarks met (4 of 7 measurable)"
         },
         {
           "key": "valuation",
           "weight": 15.0,
           "full_weight": 15,
-          "has_data": false,
-          "mark": null,
-          "detail": "no EPS / peer P/E"
+          "has_data": true,
+          "mark": 8.1,
+          "detail": "P/E 27.5 vs peers 34.93 (-21.3%)"
         },
         {
           "key": "structure",
@@ -390,15 +390,14 @@
           "detail": "80.5% fresh issue"
         }
       ],
-      "covered_pct": 48,
+      "covered_pct": 67,
       "has_data": true,
       "missing": [
-        "demand",
-        "valuation"
+        "demand"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 5.5
+      "effective": 6.4
     }
   }
 }

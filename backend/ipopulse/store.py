@@ -85,7 +85,11 @@ TEMPLATE = """\
 slug: {slug}
 company: ""
 initials: ""          # blank = derived from company name
-board: Mainboard      # Mainboard | SME
+# Blank on purpose — `sync --provider nse` sets it from the exchange series.
+# It used to default to Mainboard, and because sync and research only fill
+# blanks, four SME issues kept the wrong badge and were judged against
+# mainboard lot sizes. Same trap the registrar default had.
+board: ""             # Mainboard | SME
 sector: ""
 
 issue:

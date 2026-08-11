@@ -33,13 +33,22 @@ financials:
   - 446.08
   - 507.91
   - 534.02
-  ebitda: []
+  ebitda:
+  - 60.99
+  - 81.31
+  - 101.33
   pat:
   - 35.79
   - 52.95
   - 64.64
-  net_worth: []
-  total_debt: []
+  net_worth:
+  - 193.66
+  - 241.62
+  - 306.1
+  total_debt:
+  - 41.21
+  - 7.58
+  - 17.78
   eps: 0.0
   pe_peer_avg: 0.0
 gmp_history:

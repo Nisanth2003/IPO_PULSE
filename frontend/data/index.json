@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T14:39:22",
+  "generated_at": "2026-08-11T16:02:00",
   "count": 13,
   "ipos": [
     {
@@ -42,14 +42,14 @@
       "slug": "optimystix-entertainment-india",
       "company": "Optimystix Entertainment India Limited",
       "initials": "OE",
-      "board": "Mainboard",
+      "board": "SME",
       "status": "open"
     },
     {
       "slug": "fascinate-textiles",
       "company": "Fascinate Textiles Limited",
       "initials": "FT",
-      "board": "Mainboard",
+      "board": "SME",
       "status": "open"
     },
     {
@@ -77,14 +77,14 @@
       "slug": "credent-connect-n-care",
       "company": "Credent Connect N Care Limited",
       "initials": "CC",
-      "board": "Mainboard",
+      "board": "SME",
       "status": "upcoming"
     },
     {
       "slug": "pramodini-medicare",
       "company": "Pramodini Medicare Limited",
       "initials": "PM",
-      "board": "Mainboard",
+      "board": "SME",
       "status": "upcoming"
     },
     {

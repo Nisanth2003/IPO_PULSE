@@ -145,6 +145,93 @@ def gmp_gaps(ipo: Ipo, today: date | None = None) -> list[str]:
     return out
 
 
+def inconsistencies(ipo: Ipo) -> list[str]:
+    """Data that is present but cannot all be true at once.
+
+    A missing field blanks a scene, which is visible. A *wrong* one renders
+    perfectly and is believed — so these checks are about internal agreement
+    rather than completeness. Everything here is arithmetic or calendar
+    ordering: no judgement, no thresholds anyone could argue about, except
+    the two clearly-labelled plausibility bands at the end.
+    """
+    out: list[str] = []
+    f, iss, d = ipo.financials, ipo.issue, ipo.dates
+    n = len(f.years)
+
+    # 1. Series that do not line up with `years`. compute.py zips them by
+    #    index, so a short array silently shifts every figure into the wrong
+    #    financial year — the single most dangerous shape in the file.
+    for key in ("revenue", "ebitda", "pat", "net_worth", "total_debt"):
+        vals = getattr(f, key, None) or []
+        if vals and len(vals) != n:
+            out.append(f"financials.{key} has {len(vals)} values for {n} years "
+                       f"— figures will land in the wrong year")
+
+    # 2. Relationships that cannot hold. EBITDA is earnings BEFORE interest,
+    #    tax, depreciation — it cannot exceed the revenue it is computed from.
+    rev, ebitda, pat = f.revenue or [], f.ebitda or [], f.pat or []
+    for i, yr in enumerate(f.years):
+        r = rev[i] if i < len(rev) else None
+        e = ebitda[i] if i < len(ebitda) else None
+        p = pat[i] if i < len(pat) else None
+        if r is not None and e is not None and r > 0 and e > r:
+            out.append(f"{yr}: EBITDA ₹{e:g} Cr exceeds revenue ₹{r:g} Cr")
+        if e is not None and p is not None and e > 0 and p > e * 1.05:
+            out.append(f"{yr}: PAT ₹{p:g} Cr exceeds EBITDA ₹{e:g} Cr")
+        if r is not None and r < 0:
+            out.append(f"{yr}: negative revenue ₹{r:g} Cr")
+
+    # 3. The issue must add up.
+    split = iss.fresh_cr + iss.ofs_cr
+    if split > 0 and iss.total_cr > 0 and abs(split - iss.total_cr) > 0.5:
+        out.append(f"issue total ₹{iss.total_cr:g} Cr != fresh ₹{iss.fresh_cr:g} "
+                   f"+ OFS ₹{iss.ofs_cr:g} = ₹{split:g} Cr")
+    if iss.price_low and iss.price_high and iss.price_low > iss.price_high:
+        out.append(f"price band inverted: ₹{iss.price_low:g} low > ₹{iss.price_high:g} high")
+
+    # 4. The calendar has to run forwards.
+    seq = [("open", d.open), ("close", d.close), ("allotment", d.allotment),
+           ("refund", d.refund), ("listing", d.listing)]
+    seen = [(k, v) for k, v in seq if v]
+    for (ka, va), (kb, vb) in zip(seen, seen[1:]):
+        if vb < va:
+            out.append(f"dates.{kb} ({vb}) falls before dates.{ka} ({va})")
+    if d.announced and d.open and d.announced > d.open:
+        out.append(f"dates.announced ({d.announced}) is after the open ({d.open})")
+
+    # 5. Financial years that predate the issue. An IPO listing in 2026 files
+    #    an RHP with FY24-FY26; a table ending at FY25 is a stale document,
+    #    which is worth knowing before those numbers go on camera.
+    # Only when a series actually carries figures: `years` alone is the
+    # scaffold's FY23-FY25 placeholder, so checking it unconditionally flagged
+    # every IPO that simply has no financials yet — duplicating the "Revenue
+    # blank" finding as a scarier-looking one.
+    year_of = (d.listing or d.open or d.close)
+    if year_of and f.years and any(rev or ebitda or pat or f.net_worth):
+        last = str(f.years[-1])
+        digits = "".join(ch for ch in last if ch.isdigit())
+        if len(digits) in (2, 4):
+            fy = int(digits) + (2000 if len(digits) == 2 else 0)
+            # Two full years behind, not one. An SME filing in mid-2026 often
+            # carries FY25 as its latest audited set quite legitimately, so a
+            # one-year gap is normal rather than a finding.
+            if fy <= year_of.year - 2:
+                out.append(f"financials end at {last} for an issue listing in "
+                           f"{year_of.year} — likely a superseded document")
+
+    # 6. Two plausibility bands, stated as such. SEBI fixes the retail lot at
+    #    roughly ₹14-15k on the mainboard and ₹1-1.5 lakh on SME, so a lot
+    #    value far outside that usually means the lot size or the band is wrong.
+    lot_value = iss.lot_size * iss.price_high
+    if lot_value:
+        lo, hi = (95_000, 210_000) if ipo.board == "SME" else (10_000, 20_000)
+        if not (lo <= lot_value <= hi):
+            out.append(f"one lot is ₹{lot_value:,.0f} — outside the usual "
+                       f"₹{lo:,}-₹{hi:,} for {ipo.board or 'Mainboard'}; check "
+                       f"lot_size ({iss.lot_size}) against the band")
+    return out
+
+
 def inspect(ipo: Ipo, today: date | None = None) -> dict[str, Any]:
     """Findings for one IPO, ordered worst-first."""
     from .compute import date_metrics, gmp_metrics
@@ -178,6 +265,9 @@ def inspect(ipo: Ipo, today: date | None = None) -> dict[str, Any]:
         # labelled as today's.
         "gmp_age_days": gmp["age_days"],
         "gmp_stale": bool(gmp["is_stale"]) and status not in ("listed",),
+        # Present-but-contradictory data. A blank blanks a scene, which shows;
+        # a wrong figure renders perfectly and gets believed.
+        "inconsistent": inconsistencies(ipo),
         "repairs": [r["what"] for r in plan_repairs(ipo)],
     }
 
