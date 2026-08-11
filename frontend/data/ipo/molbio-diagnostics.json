@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T01:18:36",
+  "generated_at": "2026-08-11T13:47:28",
   "ipo": {
     "slug": "molbio-diagnostics",
     "company": "Molbio Diagnostics Limited",
@@ -106,6 +106,15 @@
         "retail": 0.77,
         "employee": 2.12,
         "total": 0.83
+      },
+      {
+        "day": 2,
+        "date": "2026-08-11",
+        "qib": 1.01,
+        "nii": 2.41,
+        "retail": 1.96,
+        "employee": 3.43,
+        "total": 1.79
       }
     ],
     "analysis": {
@@ -278,15 +287,15 @@
     },
     "subscription": {
       "has_data": true,
-      "day": 1,
-      "qib": 1.0,
-      "nii": 0.73,
-      "retail": 0.77,
-      "employee": 2.12,
-      "total": 0.83,
-      "max_category": 2.12,
-      "sentiment": "weak",
-      "leader": "qib",
+      "day": 2,
+      "qib": 1.01,
+      "nii": 2.41,
+      "retail": 1.96,
+      "employee": 3.43,
+      "total": 1.79,
+      "max_category": 3.43,
+      "sentiment": "ok",
+      "leader": "nii",
       "days": [
         {
           "day": 1,
@@ -296,6 +305,15 @@
           "retail": 0.77,
           "employee": 2.12,
           "total": 0.83
+        },
+        {
+          "day": 2,
+          "date": "2026-08-11",
+          "qib": 1.01,
+          "nii": 2.41,
+          "retail": 1.96,
+          "employee": 3.43,
+          "total": 1.79
         }
       ]
     },
@@ -461,7 +479,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 6.3,
+      "value": 6.8,
       "components": [
         {
           "key": "grey",
@@ -476,8 +494,8 @@
           "weight": 20.0,
           "full_weight": 20,
           "has_data": true,
-          "mark": 3.3,
-          "detail": "0.83x overall on day 1"
+          "mark": 4.8,
+          "detail": "1.79x overall on day 2"
         },
         {
           "key": "fundamentals",
@@ -512,7 +530,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 6.3
+      "effective": 6.8
     }
   }
 }

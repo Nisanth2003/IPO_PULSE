@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T01:18:36",
+  "generated_at": "2026-08-11T13:47:28",
   "ipo": {
     "slug": "technocraft-ventures",
     "company": "Technocraft Ventures Limited",
@@ -78,6 +78,15 @@
         "retail": 4.12,
         "employee": 0.0,
         "total": 4.73
+      },
+      {
+        "day": 5,
+        "date": "2026-08-11",
+        "qib": 8.4,
+        "nii": 25.93,
+        "retail": 12.91,
+        "employee": 0.0,
+        "total": 14.41
       }
     ],
     "analysis": {
@@ -208,14 +217,14 @@
     },
     "subscription": {
       "has_data": true,
-      "day": 4,
-      "qib": 4.5,
-      "nii": 6.47,
-      "retail": 4.12,
+      "day": 5,
+      "qib": 8.4,
+      "nii": 25.93,
+      "retail": 12.91,
       "employee": 0.0,
-      "total": 4.73,
-      "max_category": 6.47,
-      "sentiment": "good",
+      "total": 14.41,
+      "max_category": 25.93,
+      "sentiment": "heavy",
       "leader": "nii",
       "days": [
         {
@@ -226,6 +235,15 @@
           "retail": 4.12,
           "employee": 0.0,
           "total": 4.73
+        },
+        {
+          "day": 5,
+          "date": "2026-08-11",
+          "qib": 8.4,
+          "nii": 25.93,
+          "retail": 12.91,
+          "employee": 0.0,
+          "total": 14.41
         }
       ]
     },
@@ -391,7 +409,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 7.0,
+      "value": 7.5,
       "components": [
         {
           "key": "grey",
@@ -406,8 +424,8 @@
           "weight": 20.0,
           "full_weight": 20,
           "has_data": true,
-          "mark": 6.4,
-          "detail": "4.73x overall on day 4"
+          "mark": 7.8,
+          "detail": "14.41x overall on day 5"
         },
         {
           "key": "fundamentals",
@@ -442,7 +460,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 7.0
+      "effective": 7.5
     }
   }
 }

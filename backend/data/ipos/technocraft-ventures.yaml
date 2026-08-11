@@ -61,6 +61,13 @@ subscription:
   retail: 4.12
   employee: 0.0
   total: 4.73
+- day: 5
+  date: '2026-08-11'
+  qib: 8.4
+  nii: 25.93
+  retail: 12.91
+  employee: 0.0
+  total: 14.41
 analysis:
   overview:
   - Operates in infrastructure development and EPC sector.

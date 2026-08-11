@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T01:18:36",
+  "generated_at": "2026-08-11T13:47:28",
   "rows": [
     {
       "slug": "dhoot-transmission",
@@ -17,7 +17,7 @@
       "est_listing": 1130.0,
       "gain_per_lot": 4403,
       "movement": "stable",
-      "subscription": 0.63,
+      "subscription": 2.07,
       "open": "2026-08-10",
       "close": "2026-08-12",
       "listing": "2026-08-17"
@@ -37,7 +37,7 @@
       "est_listing": 163.5,
       "gain_per_lot": 2514,
       "movement": "drop",
-      "subscription": null,
+      "subscription": 0.36,
       "open": "2026-08-11",
       "close": "2026-08-13",
       "listing": "2026-08-18"
@@ -57,7 +57,7 @@
       "est_listing": 942.0,
       "gain_per_lot": 2430,
       "movement": "stable",
-      "subscription": 0.83,
+      "subscription": 1.79,
       "open": "2026-08-10",
       "close": "2026-08-12",
       "listing": "2026-08-17"
@@ -77,7 +77,7 @@
       "est_listing": 239.0,
       "gain_per_lot": 1890,
       "movement": "surge",
-      "subscription": 4.73,
+      "subscription": 14.41,
       "open": "2026-08-07",
       "close": "2026-08-11",
       "listing": "2026-08-14"
@@ -97,7 +97,7 @@
       "est_listing": 171.5,
       "gain_per_lot": 1175,
       "movement": "drop",
-      "subscription": 0.49,
+      "subscription": 1.54,
       "open": "2026-08-07",
       "close": "2026-08-11",
       "listing": "2026-08-14"
@@ -215,6 +215,26 @@
       "gmp": 0.0,
       "gmp_pct": 0.0,
       "est_listing": 118.0,
+      "gain_per_lot": 0,
+      "movement": "stable",
+      "subscription": null,
+      "open": "2026-08-12",
+      "close": "2026-08-14",
+      "listing": "2026-08-19"
+    },
+    {
+      "slug": "shiprocket",
+      "company": "Shiprocket Limited",
+      "initials": "S",
+      "board": "Mainboard",
+      "status": "upcoming",
+      "price_low": 92.0,
+      "price_high": 97.0,
+      "lot_size": 154,
+      "min_investment": 14938,
+      "gmp": 0.0,
+      "gmp_pct": 0.0,
+      "est_listing": 97.0,
       "gain_per_lot": 0,
       "movement": "stable",
       "subscription": null,

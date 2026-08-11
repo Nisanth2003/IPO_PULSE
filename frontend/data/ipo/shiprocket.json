@@ -2,20 +2,20 @@
   "schema": 1,
   "generated_at": "2026-08-11T13:47:28",
   "ipo": {
-    "slug": "pramodini-medicare",
-    "company": "Pramodini Medicare Limited",
+    "slug": "shiprocket",
+    "company": "Shiprocket Limited",
     "initials": "",
     "board": "Mainboard",
     "sector": "",
     "issue": {
       "fresh_cr": 0.0,
       "ofs_cr": 0.0,
-      "total_cr": 69.04,
-      "price_low": 110.0,
-      "price_high": 118.0,
-      "lot_size": 0,
+      "total_cr": 1682.98,
+      "price_low": 92.0,
+      "price_high": 97.0,
+      "lot_size": 154,
       "shares_post_issue_cr": 0.0,
-      "registrar": "KFintech",
+      "registrar": "KFin Technologies Limited",
       "registrar_url": "https://kosmic.kfintech.com/ipostatus/",
       "exchanges": [
         "BSE",
@@ -45,25 +45,14 @@
       "eps": 0.0,
       "pe_peer_avg": 0.0
     },
-    "gmp_history": [
-      {
-        "date": "2026-08-10",
-        "gmp": 0.0,
-        "kostak": 0.0,
-        "sauda": 0.0,
-        "source": "gemini"
-      }
-    ],
+    "gmp_history": [],
     "subscription": [],
     "analysis": {
-      "overview": [
-        "Pramodini Medicare Limited is launching an IPO.",
-        "The issue size is total 69.04 crore."
-      ],
+      "overview": [],
       "green_flags": [],
       "red_flags": [],
       "growth": "",
-      "valuation": "The price band is set at ₹110 to ₹118.",
+      "valuation": "",
       "risk": "",
       "growth_tone": "good",
       "valuation_tone": "warn",
@@ -80,56 +69,19 @@
       "listing_high": 0.0,
       "steps": []
     },
-    "i18n": {
-      "hi": {
-        "overview": [
-          "प्रमोदिनी मेडिकियर लिमिटेड अपना IPO ला रही है।",
-          "इश्यू साइज़ कुल ₹69.04 करोड़ है।"
-        ],
-        "green_flags": [],
-        "red_flags": [],
-        "growth": "",
-        "valuation": "प्राइस बैंड ₹110 से ₹118 तय किया गया है।",
-        "risk": "",
-        "sector": "",
-        "allotment_steps": [
-          "रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें",
-          "ड्रॉपडाउन से IPO का नाम चुनें",
-          "PAN या एप्लिकेशन नंबर डालें",
-          "सर्च दबाएँ — स्टेटस तुरंत दिखेगा"
-        ]
-      },
-      "te": {
-        "overview": [
-          "ప్రమోదిని మెడికేర్ లిమిటెడ్ IPO కి వస్తోంది.",
-          "ఇష్యూ సైజ్ మొత్తం ₹69.04 కోట్లు."
-        ],
-        "green_flags": [],
-        "red_flags": [],
-        "growth": "",
-        "valuation": "ప్రైజ్ బ్యాండ్ ₹110 నుండి ₹118 గా నిర్ణయించారు.",
-        "risk": "",
-        "sector": "",
-        "allotment_steps": [
-          "రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి",
-          "డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి",
-          "PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి",
-          "సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది"
-        ]
-      }
-    },
+    "i18n": {},
     "benchmarks": {},
     "sources": {},
     "notes": ""
   },
   "derived": {
-    "initials": "PM",
+    "initials": "S",
     "issue": {
-      "total_cr": 69.04,
+      "total_cr": 1682.98,
       "has_split": false,
       "fresh_pct": 0.0,
       "ofs_pct": 0.0,
-      "min_investment": 0,
+      "min_investment": 14938,
       "is_fresh_heavy": true
     },
     "gmp": {
@@ -137,27 +89,18 @@
       "prev": 0.0,
       "delta": 0.0,
       "pct": 0.0,
-      "est_listing": 118.0,
+      "est_listing": 97.0,
       "gain_per_lot": 0,
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-10",
-      "series": [
-        {
-          "date": "2026-08-10",
-          "gmp": 0.0,
-          "pct": 0.0,
-          "kostak": 0.0,
-          "sauda": 0.0,
-          "source": "gemini"
-        }
-      ],
+      "updated": null,
+      "series": [],
       "peak": 0.0,
       "trough": 0.0,
-      "days_tracked": 1,
-      "age_days": 1,
-      "is_stale": true
+      "days_tracked": 0,
+      "age_days": null,
+      "is_stale": false
     },
     "subscription": {
       "has_data": false,
@@ -186,15 +129,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 2.0,
+      "value": 0.0,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
-          "has_data": true,
-          "mark": 2.0,
-          "detail": "GMP is 0.0% of the ₹118 band"
+          "has_data": false,
+          "mark": null,
+          "detail": "no GMP logged yet"
         },
         {
           "key": "demand",
@@ -229,9 +172,10 @@
           "detail": "fresh/OFS split not disclosed"
         }
       ],
-      "covered_pct": 25,
+      "covered_pct": 0,
       "has_data": false,
       "missing": [
+        "grey",
         "demand",
         "fundamentals",
         "valuation",
@@ -239,7 +183,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 2.0
+      "effective": 0.0
     }
   }
 }
