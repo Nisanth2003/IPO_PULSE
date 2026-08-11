@@ -62,11 +62,11 @@ gmp_history:
 subscription:
 - day: 1
   date: '2026-08-11'
-  qib: 0.02
-  nii: 0.51
-  retail: 0.66
-  employee: 1.48
-  total: 0.45
+  qib: 0.39
+  nii: 0.92
+  retail: 0.96
+  employee: 2.07
+  total: 0.79
 analysis:
   overview:
   - Operates in the dairy and packaged food sector.
