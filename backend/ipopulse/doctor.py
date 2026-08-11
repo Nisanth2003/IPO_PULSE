@@ -145,6 +145,21 @@ def gmp_gaps(ipo: Ipo, today: date | None = None) -> list[str]:
     return out
 
 
+def sub_gaps(ipo: Ipo) -> list[int]:
+    """Bidding days with no subscription row, below the latest day recorded.
+
+    The same hole as `gmp_gaps`, in the other daily series. Reel 3's trend
+    scene is a table headed "day-wise", so a jump from Day 1 to Day 5 is a
+    visible claim that nothing happened in between. Unlike GMP these are also
+    unrecoverable after the fact: the exchange publishes a running cumulative
+    figure for *today*, not an archive, so a day the job did not run is gone.
+    """
+    days = sorted({int(s.day) for s in ipo.subscription if s.day})
+    if not days:
+        return []
+    return [d for d in range(1, days[-1] + 1) if d not in set(days)]
+
+
 def inconsistencies(ipo: Ipo) -> list[str]:
     """Data that is present but cannot all be true at once.
 
@@ -261,6 +276,7 @@ def inspect(ipo: Ipo, today: date | None = None) -> dict[str, Any]:
         "missing": missing,
         "blank": [m for m in missing if m["severity"] == "blank"],
         "gmp_gaps": gmp_gaps(ipo, today),
+        "sub_gaps": sub_gaps(ipo),
         # Stale is worse than missing here: the card still shows the number,
         # labelled as today's.
         "gmp_age_days": gmp["age_days"],

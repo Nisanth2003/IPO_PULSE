@@ -949,7 +949,7 @@ def cmd_doctor(args) -> int:
         rep = doctor.inspect(ipo)
         gaps = rep["gmp_gaps"]
         clean = (not rep["missing"] and not gaps and not rep["gmp_stale"]
-                 and not rep["inconsistent"])
+                 and not rep["inconsistent"] and not rep["sub_gaps"])
 
         print(f"\n── {rep['company']}  ({ipo.slug})")
         if clean:
@@ -970,6 +970,15 @@ def cmd_doctor(args) -> int:
             n = rep["gmp_age_days"]
             print(f"  ⚠ GMP is {n} day(s) old — the card labels it "
                   f"\"today's GMP\" until this is refreshed")
+
+        if rep["sub_gaps"]:
+            days = ", ".join(f"day {d}" for d in rep["sub_gaps"][:6])
+            print(f"  ⚠ subscription is missing {days} — reel 3 is headed "
+                  f"'day-wise' and will jump straight over them")
+            print("    The exchange publishes today's running total, not an "
+                  "archive, so these")
+            print("    cannot be backfilled: enter them by hand with "
+                  f"`ipopulse sub {ipo.slug} <day> …` or accept the gap.")
 
         if gaps:
             shown = ", ".join(gaps[:6]) + (f" … +{len(gaps) - 6}" if len(gaps) > 6 else "")
