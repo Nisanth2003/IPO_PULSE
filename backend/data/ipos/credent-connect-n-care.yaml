@@ -1,0 +1,64 @@
+slug: credent-connect-n-care
+company: Credent Connect N Care Limited
+initials: ''
+board: Mainboard
+sector: ''
+issue:
+  fresh_cr: 0.0
+  ofs_cr: 0.0
+  total_cr: 93.9
+  price_low: 179.0
+  price_high: 189.0
+  lot_size: 0
+  shares_post_issue_cr: 0.0
+  registrar: Kfin Technologies Limited
+  registrar_url: https://kosmic.kfintech.com/ipostatus/
+  exchanges:
+  - BSE
+  - NSE
+dates:
+  announced: null
+  open: '2026-08-13'
+  close: '2026-08-17'
+  close_time: '17:00'
+  allotment: '2026-08-18'
+  refund: '2026-08-19'
+  listing: '2026-08-20'
+financials:
+  years:
+  - FY23
+  - FY24
+  - FY25
+  revenue: []
+  ebitda: []
+  pat: []
+  net_worth: []
+  total_debt: []
+  eps: 0.0
+  pe_peer_avg: 0.0
+gmp_history: []
+subscription: []
+analysis:
+  overview: []
+  green_flags: []
+  red_flags: []
+  growth: ''
+  valuation: ''
+  risk: ''
+  growth_tone: good
+  valuation_tone: warn
+  score: 0.0
+  verdict: apply
+  verdict_text: ''
+  reco_retail: apply
+  reco_hni: watch
+  reco_long: watch
+allotment:
+  status: expected
+  listing_low: 0.0
+  listing_high: 0.0
+  steps: []
+i18n: {}
+benchmarks: {}
+sources: {}
+notes: ''

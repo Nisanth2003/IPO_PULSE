@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T13:47:28",
+  "generated_at": "2026-08-11T08:31:52",
   "ipo": {
     "slug": "milky-mist-dairy-food",
     "company": "Milky Mist Dairy Food Limited",
@@ -73,11 +73,11 @@
       {
         "day": 1,
         "date": "2026-08-11",
-        "qib": 0.0,
-        "nii": 0.39,
-        "retail": 0.54,
-        "employee": 1.25,
-        "total": 0.36
+        "qib": 0.02,
+        "nii": 0.5,
+        "retail": 0.66,
+        "employee": 1.46,
+        "total": 0.44
       }
     ],
     "analysis": {
@@ -215,23 +215,23 @@
     "subscription": {
       "has_data": true,
       "day": 1,
-      "qib": 0.0,
-      "nii": 0.39,
-      "retail": 0.54,
-      "employee": 1.25,
-      "total": 0.36,
-      "max_category": 1.25,
+      "qib": 0.02,
+      "nii": 0.5,
+      "retail": 0.66,
+      "employee": 1.46,
+      "total": 0.44,
+      "max_category": 1.46,
       "sentiment": "weak",
       "leader": "retail",
       "days": [
         {
           "day": 1,
           "date": "2026-08-11",
-          "qib": 0.0,
-          "nii": 0.39,
-          "retail": 0.54,
-          "employee": 1.25,
-          "total": 0.36
+          "qib": 0.02,
+          "nii": 0.5,
+          "retail": 0.66,
+          "employee": 1.46,
+          "total": 0.44
         }
       ]
     },
@@ -397,7 +397,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 5.0,
+      "value": 5.1,
       "components": [
         {
           "key": "grey",
@@ -412,8 +412,8 @@
           "weight": 20.0,
           "full_weight": 20,
           "has_data": true,
-          "mark": 1.4,
-          "detail": "0.36x overall on day 1"
+          "mark": 1.8,
+          "detail": "0.44x overall on day 1"
         },
         {
           "key": "fundamentals",
@@ -448,7 +448,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 5.0
+      "effective": 5.1
     }
   }
 }

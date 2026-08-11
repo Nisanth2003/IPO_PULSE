@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T13:47:28",
-  "count": 12,
+  "generated_at": "2026-08-11T08:31:52",
+  "count": 13,
   "ipos": [
     {
       "slug": "dhoot-transmission",
@@ -70,6 +70,13 @@
       "slug": "meridian-logistics",
       "company": "Meridian Logistics Ltd",
       "initials": "ML",
+      "board": "Mainboard",
+      "status": "upcoming"
+    },
+    {
+      "slug": "credent-connect-n-care",
+      "company": "Credent Connect N Care Limited",
+      "initials": "CC",
       "board": "Mainboard",
       "status": "upcoming"
     },
