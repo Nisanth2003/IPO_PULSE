@@ -36,7 +36,12 @@ financials:
   total_debt: []
   eps: 0.0
   pe_peer_avg: 0.0
-gmp_history: []
+gmp_history:
+- date: '2026-08-09'
+  gmp: 21.0
+  kostak: 0.0
+  sauda: 0.0
+  source: gemini
 subscription: []
 analysis:
   overview: []

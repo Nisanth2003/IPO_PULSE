@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T13:50:31",
+  "generated_at": "2026-08-11T16:15:10",
   "ipo": {
     "slug": "shiprocket",
     "company": "Shiprocket Limited",
@@ -45,7 +45,15 @@
       "eps": 0.0,
       "pe_peer_avg": 0.0
     },
-    "gmp_history": [],
+    "gmp_history": [
+      {
+        "date": "2026-08-09",
+        "gmp": 21.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
+      }
+    ],
     "subscription": [],
     "analysis": {
       "overview": [],
@@ -85,22 +93,31 @@
       "is_fresh_heavy": true
     },
     "gmp": {
-      "gmp": 0.0,
+      "gmp": 21.0,
       "prev": 0.0,
-      "delta": 0.0,
-      "pct": 0.0,
-      "est_listing": 97.0,
-      "gain_per_lot": 0,
+      "delta": 21.0,
+      "pct": 21.65,
+      "est_listing": 118.0,
+      "gain_per_lot": 3234,
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": null,
-      "series": [],
-      "peak": 0.0,
-      "trough": 0.0,
-      "days_tracked": 0,
-      "age_days": null,
-      "is_stale": false
+      "updated": "2026-08-09",
+      "series": [
+        {
+          "date": "2026-08-09",
+          "gmp": 21.0,
+          "pct": 21.65,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
+        }
+      ],
+      "peak": 21.0,
+      "trough": 21.0,
+      "days_tracked": 1,
+      "age_days": 2,
+      "is_stale": true
     },
     "subscription": {
       "has_data": false,
@@ -129,15 +146,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 6.4,
+      "value": 7.3,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
-          "has_data": false,
-          "mark": null,
-          "detail": "no GMP logged yet"
+          "has_data": true,
+          "mark": 7.7,
+          "detail": "GMP is 21.65% of the ₹97 band"
         },
         {
           "key": "demand",
@@ -172,17 +189,16 @@
           "detail": "54.7% fresh issue"
         }
       ],
-      "covered_pct": 10,
+      "covered_pct": 35,
       "has_data": false,
       "missing": [
-        "grey",
         "demand",
         "fundamentals",
         "valuation"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 6.4
+      "effective": 7.3
     }
   }
 }

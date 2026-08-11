@@ -70,10 +70,10 @@ gmp_history:
   sauda: 0.0
   source: investorgain
 - date: '2026-08-09'
-  gmp: 132.0
+  gmp: 122.0
   kostak: 0.0
   sauda: 0.0
-  source: investorgain
+  source: gemini
 - date: '2026-08-10'
   gmp: 135.0
   kostak: 0.0
