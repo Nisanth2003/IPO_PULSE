@@ -198,12 +198,15 @@ def plan_repairs(ipo: Ipo) -> list[dict[str, Any]]:
 
     split = iss.fresh_cr + iss.ofs_cr
 
-    if split > 0 and not iss.total_cr:
-        add(f"total_cr = fresh + OFS = ₹{split:g} Cr",
+    if split > 0 and abs(split - iss.total_cr) > 0.01:
+        # total IS fresh + OFS — arithmetic, not a judgement, so it qualifies
+        # as a repair even when a different total is already recorded. That
+        # case is common rather than theoretical: NSE's catalogue `issueSize`
+        # counts only the fresh shares, so the derived total understates any
+        # issue with an OFS leg (Molbio published ₹658 Cr against ₹939.7 Cr).
+        was = f" (was ₹{iss.total_cr:g})" if iss.total_cr else ""
+        add(f"total_cr = fresh + OFS = ₹{split:g} Cr{was}",
             lambda raw, v=split: raw["issue"].__setitem__("total_cr", round(v, 2)))
-    elif iss.total_cr > 0 and split > 0 and abs(split - iss.total_cr) > 0.01:
-        # Not repairable — which of the three is wrong is not knowable here.
-        pass
     elif iss.total_cr > 0 and 0 < iss.fresh_cr and not iss.ofs_cr and iss.total_cr > iss.fresh_cr:
         rest = round(iss.total_cr - iss.fresh_cr, 2)
         add(f"ofs_cr = total - fresh = ₹{rest:g} Cr",

@@ -42,6 +42,17 @@ const OUTPUT = {
          ` EBITDA మార్జిన్ ${fin.latest.ebitda_margin}%, ${Math.abs(fin.margin_shift_bps)} బేసిస్ పాయింట్లు ${fin.margin_shift_bps >= 0 ? 'పెరిగింది' : 'తగ్గింది'}.`][i]
       : '';
 
+    // Withheld rather than stated when coverage is too thin: a freshly
+    // discovered IPO with only its fresh/OFS split scores a clean 10.0, which
+    // is true arithmetic and a nonsense verdict to read aloud.
+    const scoreSentence = d.score.has_data
+      ? [`${scoreSentence}`,
+         `${scoreSentence}`,
+         `${scoreSentence}`][i]
+      : [`Too little data to score this one yet.`,
+         `इसे स्कोर देने के लिए अभी बहुत कम डेटा है।`,
+         `దీనికి స్కోర్ ఇవ్వడానికి ఇంకా చాలా తక్కువ డేటా.`][i];
+
     const gmpMoveLine = g.is_stale
       ? [`Previous reading ₹${g.prev}, latest ₹${g.gmp}.`,
          `पिछली रीडिंग ₹${g.prev}, ताज़ा ₹${g.gmp}।`,

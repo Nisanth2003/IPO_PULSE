@@ -349,11 +349,20 @@ class Gemini:
         ) from last
 
     def _generate_json(self, prompt: str) -> Any:
+        return _parse_json(self._generate_json_text(prompt))
+
+    def _generate_json_text(self, prompt: str, temperature: float = 0.2) -> str:
+        """Raw JSON-mode response text.
+
+        Drafting keeps the existing 0.2; extraction passes 0.0, where the only
+        acceptable creativity is none.
+        """
         resp = self._call(
             contents=prompt,
-            config={"response_mime_type": "application/json", "temperature": 0.2},
+            config={"response_mime_type": "application/json",
+                    "temperature": temperature},
         )
-        return _parse_json(resp.text or "")
+        return resp.text or ""
 
     def _generate_grounded(self, prompt: str, urls: list[str] | None = None) -> tuple[str, list[str]]:
         """Run with Google Search grounding (and URL context when given).
@@ -493,6 +502,63 @@ FACTS:
         }
         self._store("an", key, drafted)
         return drafted
+
+    def read_rhp(self, company: str, sections: dict[str, str],
+                 years: list[str] | None = None) -> dict[str, Any]:
+        """Pull the balance-sheet fields out of RHP excerpts.
+
+        No search tool and no URL tool: the text is supplied, so the model has
+        nothing to browse and nothing to remember. That is the whole point —
+        every figure it returns has to be sittting in the prompt, which makes
+        "I could not find it" a cheap answer and invention an expensive one.
+        """
+        if not self.available():
+            raise AiUnavailable("Gemini not configured; cannot read the RHP.")
+
+        span = years or ["FY24", "FY25", "FY26"]
+        blocks = "\n\n".join(
+            f"===== {name.upper()} =====\n{text}" for name, text in sections.items())
+
+        prompt = f"""Below are verbatim pages from the Red Herring Prospectus
+of the Indian IPO "{company}". Extract the figures listed, using ONLY what
+appears in these pages.
+
+Years wanted, oldest first: {", ".join(span)}.
+
+The tables lost their column alignment when the PDF was converted to text, so
+read them carefully:
+
+  * Several pages put OUR COMPANY beside its listed PEERS. Every figure you
+    return must be our company's own column. If you cannot tell which column
+    is ours, return null rather than guessing — a peer's number filed as ours
+    is far worse than a gap.
+  * Report every amount EXACTLY as printed — do not convert units. State the
+    unit the tables use in "unit" (one of: million, crore, lakh, billion,
+    rupees). The conversion is done downstream; a silent one here is a 10x
+    error nobody can see.
+  * "pe_peer_avg" is the mean P/E of the listed peers shown, NOT our company's.
+    Only give it if peer P/E values are actually printed.
+  * Every array must be exactly {len(span)} long, oldest first. If a year is
+    missing, return that whole array empty rather than padding or shifting.
+  * A metric you cannot find is an empty array. That does not stop you
+    reporting the ones you can find.
+
+Return ONLY JSON:
+{{"years": {json.dumps(span)},
+  "revenue": [], "ebitda": [], "pat": [], "net_worth": [], "total_debt": [],
+  "unit": "million" | "crore" | "lakh" | "billion" | "rupees",
+  "eps": <number or null>, "pe_peer_avg": <number or null>,
+  "peers": ["<listed peer names you saw>"],
+  "confidence": "high" | "medium" | "low",
+  "note": "<anything you could not separate from a peer's column>"}}
+
+"eps" is in rupees per share and "pe_peer_avg" is a multiple — neither is
+affected by "unit".
+
+{blocks}"""
+
+        return _parse_json(self._generate_json_text(prompt, temperature=0.0),
+                           default={})
 
     # ── grounded research ─────────────────────────────────────────────────
     # Deliberately NOT cached: a cached GMP is a wrong GMP tomorrow.

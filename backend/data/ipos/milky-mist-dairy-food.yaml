@@ -4,9 +4,9 @@ initials: ''
 board: Mainboard
 sector: Dairy and packaged food
 issue:
-  fresh_cr: 0.0
-  ofs_cr: 0.0
-  total_cr: 1634.96
+  fresh_cr: 1428.0
+  ofs_cr: 125.0
+  total_cr: 1553.0
   price_low: 133.0
   price_high: 140.0
   lot_size: 107
@@ -33,15 +33,21 @@ financials:
   - 1821.61
   - 2349.5
   - 3138.36
-  ebitda: []
+  ebitda:
+  - 222.33
+  - 310.35
+  - 435.22
   pat:
   - 19.44
   - 46.07
   - 127.01
   net_worth: []
-  total_debt: []
-  eps: 0.0
-  pe_peer_avg: 0.0
+  total_debt:
+  - 1036.72
+  - 1376.38
+  - 1671.85
+  eps: 1.28
+  pe_peer_avg: 52.56
 gmp_history:
 - date: '2026-08-07'
   gmp: 27.0
@@ -57,10 +63,10 @@ subscription:
 - day: 1
   date: '2026-08-11'
   qib: 0.02
-  nii: 0.5
+  nii: 0.51
   retail: 0.66
-  employee: 1.46
-  total: 0.44
+  employee: 1.48
+  total: 0.45
 analysis:
   overview:
   - Operates in the dairy and packaged food sector.

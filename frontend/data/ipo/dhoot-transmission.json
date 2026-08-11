@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T08:31:52",
+  "generated_at": "2026-08-11T14:36:17",
   "ipo": {
     "slug": "dhoot-transmission",
     "company": "Dhoot Transmission Limited",
@@ -8,9 +8,9 @@
     "board": "Mainboard",
     "sector": "Electrical and electronics components for automotive and non-automotive applications",
     "issue": {
-      "fresh_cr": 0.0,
-      "ofs_cr": 0.0,
-      "total_cr": 2173.7,
+      "fresh_cr": 1400.0,
+      "ofs_cr": 1666.89,
+      "total_cr": 3066.89,
       "price_low": 829.0,
       "price_high": 871.0,
       "lot_size": 17,
@@ -40,17 +40,25 @@
       "revenue": [
         2797.73,
         3444.86,
-        4524.95
+        4524.96
       ],
-      "ebitda": [],
+      "ebitda": [
+        512.4,
+        590.96,
+        710.99
+      ],
       "pat": [
         298.75,
         353.89,
         396.84
       ],
       "net_worth": [],
-      "total_debt": [],
-      "eps": 21.06,
+      "total_debt": [
+        554.9,
+        776.06,
+        841.39
+      ],
+      "eps": 24.4,
       "pe_peer_avg": 0.0
     },
     "gmp_history": [
@@ -83,10 +91,10 @@
         "day": 2,
         "date": "2026-08-11",
         "qib": 0.47,
-        "nii": 6.77,
-        "retail": 2.28,
-        "employee": 2.8,
-        "total": 2.75
+        "nii": 6.81,
+        "retail": 2.29,
+        "employee": 2.81,
+        "total": 2.76
       }
     ],
     "analysis": {
@@ -180,12 +188,12 @@
   "derived": {
     "initials": "DT",
     "issue": {
-      "total_cr": 2173.7,
-      "has_split": false,
-      "fresh_pct": 0.0,
-      "ofs_pct": 0.0,
+      "total_cr": 3066.89,
+      "has_split": true,
+      "fresh_pct": 45.6,
+      "ofs_pct": 54.4,
       "min_investment": 14807,
-      "is_fresh_heavy": true
+      "is_fresh_heavy": false
     },
     "gmp": {
       "gmp": 259.0,
@@ -226,11 +234,11 @@
       "has_data": true,
       "day": 2,
       "qib": 0.47,
-      "nii": 6.77,
-      "retail": 2.28,
-      "employee": 2.8,
-      "total": 2.75,
-      "max_category": 6.77,
+      "nii": 6.81,
+      "retail": 2.29,
+      "employee": 2.81,
+      "total": 2.76,
+      "max_category": 6.81,
       "sentiment": "ok",
       "leader": "nii",
       "days": [
@@ -247,10 +255,10 @@
           "day": 2,
           "date": "2026-08-11",
           "qib": 0.47,
-          "nii": 6.77,
-          "retail": 2.28,
-          "employee": 2.8,
-          "total": 2.75
+          "nii": 6.81,
+          "retail": 2.29,
+          "employee": 2.81,
+          "total": 2.76
         }
       ]
     },
@@ -260,71 +268,71 @@
         {
           "year": "2024",
           "revenue": 2797.73,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
+          "ebitda": 512.4,
+          "ebitda_margin": 18.3,
           "pat": 298.75,
           "pat_margin": 10.7,
           "net_worth": 0.0,
-          "total_debt": 0.0,
+          "total_debt": 554.9,
           "ronw": 0.0,
           "debt_equity": 0.0
         },
         {
           "year": "2025",
           "revenue": 3444.86,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
+          "ebitda": 590.96,
+          "ebitda_margin": 17.2,
           "pat": 353.89,
           "pat_margin": 10.3,
           "net_worth": 0.0,
-          "total_debt": 0.0,
+          "total_debt": 776.06,
           "ronw": 0.0,
           "debt_equity": 0.0
         },
         {
           "year": "2026",
-          "revenue": 4524.95,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
+          "revenue": 4524.96,
+          "ebitda": 710.99,
+          "ebitda_margin": 15.7,
           "pat": 396.84,
           "pat_margin": 8.8,
           "net_worth": 0.0,
-          "total_debt": 0.0,
+          "total_debt": 841.39,
           "ronw": 0.0,
           "debt_equity": 0.0
         }
       ],
       "latest": {
         "year": "2026",
-        "revenue": 4524.95,
-        "ebitda": 0.0,
-        "ebitda_margin": 0.0,
+        "revenue": 4524.96,
+        "ebitda": 710.99,
+        "ebitda_margin": 15.7,
         "pat": 396.84,
         "pat_margin": 8.8,
         "net_worth": 0.0,
-        "total_debt": 0.0,
+        "total_debt": 841.39,
         "ronw": 0.0,
         "debt_equity": 0.0
       },
       "revenue_cagr": 27.2,
-      "ebitda_cagr": 0.0,
+      "ebitda_cagr": 17.8,
       "pat_cagr": 15.3,
-      "margin_shift_bps": 0,
-      "eps": 21.06,
-      "pe": 41.4,
+      "margin_shift_bps": -260,
+      "eps": 24.4,
+      "pe": 35.7,
       "pe_peer_avg": 0.0,
       "pe_premium_pct": 0.0,
       "market_cap_cr": 0.0,
       "marks": {
         "ebitda_margin": {
-          "value": 0.0,
+          "value": 15.7,
           "good_at": 15.0,
           "higher_is_better": true,
-          "verdict": "na",
+          "verdict": "good",
           "unit": "%",
-          "pos": 0,
-          "mark": 0,
-          "gap_pct": 0.0
+          "pos": 50,
+          "mark": 48,
+          "gap_pct": 4.7
         },
         "pat_margin": {
           "value": 8.8,
@@ -387,14 +395,14 @@
           "gap_pct": 0.0
         }
       },
-      "score_good": 3,
-      "score_total": 3,
+      "score_good": 4,
+      "score_total": 4,
       "present": {
         "revenue": true,
-        "ebitda": false,
+        "ebitda": true,
         "pat": true,
         "net_worth": false,
-        "total_debt": false
+        "total_debt": true
       }
     },
     "dates": {
@@ -416,7 +424,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 8.1,
+      "value": 7.9,
       "components": [
         {
           "key": "grey",
@@ -432,15 +440,15 @@
           "full_weight": 20,
           "has_data": true,
           "mark": 5.8,
-          "detail": "2.75x overall on day 2"
+          "detail": "2.76x overall on day 2"
         },
         {
           "key": "fundamentals",
-          "weight": 12.9,
+          "weight": 17.1,
           "full_weight": 30,
           "has_data": true,
           "mark": 10.0,
-          "detail": "3 of 3 benchmarks met (3 of 7 measurable)"
+          "detail": "4 of 4 benchmarks met (4 of 7 measurable)"
         },
         {
           "key": "valuation",
@@ -454,20 +462,19 @@
           "key": "structure",
           "weight": 10.0,
           "full_weight": 10,
-          "has_data": false,
-          "mark": null,
-          "detail": "fresh/OFS split not disclosed"
+          "has_data": true,
+          "mark": 5.6,
+          "detail": "45.6% fresh issue"
         }
       ],
-      "covered_pct": 58,
+      "covered_pct": 72,
       "has_data": true,
       "missing": [
-        "valuation",
-        "structure"
+        "valuation"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 8.1
+      "effective": 7.9
     }
   }
 }

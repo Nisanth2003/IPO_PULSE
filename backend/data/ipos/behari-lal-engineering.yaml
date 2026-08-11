@@ -4,9 +4,9 @@ initials: ''
 board: Mainboard
 sector: Iron and steel manufacturing / precision-engineered components
 issue:
-  fresh_cr: 0.0
-  ofs_cr: 0.0
-  total_cr: 306.42
+  fresh_cr: 93.0
+  ofs_cr: 208.62
+  total_cr: 301.62
   price_low: 271.0
   price_high: 285.0
   lot_size: 52

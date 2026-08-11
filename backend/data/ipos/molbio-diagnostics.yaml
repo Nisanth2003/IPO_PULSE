@@ -4,9 +4,9 @@ initials: ''
 board: Mainboard
 sector: Point-of-care diagnostics
 issue:
-  fresh_cr: 0.0
-  ofs_cr: 0.0
-  total_cr: 658.39
+  fresh_cr: 200.0
+  ofs_cr: 739.7
+  total_cr: 939.7
   price_low: 768.0
   price_high: 807.0
   lot_size: 18
@@ -33,15 +33,21 @@ financials:
   - 836.56
   - 1020.42
   - 1445.69
-  ebitda: []
+  ebitda:
+  - 185.09
+  - 256.64
+  - 328.24
   pat:
   - 83.54
   - 138.58
   - 164.14
   net_worth: []
-  total_debt: []
-  eps: 14.56
-  pe_peer_avg: 0.0
+  total_debt:
+  - 161.52
+  - 17.88
+  - 82.97
+  eps: 14.77
+  pe_peer_avg: 64.89
 gmp_history:
 - date: '2026-08-05'
   gmp: 170.0
@@ -84,10 +90,10 @@ subscription:
 - day: 2
   date: '2026-08-11'
   qib: 1.2
-  nii: 3.27
-  retail: 2.34
-  employee: 3.73
-  total: 2.21
+  nii: 3.31
+  retail: 2.37
+  employee: 3.75
+  total: 2.24
 analysis:
   overview:
   - Operates in the point-of-care diagnostics sector.

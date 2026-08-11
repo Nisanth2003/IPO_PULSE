@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T08:31:52",
+  "generated_at": "2026-08-11T14:36:17",
   "ipo": {
     "slug": "fascinate-textiles",
     "company": "Fascinate Textiles Limited",
@@ -8,8 +8,8 @@
     "board": "Mainboard",
     "sector": "Readymade garment manufacturing",
     "issue": {
-      "fresh_cr": 0.0,
-      "ofs_cr": 0.0,
+      "fresh_cr": 53.94,
+      "ofs_cr": 13.04,
       "total_cr": 66.98,
       "price_low": 148.0,
       "price_high": 156.0,
@@ -148,9 +148,9 @@
     "initials": "FT",
     "issue": {
       "total_cr": 66.98,
-      "has_split": false,
-      "fresh_pct": 0.0,
-      "ofs_pct": 0.0,
+      "has_split": true,
+      "fresh_pct": 80.5,
+      "ofs_pct": 19.5,
       "min_investment": 124800,
       "is_fresh_heavy": true
     },
@@ -347,7 +347,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 4.7,
+      "value": 5.5,
       "components": [
         {
           "key": "grey",
@@ -385,21 +385,20 @@
           "key": "structure",
           "weight": 10.0,
           "full_weight": 10,
-          "has_data": false,
-          "mark": null,
-          "detail": "fresh/OFS split not disclosed"
+          "has_data": true,
+          "mark": 8.4,
+          "detail": "80.5% fresh issue"
         }
       ],
-      "covered_pct": 38,
-      "has_data": false,
+      "covered_pct": 48,
+      "has_data": true,
       "missing": [
         "demand",
-        "valuation",
-        "structure"
+        "valuation"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 4.7
+      "effective": 5.5
     }
   }
 }

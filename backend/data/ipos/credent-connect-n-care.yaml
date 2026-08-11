@@ -4,7 +4,7 @@ initials: ''
 board: Mainboard
 sector: ''
 issue:
-  fresh_cr: 0.0
+  fresh_cr: 93.9
   ofs_cr: 0.0
   total_cr: 93.9
   price_low: 179.0

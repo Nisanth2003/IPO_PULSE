@@ -4,9 +4,9 @@ initials: ''
 board: Mainboard
 sector: infrastructure development / EPC
 issue:
-  fresh_cr: 0.0
-  ofs_cr: 0.0
-  total_cr: 176.32
+  fresh_cr: 201.51
+  ofs_cr: 50.37
+  total_cr: 251.88
   price_low: 200.0
   price_high: 212.0
   lot_size: 70
@@ -33,15 +33,21 @@ financials:
   - 226.1
   - 279.56
   - 345.0
-  ebitda: []
+  ebitda:
+  - 35.02
+  - 49.63
+  - 72.17
   pat:
   - 19.05
   - 28.2
   - 43.31
-  net_worth: []
+  net_worth:
+  - 91.78
+  - 119.98
+  - 163.38
   total_debt: []
-  eps: 0.0
-  pe_peer_avg: 0.0
+  eps: 14.39
+  pe_peer_avg: 22.96
 gmp_history:
 - date: '2026-08-07'
   gmp: 17.0
@@ -63,11 +69,11 @@ subscription:
   total: 4.73
 - day: 5
   date: '2026-08-11'
-  qib: 11.9
-  nii: 36.41
-  retail: 16.08
+  qib: 11.91
+  nii: 39.69
+  retail: 16.58
   employee: 0.0
-  total: 19.24
+  total: 20.19
 analysis:
   overview:
   - Operates in infrastructure development and EPC sector.

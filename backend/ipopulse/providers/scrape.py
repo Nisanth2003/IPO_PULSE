@@ -134,6 +134,62 @@ def _num(value: Any) -> float:
         return 0.0
 
 
+# ── the fresh / OFS split ──────────────────────────────────────────────────
+# This was written off as "RHP only, type it in by hand" for every IPO. It is
+# not: NSE states it in the `Issue Size` line of the detail endpoint, in one
+# of three shapes —
+#
+#   both in rupees   Fresh Issue aggregating upto Rs. 14,280 million and
+#                    Offer for Sale aggregating upto Rs. 1,250 million
+#   both in shares   Fresh Issue of up to 9,505,000 equity shares and
+#                    Offer for Sale of up to 2,376,000 equity shares
+#   mixed            Fresh Issue aggregating up to Rs. 2,000 million and
+#                    Offer for Sale of up to 9,166,000 Equity Shares
+#
+# The trailing "(including Employee Reservation Portion aggregating up to
+# Rs. 15 million ...)" is a *subset* of the offer, not another leg, so each
+# side takes only the first figure in its own segment.
+
+_MONEY = re.compile(
+    r"(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d+)?)\s*(million|crore|cr\b|lakh|billion)",
+    re.I)
+_SHARES = re.compile(r"([\d,]+)\s*equity\s*shares", re.I)
+# rupees crore per unit
+_UNIT_CR = {"million": 0.1, "billion": 100.0, "crore": 1.0, "cr": 1.0, "lakh": 0.01}
+
+
+def _leg_cr(segment: str, price_high: float) -> float:
+    """First money-or-share figure in `segment`, as rupees crore.
+
+    Whichever appears first wins, because the two shapes can both occur in
+    one segment and the leading one is the leg itself.
+    """
+    money, shares = _MONEY.search(segment), _SHARES.search(segment)
+    if money and (not shares or money.start() < shares.start()):
+        unit = money.group(2).lower().rstrip(".")
+        return round(float(money.group(1).replace(",", "")) * _UNIT_CR.get(unit, 0.0), 2)
+    if shares and price_high:
+        # A share count only becomes a rupee figure at the upper band.
+        return round(int(shares.group(1).replace(",", "")) * price_high / 1e7, 2)
+    return 0.0
+
+
+def _split_from_issue_size(text: str, price_high: float) -> tuple[float, float]:
+    """(fresh_cr, ofs_cr) from NSE's `Issue Size` prose. 0 for either if absent."""
+    if not text:
+        return 0.0, 0.0
+    # Split on the OFS keyword: everything before it describes the fresh leg.
+    parts = re.split(r"offer\s+for\s+sale", text, maxsplit=1, flags=re.I)
+    head = parts[0]
+    tail = parts[1] if len(parts) > 1 else ""
+
+    fresh = 0.0
+    if re.search(r"fresh\s+(?:issue|offer)", head, re.I):
+        after = re.split(r"fresh\s+(?:issue|offer)", head, maxsplit=1, flags=re.I)[1]
+        fresh = _leg_cr(after, price_high)
+    return fresh, _leg_cr(tail, price_high) if tail else 0.0
+
+
 def _working_days_after(start: str, days: int) -> str | None:
     """`start` + N working days, skipping weekends.
 
@@ -286,6 +342,25 @@ class NseProvider:
                     issue["lot_size"] = lot
             elif field == "registrar" and not issue.get("registrar"):
                 issue["registrar"] = raw
+
+        # Fresh vs OFS, out of the `Issue Size` prose. This is the number the
+        # whole "company growth vs promoter exit" scene turns on, and it was
+        # believed to be RHP-only — so it sat at 0/0 for every IPO and the
+        # scene had to say "not disclosed". It is right here, keyless.
+        #
+        # It also corrects the headline size: the catalogue's `issueSize` is
+        # the FRESH share count alone, so Molbio published ₹658 Cr against a
+        # real ₹939.7 Cr. fresh+ofs is the true total, and compute.issue_metrics
+        # already prefers that sum over `total_cr` when it exists.
+        band = issue.get("price_high") or 0.0
+        fresh, ofs = _split_from_issue_size(info.get("issue size", ""), band)
+        if fresh:
+            issue["fresh_cr"] = fresh
+        if ofs:
+            issue["ofs_cr"] = ofs
+        if fresh or ofs:
+            issue["total_cr"] = round(fresh + ofs, 2)
+
         if issue:
             out["issue"] = issue
 

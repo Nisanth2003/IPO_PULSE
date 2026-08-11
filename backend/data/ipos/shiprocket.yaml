@@ -4,9 +4,9 @@ initials: ''
 board: Mainboard
 sector: ''
 issue:
-  fresh_cr: 0.0
-  ofs_cr: 0.0
-  total_cr: 1682.98
+  fresh_cr: 885.5
+  ofs_cr: 731.99
+  total_cr: 1617.49
   price_low: 92.0
   price_high: 97.0
   lot_size: 154

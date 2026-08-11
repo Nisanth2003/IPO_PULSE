@@ -4,8 +4,8 @@ initials: ''
 board: Mainboard
 sector: Readymade garment manufacturing
 issue:
-  fresh_cr: 0.0
-  ofs_cr: 0.0
+  fresh_cr: 53.94
+  ofs_cr: 13.04
   total_cr: 66.98
   price_low: 148.0
   price_high: 156.0

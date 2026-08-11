@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T08:31:52",
+  "generated_at": "2026-08-11T14:36:17",
   "ipo": {
     "slug": "optimystix-entertainment-india",
     "company": "Optimystix Entertainment India Limited",
@@ -8,8 +8,8 @@
     "board": "Mainboard",
     "sector": "media and entertainment",
     "issue": {
-      "fresh_cr": 0.0,
-      "ofs_cr": 0.0,
+      "fresh_cr": 87.5,
+      "ofs_cr": 21.0,
       "total_cr": 108.5,
       "price_low": 166.0,
       "price_high": 175.0,
@@ -155,9 +155,9 @@
     "initials": "OE",
     "issue": {
       "total_cr": 108.5,
-      "has_split": false,
-      "fresh_pct": 0.0,
-      "ofs_pct": 0.0,
+      "has_split": true,
+      "fresh_pct": 80.6,
+      "ofs_pct": 19.4,
       "min_investment": 140000,
       "is_fresh_heavy": true
     },
@@ -362,7 +362,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 5.4,
+      "value": 6.1,
       "components": [
         {
           "key": "grey",
@@ -400,21 +400,20 @@
           "key": "structure",
           "weight": 10.0,
           "full_weight": 10,
-          "has_data": false,
-          "mark": null,
-          "detail": "fresh/OFS split not disclosed"
+          "has_data": true,
+          "mark": 8.4,
+          "detail": "80.6% fresh issue"
         }
       ],
-      "covered_pct": 38,
-      "has_data": false,
+      "covered_pct": 48,
+      "has_data": true,
       "missing": [
         "demand",
-        "valuation",
-        "structure"
+        "valuation"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 5.4
+      "effective": 6.1
     }
   }
 }

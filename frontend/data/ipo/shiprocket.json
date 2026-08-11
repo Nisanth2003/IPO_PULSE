@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T08:31:52",
+  "generated_at": "2026-08-11T14:36:17",
   "ipo": {
     "slug": "shiprocket",
     "company": "Shiprocket Limited",
@@ -8,9 +8,9 @@
     "board": "Mainboard",
     "sector": "",
     "issue": {
-      "fresh_cr": 0.0,
-      "ofs_cr": 0.0,
-      "total_cr": 1682.98,
+      "fresh_cr": 885.5,
+      "ofs_cr": 731.99,
+      "total_cr": 1617.49,
       "price_low": 92.0,
       "price_high": 97.0,
       "lot_size": 154,
@@ -77,10 +77,10 @@
   "derived": {
     "initials": "S",
     "issue": {
-      "total_cr": 1682.98,
-      "has_split": false,
-      "fresh_pct": 0.0,
-      "ofs_pct": 0.0,
+      "total_cr": 1617.49,
+      "has_split": true,
+      "fresh_pct": 54.7,
+      "ofs_pct": 45.3,
       "min_investment": 14938,
       "is_fresh_heavy": true
     },
@@ -129,7 +129,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 0.0,
+      "value": 6.4,
       "components": [
         {
           "key": "grey",
@@ -167,23 +167,22 @@
           "key": "structure",
           "weight": 10.0,
           "full_weight": 10,
-          "has_data": false,
-          "mark": null,
-          "detail": "fresh/OFS split not disclosed"
+          "has_data": true,
+          "mark": 6.4,
+          "detail": "54.7% fresh issue"
         }
       ],
-      "covered_pct": 0,
+      "covered_pct": 10,
       "has_data": false,
       "missing": [
         "grey",
         "demand",
         "fundamentals",
-        "valuation",
-        "structure"
+        "valuation"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 0.0
+      "effective": 6.4
     }
   }
 }

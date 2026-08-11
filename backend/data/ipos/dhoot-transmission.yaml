@@ -4,9 +4,9 @@ initials: ''
 board: Mainboard
 sector: Electrical and electronics components for automotive and non-automotive applications
 issue:
-  fresh_cr: 0.0
-  ofs_cr: 0.0
-  total_cr: 2173.7
+  fresh_cr: 1400.0
+  ofs_cr: 1666.89
+  total_cr: 3066.89
   price_low: 829.0
   price_high: 871.0
   lot_size: 17
@@ -32,15 +32,21 @@ financials:
   revenue:
   - 2797.73
   - 3444.86
-  - 4524.95
-  ebitda: []
+  - 4524.96
+  ebitda:
+  - 512.4
+  - 590.96
+  - 710.99
   pat:
   - 298.75
   - 353.89
   - 396.84
   net_worth: []
-  total_debt: []
-  eps: 21.06
+  total_debt:
+  - 554.9
+  - 776.06
+  - 841.39
+  eps: 24.4
   pe_peer_avg: 0.0
 gmp_history:
 - date: '2026-08-07'
@@ -64,10 +70,10 @@ subscription:
 - day: 2
   date: '2026-08-11'
   qib: 0.47
-  nii: 6.77
-  retail: 2.28
-  employee: 2.8
-  total: 2.75
+  nii: 6.81
+  retail: 2.29
+  employee: 2.81
+  total: 2.76
 analysis:
   overview:
   - Makes electrical and electronics components.

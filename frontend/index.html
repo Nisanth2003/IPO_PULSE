@@ -993,10 +993,17 @@
                 <div class="font-black text-4xl leading-[1.1] mt-2" :style="`color:${verdict.hex}`"
                      x-text="verdictText"></div>
               </div>
-              <div class="glass px-4 py-2 self-center">
+              <!-- The score is withheld, not greyed, when coverage is too
+                   thin to mean anything. A newly discovered IPO with nothing
+                   but its fresh/OFS split scores a clean 10.0 on that one
+                   component — true to the arithmetic, absurd as a verdict. -->
+              <div class="glass px-4 py-2 self-center" x-show="!scoreThin">
                 <span class="lbl" x-text="t('score')"></span>
                 <span class="font-black text-2xl tnum ml-2" :style="`color:${verdict.hex}`"
                       x-text="Number(d.score.effective).toFixed(1)+'/10'"></span>
+              </div>
+              <div class="glass glass-a px-4 py-2 self-center" x-show="scoreThin">
+                <span class="text-2xs font-black text-amber-300" x-text="t('scoreThin')"></span>
               </div>
             </div>
 

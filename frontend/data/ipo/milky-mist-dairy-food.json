@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T08:31:52",
+  "generated_at": "2026-08-11T14:36:17",
   "ipo": {
     "slug": "milky-mist-dairy-food",
     "company": "Milky Mist Dairy Food Limited",
@@ -8,9 +8,9 @@
     "board": "Mainboard",
     "sector": "Dairy and packaged food",
     "issue": {
-      "fresh_cr": 0.0,
-      "ofs_cr": 0.0,
-      "total_cr": 1634.96,
+      "fresh_cr": 1428.0,
+      "ofs_cr": 125.0,
+      "total_cr": 1553.0,
       "price_low": 133.0,
       "price_high": 140.0,
       "lot_size": 107,
@@ -42,16 +42,24 @@
         2349.5,
         3138.36
       ],
-      "ebitda": [],
+      "ebitda": [
+        222.33,
+        310.35,
+        435.22
+      ],
       "pat": [
         19.44,
         46.07,
         127.01
       ],
       "net_worth": [],
-      "total_debt": [],
-      "eps": 0.0,
-      "pe_peer_avg": 0.0
+      "total_debt": [
+        1036.72,
+        1376.38,
+        1671.85
+      ],
+      "eps": 1.28,
+      "pe_peer_avg": 52.56
     },
     "gmp_history": [
       {
@@ -74,10 +82,10 @@
         "day": 1,
         "date": "2026-08-11",
         "qib": 0.02,
-        "nii": 0.5,
+        "nii": 0.51,
         "retail": 0.66,
-        "employee": 1.46,
-        "total": 0.44
+        "employee": 1.48,
+        "total": 0.45
       }
     ],
     "analysis": {
@@ -170,10 +178,10 @@
   "derived": {
     "initials": "MM",
     "issue": {
-      "total_cr": 1634.96,
-      "has_split": false,
-      "fresh_pct": 0.0,
-      "ofs_pct": 0.0,
+      "total_cr": 1553.0,
+      "has_split": true,
+      "fresh_pct": 92.0,
+      "ofs_pct": 8.0,
       "min_investment": 14980,
       "is_fresh_heavy": true
     },
@@ -216,11 +224,11 @@
       "has_data": true,
       "day": 1,
       "qib": 0.02,
-      "nii": 0.5,
+      "nii": 0.51,
       "retail": 0.66,
-      "employee": 1.46,
-      "total": 0.44,
-      "max_category": 1.46,
+      "employee": 1.48,
+      "total": 0.45,
+      "max_category": 1.48,
       "sentiment": "weak",
       "leader": "retail",
       "days": [
@@ -228,10 +236,10 @@
           "day": 1,
           "date": "2026-08-11",
           "qib": 0.02,
-          "nii": 0.5,
+          "nii": 0.51,
           "retail": 0.66,
-          "employee": 1.46,
-          "total": 0.44
+          "employee": 1.48,
+          "total": 0.45
         }
       ]
     },
@@ -241,36 +249,36 @@
         {
           "year": "2024",
           "revenue": 1821.61,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
+          "ebitda": 222.33,
+          "ebitda_margin": 12.2,
           "pat": 19.44,
           "pat_margin": 1.1,
           "net_worth": 0.0,
-          "total_debt": 0.0,
+          "total_debt": 1036.72,
           "ronw": 0.0,
           "debt_equity": 0.0
         },
         {
           "year": "2025",
           "revenue": 2349.5,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
+          "ebitda": 310.35,
+          "ebitda_margin": 13.2,
           "pat": 46.07,
           "pat_margin": 2.0,
           "net_worth": 0.0,
-          "total_debt": 0.0,
+          "total_debt": 1376.38,
           "ronw": 0.0,
           "debt_equity": 0.0
         },
         {
           "year": "2026",
           "revenue": 3138.36,
-          "ebitda": 0.0,
-          "ebitda_margin": 0.0,
+          "ebitda": 435.22,
+          "ebitda_margin": 13.9,
           "pat": 127.01,
           "pat_margin": 4.0,
           "net_worth": 0.0,
-          "total_debt": 0.0,
+          "total_debt": 1671.85,
           "ronw": 0.0,
           "debt_equity": 0.0
         }
@@ -278,34 +286,34 @@
       "latest": {
         "year": "2026",
         "revenue": 3138.36,
-        "ebitda": 0.0,
-        "ebitda_margin": 0.0,
+        "ebitda": 435.22,
+        "ebitda_margin": 13.9,
         "pat": 127.01,
         "pat_margin": 4.0,
         "net_worth": 0.0,
-        "total_debt": 0.0,
+        "total_debt": 1671.85,
         "ronw": 0.0,
         "debt_equity": 0.0
       },
       "revenue_cagr": 31.3,
-      "ebitda_cagr": 0.0,
+      "ebitda_cagr": 39.9,
       "pat_cagr": 155.6,
-      "margin_shift_bps": 0,
-      "eps": 0.0,
-      "pe": 0.0,
-      "pe_peer_avg": 0.0,
-      "pe_premium_pct": 0.0,
+      "margin_shift_bps": 170,
+      "eps": 1.28,
+      "pe": 109.4,
+      "pe_peer_avg": 52.56,
+      "pe_premium_pct": 108.1,
       "market_cap_cr": 0.0,
       "marks": {
         "ebitda_margin": {
-          "value": 0.0,
+          "value": 13.9,
           "good_at": 15.0,
           "higher_is_better": true,
-          "verdict": "na",
+          "verdict": "poor",
           "unit": "%",
-          "pos": 0,
-          "mark": 0,
-          "gap_pct": 0.0
+          "pos": 46,
+          "mark": 50,
+          "gap_pct": -7.3
         },
         "pat_margin": {
           "value": 4.0,
@@ -358,24 +366,24 @@
           "gap_pct": 0.0
         },
         "pe": {
-          "value": 0.0,
-          "good_at": null,
+          "value": 109.4,
+          "good_at": 52.56,
           "higher_is_better": false,
-          "verdict": "na",
+          "verdict": "poor",
           "unit": "x",
-          "pos": 0,
-          "mark": 0,
-          "gap_pct": 0.0
+          "pos": 50,
+          "mark": 24,
+          "gap_pct": 108.1
         }
       },
       "score_good": 2,
-      "score_total": 3,
+      "score_total": 5,
       "present": {
         "revenue": true,
-        "ebitda": false,
+        "ebitda": true,
         "pat": true,
         "net_worth": false,
-        "total_debt": false
+        "total_debt": true
       }
     },
     "dates": {
@@ -397,7 +405,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 5.1,
+      "value": 4.4,
       "components": [
         {
           "key": "grey",
@@ -413,42 +421,39 @@
           "full_weight": 20,
           "has_data": true,
           "mark": 1.8,
-          "detail": "0.44x overall on day 1"
+          "detail": "0.45x overall on day 1"
         },
         {
           "key": "fundamentals",
-          "weight": 12.9,
+          "weight": 21.4,
           "full_weight": 30,
           "has_data": true,
-          "mark": 6.7,
-          "detail": "2 of 3 benchmarks met (3 of 7 measurable)"
+          "mark": 4.0,
+          "detail": "2 of 5 benchmarks met (5 of 7 measurable)"
         },
         {
           "key": "valuation",
           "weight": 15.0,
           "full_weight": 15,
-          "has_data": false,
-          "mark": null,
-          "detail": "no EPS / peer P/E"
+          "has_data": true,
+          "mark": 0.9,
+          "detail": "P/E 109.4 vs peers 52.56 (+108.1%)"
         },
         {
           "key": "structure",
           "weight": 10.0,
           "full_weight": 10,
-          "has_data": false,
-          "mark": null,
-          "detail": "fresh/OFS split not disclosed"
+          "has_data": true,
+          "mark": 9.4,
+          "detail": "92.0% fresh issue"
         }
       ],
-      "covered_pct": 58,
+      "covered_pct": 91,
       "has_data": true,
-      "missing": [
-        "valuation",
-        "structure"
-      ],
+      "missing": [],
       "manual": 0.0,
       "source": "auto",
-      "effective": 5.1
+      "effective": 4.4
     }
   }
 }

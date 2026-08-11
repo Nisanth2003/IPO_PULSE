@@ -31,6 +31,7 @@ import os
 import sys
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from . import store
 from .ai import ALLOTMENT_STEPS, AiUnavailable, Gemini, default_model
@@ -621,6 +622,159 @@ def cmd_research(args) -> int:
     return 2 if flagged and not args.force else 0
 
 
+def cmd_rhp(args) -> int:
+    """Read the Red Herring Prospectus off NSE and pull the hard fields out.
+
+    EBITDA, net worth, total debt and the peer P/E live nowhere free except
+    the RHP itself — which NSE publishes, so this needs no key beyond Gemini.
+    """
+    from .providers import rhp as rhpmod
+    from .providers.scrape import NseProvider, slugify
+
+    ipo = store.load(args.slug)
+    gem = Gemini(model=args.model)
+    if not gem.available():
+        print("Gemini not configured — set GEMINI_API_KEY in .env.")
+        return 1
+
+    # NSE keys the document on (symbol, series), not on our slug.
+    symbol, series = args.symbol, args.series
+    if not symbol:
+        prov = NseProvider()
+        ref = prov._ref_for(args.slug)
+        if not ref:
+            print(f"{args.slug} is not in NSE's current catalogue — pass "
+                  f"--symbol to name it explicitly.")
+            return 1
+        symbol, series = ref
+
+    print(f"Reading the RHP for {ipo.company or args.slug} ({symbol}/{series})…")
+    try:
+        doc = rhpmod.pages_for(args.slug, symbol, series, refresh=args.refresh)
+    except Exception as exc:
+        print(f"  ! could not fetch the RHP: {exc}")
+        return 1
+
+    if not doc.get("url"):
+        print("  No Red Herring Prospectus linked on NSE for this issue.")
+        return 1
+    print(f"  {doc['url']}")
+    print(f"  {len(doc['pages'])} pages"
+          + (f" from {doc.get('file')}" if doc.get("file") else ""))
+
+    if not doc.get("readable"):
+        # The scanned-advertisement case. Saying so is the whole point: the
+        # alternative is handing a model a wall of mojibake and believing the
+        # tidy JSON it invents from it.
+        print("  ! this PDF has no extractable text (scanned image). Nothing "
+              "was sent to the model.")
+        return 1
+
+    sections = rhpmod.excerpts(doc["pages"])
+    if not sections:
+        print("  ! none of the expected sections were found in the text.")
+        return 1
+    total = sum(len(v) for v in sections.values())
+    print(f"  sending {len(sections)} section(s), {total:,} chars: "
+          f"{', '.join(sections)}")
+
+    years = list(ipo.financials.years or ["FY24", "FY25", "FY26"])
+    try:
+        raw = gem.read_rhp(ipo.company or args.slug, sections, years=years)
+    except AiUnavailable as exc:
+        print(f"  ! {exc}")
+        return 1
+
+    print(f"  confidence: {raw.get('confidence')}  |  {str(raw.get('note',''))[:150]}")
+    if raw.get("peers"):
+        print(f"  peers seen: {', '.join(str(p) for p in raw['peers'][:5])}")
+
+    # Same shape vetting as the web lookup: a short array is the dangerous
+    # case, because compute pairs years to values by position.
+    found = [str(y).strip() for y in (raw.get("years") or []) if str(y).strip()]
+    if found:
+        years = found
+    # Unit conversion happens HERE, never in the model. Asked to "convert to
+    # crore" it politely reported millions instead and noted the unit in prose
+    # — every figure 10x too big, and nothing about a plausible ₹8,365 crore
+    # revenue looks wrong on a card. So the prompt now demands the figures
+    # exactly as printed plus the unit as a field, and the arithmetic is done
+    # in code where it can be read.
+    TO_CRORE = {"crore": 1.0, "cr": 1.0, "million": 0.1, "mn": 0.1,
+                "billion": 100.0, "bn": 100.0, "lakh": 0.01, "rupees": 1e-7}
+
+    def _f(v: Any) -> float:
+        """Tolerate "3,719.44" — the RHP prints thousands separators and the
+        model copies figures as printed, which is exactly what it was told to
+        do. Rejecting those as non-numeric threw away a whole clean read."""
+        if isinstance(v, str):
+            v = v.replace(",", "").replace("−", "-").strip()
+        return float(v)
+    unit = str(raw.get("unit") or "").strip().lower()
+    factor = TO_CRORE.get(unit)
+
+    n = len(years)
+    series_out, problems = {}, []
+    if factor is None:
+        problems.append(f"unrecognised unit {unit or '(none given)'}")
+        factor = 0.0
+    for key in ("revenue", "ebitda", "pat", "net_worth", "total_debt"):
+        vals = raw.get(key) or []
+        if not vals:
+            continue
+        if len(vals) != n or any(v is None for v in vals):
+            problems.append(f"{key}: {len(vals)} values for {n} years")
+            continue
+        try:
+            series_out[key] = [round(_f(v) * factor, 2) for v in vals]
+        except (TypeError, ValueError):
+            problems.append(f"{key}: non-numeric")
+    if factor == 0.0:
+        series_out = {}
+
+    block: dict[str, Any] = {"years": years, **series_out}
+    for key in ("eps", "pe_peer_avg"):
+        if raw.get(key) is not None:
+            try:
+                block[key] = _f(raw[key])
+            except (TypeError, ValueError):
+                problems.append(f"{key}: non-numeric")
+
+    if not series_out and len(block) <= 1:
+        print("  Nothing usable extracted.")
+        return 1
+    print(f"  years: {', '.join(years)}   (source unit: {unit or '?'} "
+          f"-> ₹ crore)")
+    for key, vals in block.items():
+        if key != "years":
+            print(f"    {key:<13} {vals}")
+
+    flagged = bool(problems) or raw.get("confidence") != "high"
+    if problems:
+        print(f"\n  ⚠ {'; '.join(problems)}")
+    elif flagged:
+        print(f"\n  ⚠ confidence {raw.get('confidence')}")
+
+    if args.write and (not flagged or args.force):
+        base = store.load(args.slug).to_dict()
+        blk = base.setdefault("financials", {})
+        kept = []
+        for key, value in block.items():
+            if isinstance(value, list) and not value and blk.get(key):
+                kept.append(key)
+                continue
+            blk[key] = value
+        store.save(Ipo.from_dict(base))
+        print("  written to the YAML")
+        if kept:
+            print(f"  kept existing {', '.join(kept)}")
+    elif args.write:
+        print("  not written (flagged) — re-run with --force to accept")
+    else:
+        print("  (not saved — re-run with --write)")
+    return 0
+
+
 def cmd_sources(args) -> int:
     """Show or pin the exact pages this IPO should be read from."""
     from .providers.research import SITES
@@ -1032,6 +1186,17 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--force", action="store_true", help="save even if flagged for review")
     sp.add_argument("--model", default=default_model())
     sp.set_defaults(func=cmd_research)
+
+    sp = sub.add_parser("rhp", help="read EBITDA / net worth / debt / peer P/E "
+                                    "out of NSE's Red Herring Prospectus")
+    sp.add_argument("slug")
+    sp.add_argument("--symbol", help="NSE symbol, if the IPO has left the catalogue")
+    sp.add_argument("--series", default="EQ", help="EQ (mainboard) or SME")
+    sp.add_argument("--write", action="store_true", help="save the result")
+    sp.add_argument("--force", action="store_true", help="save even if flagged")
+    sp.add_argument("--refresh", action="store_true", help="re-download, ignore the cache")
+    sp.add_argument("--model", default=default_model())
+    sp.set_defaults(func=cmd_rhp)
 
     sp = sub.add_parser("sources", help="show or pin the pages to read for an IPO")
     sp.add_argument("slug")

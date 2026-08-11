@@ -4,8 +4,8 @@ initials: ''
 board: Mainboard
 sector: media and entertainment
 issue:
-  fresh_cr: 0.0
-  ofs_cr: 0.0
+  fresh_cr: 87.5
+  ofs_cr: 21.0
   total_cr: 108.5
   price_low: 166.0
   price_high: 175.0
