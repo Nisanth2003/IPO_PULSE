@@ -44,7 +44,7 @@ financials:
   pe_peer_avg: 0.0
 gmp_history:
 - date: '2026-08-07'
-  gmp: 5.0
+  gmp: 0.0
   kostak: 0.0
   sauda: 0.0
   source: gemini

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T13:55:22",
+  "generated_at": "2026-08-12T16:15:28",
   "ipo": {
     "slug": "molbio-diagnostics",
     "company": "Molbio Diagnostics Limited",
@@ -100,6 +100,13 @@
       {
         "date": "2026-08-10",
         "gmp": 135.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
+      },
+      {
+        "date": "2026-08-12",
+        "gmp": 149.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
@@ -236,16 +243,16 @@
       "is_fresh_heavy": false
     },
     "gmp": {
-      "gmp": 135.0,
-      "prev": 122.0,
-      "delta": 13.0,
-      "pct": 16.73,
-      "est_listing": 942.0,
-      "gain_per_lot": 2430,
+      "gmp": 149.0,
+      "prev": 135.0,
+      "delta": 14.0,
+      "pct": 18.46,
+      "est_listing": 956.0,
+      "gain_per_lot": 2682,
       "movement": "surge",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-10",
+      "updated": "2026-08-12",
       "series": [
         {
           "date": "2026-08-05",
@@ -294,13 +301,21 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-12",
+          "gmp": 149.0,
+          "pct": 18.46,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
         }
       ],
       "peak": 220.0,
       "trough": 122.0,
-      "days_tracked": 6,
-      "age_days": 2,
-      "is_stale": true
+      "days_tracked": 7,
+      "age_days": 0,
+      "is_stale": false
     },
     "subscription": {
       "has_data": true,
@@ -505,15 +520,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 8.0,
+      "value": 8.2,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 6.8,
-          "detail": "GMP is 16.73% of the ₹807 band"
+          "mark": 7.2,
+          "detail": "GMP is 18.46% of the ₹807 band"
         },
         {
           "key": "demand",
@@ -553,7 +568,7 @@
       "missing": [],
       "manual": 0.0,
       "source": "auto",
-      "effective": 8.0
+      "effective": 8.2
     }
   }
 }
