@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T02:11:21",
+  "generated_at": "2026-08-13T02:14:52",
   "ipo": {
     "slug": "leap-india",
     "company": "Leap India Limited",
@@ -68,6 +68,13 @@
     "gmp_history": [
       {
         "date": "2026-08-07",
+        "gmp": 16.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
+      },
+      {
+        "date": "2026-08-09",
         "gmp": 16.0,
         "kostak": 0.0,
         "sauda": 0.0,
@@ -235,6 +242,14 @@
           "source": "gemini"
         },
         {
+          "date": "2026-08-09",
+          "gmp": 16.0,
+          "pct": 10.06,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
+        },
+        {
           "date": "2026-08-10",
           "gmp": 12.5,
           "pct": 7.86,
@@ -253,7 +268,7 @@
       ],
       "peak": 16.0,
       "trough": 12.5,
-      "days_tracked": 3,
+      "days_tracked": 4,
       "age_days": 2,
       "is_stale": true
     },

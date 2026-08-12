@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T02:11:21",
+  "generated_at": "2026-08-13T02:14:52",
   "ipo": {
     "slug": "optimystix-entertainment-india",
     "company": "Optimystix Entertainment India Limited",
@@ -56,7 +56,7 @@
     "gmp_history": [
       {
         "date": "2026-08-07",
-        "gmp": 5.0,
+        "gmp": 0.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
@@ -182,8 +182,8 @@
       "series": [
         {
           "date": "2026-08-07",
-          "gmp": 5.0,
-          "pct": 2.86,
+          "gmp": 0.0,
+          "pct": 0.0,
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"

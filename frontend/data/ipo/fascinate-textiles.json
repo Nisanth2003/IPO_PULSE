@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T02:11:21",
+  "generated_at": "2026-08-13T02:14:52",
   "ipo": {
     "slug": "fascinate-textiles",
     "company": "Fascinate Textiles Limited",
@@ -68,6 +68,13 @@
     "gmp_history": [
       {
         "date": "2026-08-07",
+        "gmp": 0.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
+      },
+      {
+        "date": "2026-08-09",
         "gmp": 0.0,
         "kostak": 0.0,
         "sauda": 0.0,
@@ -176,10 +183,18 @@
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-07",
+      "updated": "2026-08-09",
       "series": [
         {
           "date": "2026-08-07",
+          "gmp": 0.0,
+          "pct": 0.0,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
+        },
+        {
+          "date": "2026-08-09",
           "gmp": 0.0,
           "pct": 0.0,
           "kostak": 0.0,
@@ -189,8 +204,8 @@
       ],
       "peak": 0.0,
       "trough": 0.0,
-      "days_tracked": 1,
-      "age_days": 6,
+      "days_tracked": 2,
+      "age_days": 4,
       "is_stale": true
     },
     "subscription": {
