@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T08:49:10",
+  "generated_at": "2026-08-12T11:43:53",
   "rows": [
     {
       "slug": "vertex-aerospace",
@@ -37,7 +37,7 @@
       "est_listing": 1130.0,
       "gain_per_lot": 4403,
       "movement": "stable",
-      "subscription": 20.18,
+      "subscription": 74.21,
       "open": "2026-08-10",
       "close": "2026-08-12",
       "listing": "2026-08-17"
@@ -57,7 +57,7 @@
       "est_listing": 118.0,
       "gain_per_lot": 3234,
       "movement": "stable",
-      "subscription": 0.63,
+      "subscription": 0.97,
       "open": "2026-08-12",
       "close": "2026-08-14",
       "listing": "2026-08-19"
@@ -77,7 +77,7 @@
       "est_listing": 338.0,
       "gain_per_lot": 2756,
       "movement": "surge",
-      "subscription": 1.27,
+      "subscription": 2.03,
       "open": "2026-08-12",
       "close": "2026-08-14",
       "listing": "2026-08-19"
@@ -97,7 +97,7 @@
       "est_listing": 163.5,
       "gain_per_lot": 2514,
       "movement": "drop",
-      "subscription": 1.75,
+      "subscription": 2.17,
       "open": "2026-08-11",
       "close": "2026-08-13",
       "listing": "2026-08-18"
@@ -117,7 +117,7 @@
       "est_listing": 942.0,
       "gain_per_lot": 2430,
       "movement": "surge",
-      "subscription": 21.76,
+      "subscription": 70.26,
       "open": "2026-08-10",
       "close": "2026-08-12",
       "listing": "2026-08-17"
@@ -201,6 +201,46 @@
       "open": "2026-08-13",
       "close": "2026-08-17",
       "listing": "2026-08-20"
+    },
+    {
+      "slug": "lalithaa-jewellery-mart",
+      "company": "Lalithaa Jewellery Mart Limited",
+      "initials": "LJ",
+      "board": "Mainboard",
+      "status": "upcoming",
+      "price_low": 190.0,
+      "price_high": 201.0,
+      "lot_size": 74,
+      "min_investment": 14874,
+      "gmp": 0.0,
+      "gmp_pct": 0.0,
+      "est_listing": 201.0,
+      "gain_per_lot": 0,
+      "movement": "stable",
+      "subscription": null,
+      "open": "2026-08-17",
+      "close": "2026-08-19",
+      "listing": "2026-08-24"
+    },
+    {
+      "slug": "shankesh-jewellers",
+      "company": "Shankesh Jewellers Limited",
+      "initials": "SJ",
+      "board": "Mainboard",
+      "status": "upcoming",
+      "price_low": 88.0,
+      "price_high": 93.0,
+      "lot_size": 160,
+      "min_investment": 14880,
+      "gmp": 0.0,
+      "gmp_pct": 0.0,
+      "est_listing": 93.0,
+      "gain_per_lot": 0,
+      "movement": "stable",
+      "subscription": null,
+      "open": "2026-08-18",
+      "close": "2026-08-20",
+      "listing": "2026-08-25"
     },
     {
       "slug": "technocraft-ventures",

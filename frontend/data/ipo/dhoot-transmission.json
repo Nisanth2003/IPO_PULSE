@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T08:49:10",
+  "generated_at": "2026-08-12T11:43:53",
   "ipo": {
     "slug": "dhoot-transmission",
     "company": "Dhoot Transmission Limited",
@@ -106,11 +106,11 @@
       {
         "day": 3,
         "date": "2026-08-12",
-        "qib": 27.61,
-        "nii": 42.69,
-        "retail": 6.55,
-        "employee": 6.65,
-        "total": 20.18
+        "qib": 212.92,
+        "nii": 51.93,
+        "retail": 8.12,
+        "employee": 8.14,
+        "total": 74.21
       }
     ],
     "analysis": {
@@ -257,14 +257,14 @@
     "subscription": {
       "has_data": true,
       "day": 3,
-      "qib": 27.61,
-      "nii": 42.69,
-      "retail": 6.55,
-      "employee": 6.65,
-      "total": 20.18,
-      "max_category": 42.69,
+      "qib": 212.92,
+      "nii": 51.93,
+      "retail": 8.12,
+      "employee": 8.14,
+      "total": 74.21,
+      "max_category": 212.92,
       "sentiment": "heavy",
-      "leader": "nii",
+      "leader": "qib",
       "days": [
         {
           "day": 1,
@@ -287,11 +287,11 @@
         {
           "day": 3,
           "date": "2026-08-12",
-          "qib": 27.61,
-          "nii": 42.69,
-          "retail": 6.55,
-          "employee": 6.65,
-          "total": 20.18
+          "qib": 212.92,
+          "nii": 51.93,
+          "retail": 8.12,
+          "employee": 8.14,
+          "total": 74.21
         }
       ]
     },
@@ -457,7 +457,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 8.6,
+      "value": 9.0,
       "components": [
         {
           "key": "grey",
@@ -472,8 +472,8 @@
           "weight": 20.0,
           "full_weight": 20,
           "has_data": true,
-          "mark": 8.3,
-          "detail": "20.18x overall on day 3"
+          "mark": 10.0,
+          "detail": "74.21x overall on day 3"
         },
         {
           "key": "fundamentals",
@@ -507,7 +507,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 8.6
+      "effective": 9.0
     }
   }
 }

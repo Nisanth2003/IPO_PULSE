@@ -96,11 +96,11 @@ subscription:
   total: 3.11
 - day: 3
   date: '2026-08-12'
-  qib: 30.96
-  nii: 38.16
-  retail: 9.53
-  employee: 9.8
-  total: 21.76
+  qib: 186.39
+  nii: 49.8
+  retail: 12.96
+  employee: 13.28
+  total: 70.26
 analysis:
   overview:
   - Operates in the point-of-care diagnostics sector.

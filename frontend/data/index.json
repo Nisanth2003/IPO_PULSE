@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T08:49:10",
-  "count": 13,
+  "generated_at": "2026-08-12T11:43:53",
+  "count": 15,
   "ipos": [
     {
       "slug": "vertex-aerospace",
@@ -71,6 +71,20 @@
       "company": "Credent Connect N Care Limited",
       "initials": "CC",
       "board": "SME",
+      "status": "upcoming"
+    },
+    {
+      "slug": "lalithaa-jewellery-mart",
+      "company": "Lalithaa Jewellery Mart Limited",
+      "initials": "LJ",
+      "board": "Mainboard",
+      "status": "upcoming"
+    },
+    {
+      "slug": "shankesh-jewellers",
+      "company": "Shankesh Jewellers Limited",
+      "initials": "SJ",
+      "board": "Mainboard",
       "status": "upcoming"
     },
     {

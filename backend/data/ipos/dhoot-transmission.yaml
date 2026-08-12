@@ -81,11 +81,11 @@ subscription:
   total: 3.94
 - day: 3
   date: '2026-08-12'
-  qib: 27.61
-  nii: 42.69
-  retail: 6.55
-  employee: 6.65
-  total: 20.18
+  qib: 212.92
+  nii: 51.93
+  retail: 8.12
+  employee: 8.14
+  total: 74.21
 analysis:
   overview:
   - Makes electrical and electronics components.

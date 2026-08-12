@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T08:49:10",
+  "generated_at": "2026-08-12T11:43:53",
   "ipo": {
     "slug": "molbio-diagnostics",
     "company": "Molbio Diagnostics Limited",
@@ -127,11 +127,11 @@
       {
         "day": 3,
         "date": "2026-08-12",
-        "qib": 30.96,
-        "nii": 38.16,
-        "retail": 9.53,
-        "employee": 9.8,
-        "total": 21.76
+        "qib": 186.39,
+        "nii": 49.8,
+        "retail": 12.96,
+        "employee": 13.28,
+        "total": 70.26
       }
     ],
     "analysis": {
@@ -305,14 +305,14 @@
     "subscription": {
       "has_data": true,
       "day": 3,
-      "qib": 30.96,
-      "nii": 38.16,
-      "retail": 9.53,
-      "employee": 9.8,
-      "total": 21.76,
-      "max_category": 38.16,
+      "qib": 186.39,
+      "nii": 49.8,
+      "retail": 12.96,
+      "employee": 13.28,
+      "total": 70.26,
+      "max_category": 186.39,
       "sentiment": "heavy",
-      "leader": "nii",
+      "leader": "qib",
       "days": [
         {
           "day": 1,
@@ -335,11 +335,11 @@
         {
           "day": 3,
           "date": "2026-08-12",
-          "qib": 30.96,
-          "nii": 38.16,
-          "retail": 9.53,
-          "employee": 9.8,
-          "total": 21.76
+          "qib": 186.39,
+          "nii": 49.8,
+          "retail": 12.96,
+          "employee": 13.28,
+          "total": 70.26
         }
       ]
     },
@@ -505,7 +505,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 7.7,
+      "value": 8.0,
       "components": [
         {
           "key": "grey",
@@ -520,8 +520,8 @@
           "weight": 20.0,
           "full_weight": 20,
           "has_data": true,
-          "mark": 8.4,
-          "detail": "21.76x overall on day 3"
+          "mark": 10.0,
+          "detail": "70.26x overall on day 3"
         },
         {
           "key": "fundamentals",
@@ -553,7 +553,7 @@
       "missing": [],
       "manual": 0.0,
       "source": "auto",
-      "effective": 7.7
+      "effective": 8.0
     }
   }
 }

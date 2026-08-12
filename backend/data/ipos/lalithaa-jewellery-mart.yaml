@@ -1,29 +1,29 @@
-slug: shiprocket
-company: Shiprocket Limited
+slug: lalithaa-jewellery-mart
+company: Lalithaa Jewellery Mart Limited
 initials: ''
 board: Mainboard
 sector: ''
 issue:
-  fresh_cr: 885.5
-  ofs_cr: 731.99
-  total_cr: 1617.49
-  price_low: 92.0
-  price_high: 97.0
-  lot_size: 154
+  fresh_cr: 1200.0
+  ofs_cr: 500.0
+  total_cr: 1700.0
+  price_low: 190.0
+  price_high: 201.0
+  lot_size: 74
   shares_post_issue_cr: 0.0
-  registrar: KFin Technologies Limited
-  registrar_url: https://kosmic.kfintech.com/ipostatus/
+  registrar: MUFG Intime India Private Limited
+  registrar_url: https://in.mpms.mufg.com/Initial_Offer/public-issues.html
   exchanges:
   - BSE
   - NSE
 dates:
   announced: null
-  open: '2026-08-12'
-  close: '2026-08-14'
+  open: '2026-08-17'
+  close: '2026-08-19'
   close_time: '17:00'
-  allotment: '2026-08-17'
-  refund: '2026-08-18'
-  listing: '2026-08-19'
+  allotment: '2026-08-20'
+  refund: '2026-08-21'
+  listing: '2026-08-24'
 financials:
   years:
   - FY23
@@ -36,20 +36,8 @@ financials:
   total_debt: []
   eps: 0.0
   pe_peer_avg: 0.0
-gmp_history:
-- date: '2026-08-09'
-  gmp: 21.0
-  kostak: 0.0
-  sauda: 0.0
-  source: gemini
-subscription:
-- day: 1
-  date: '2026-08-12'
-  qib: 0.02
-  nii: 1.23
-  retail: 3.33
-  employee: 5.2
-  total: 0.97
+gmp_history: []
+subscription: []
 analysis:
   overview: []
   green_flags: []

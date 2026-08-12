@@ -65,11 +65,11 @@ gmp_history:
 subscription:
 - day: 1
   date: '2026-08-12'
-  qib: 0.35
-  nii: 1.19
-  retail: 1.8
+  qib: 0.73
+  nii: 2.11
+  retail: 2.69
   employee: 0.0
-  total: 1.27
+  total: 2.03
 analysis:
   overview:
   - It makes iron and steel products.

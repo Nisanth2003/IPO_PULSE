@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T08:49:10",
+  "generated_at": "2026-08-12T11:43:53",
   "ipo": {
     "slug": "behari-lal-engineering",
     "company": "Behari Lal Engineering Limited",
@@ -85,11 +85,11 @@
       {
         "day": 1,
         "date": "2026-08-12",
-        "qib": 0.35,
-        "nii": 1.19,
-        "retail": 1.8,
+        "qib": 0.73,
+        "nii": 2.11,
+        "retail": 2.69,
         "employee": 0.0,
-        "total": 1.27
+        "total": 2.03
       }
     ],
     "analysis": {
@@ -227,23 +227,23 @@
     "subscription": {
       "has_data": true,
       "day": 1,
-      "qib": 0.35,
-      "nii": 1.19,
-      "retail": 1.8,
+      "qib": 0.73,
+      "nii": 2.11,
+      "retail": 2.69,
       "employee": 0.0,
-      "total": 1.27,
-      "max_category": 1.8,
+      "total": 2.03,
+      "max_category": 2.69,
       "sentiment": "ok",
       "leader": "retail",
       "days": [
         {
           "day": 1,
           "date": "2026-08-12",
-          "qib": 0.35,
-          "nii": 1.19,
-          "retail": 1.8,
+          "qib": 0.73,
+          "nii": 2.11,
+          "retail": 2.69,
           "employee": 0.0,
-          "total": 1.27
+          "total": 2.03
         }
       ]
     },
@@ -409,7 +409,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 6.5,
+      "value": 6.7,
       "components": [
         {
           "key": "grey",
@@ -424,8 +424,8 @@
           "weight": 20.0,
           "full_weight": 20,
           "has_data": true,
-          "mark": 4.3,
-          "detail": "1.27x overall on day 1"
+          "mark": 5.0,
+          "detail": "2.03x overall on day 1"
         },
         {
           "key": "fundamentals",
@@ -459,7 +459,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 6.5
+      "effective": 6.7
     }
   }
 }
