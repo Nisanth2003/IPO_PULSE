@@ -105,6 +105,84 @@
          from a static host. See backend/ipopulse/control.py. -->
     <a x-show="hasBackend" x-cloak class="btn btn-acc" href="/trigger"
        title="Run sync / build / push (local only)">⚡ Trigger</a>
+    <!-- Published-site equivalent. There is no backend here to call, so this
+         dispatches the GitHub Actions workflow instead — the same jobs, run
+         on GitHub's runners. See remoteTrigger() in studio.js for why the
+         token is safe to keep in this browser. -->
+    <button x-show="!hasBackend" x-cloak class="btn btn-acc" @click="gh.open=true"
+            title="Run a job on GitHub Actions">⚡ Run job</button>
+  </div>
+
+  <!-- ══════════ REMOTE TRIGGER (published site) ══════════ -->
+  <div x-show="gh.open" x-cloak @keydown.escape.window="gh.open=false"
+       class="fixed inset-0 z-50 grid place-items-center p-4"
+       style="background:rgba(2,6,23,.72);backdrop-filter:blur(3px)">
+    <div class="w-full max-w-lg rounded-2xl p-5 max-h-[90vh] overflow-y-auto"
+         style="background:#0F172A;border:1px solid rgba(255,255,255,.14)" @click.stop>
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div class="font-black text-lg">Run a job on GitHub Actions</div>
+          <div class="text-2xs text-slate-400 mt-0.5">
+            This page is static — it has no backend. These buttons ask GitHub to
+            run the same jobs your schedule already runs.
+          </div>
+        </div>
+        <button class="btn" @click="gh.open=false">✕</button>
+      </div>
+
+      <div class="text-2xs text-slate-300 mb-2" x-text="`Repository: ${gh.owner}/${gh.repo}`"></div>
+
+      <template x-if="!gh.token">
+        <div class="rounded-xl p-3 mb-3" style="background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.4)">
+          <div class="text-xs font-black text-amber-300 mb-1">One-time setup</div>
+          <ol class="text-2xs text-amber-100/90 leading-relaxed list-decimal ml-4 space-y-0.5">
+            <li>Open <span class="font-mono">github.com/settings/personal-access-tokens</span> and
+              create a <b>fine-grained</b> token.</li>
+            <li>Repository access: <b>only</b> <span class="font-mono" x-text="gh.repo"></span>.</li>
+            <li>Permissions: <b>Actions → Read and write</b>. Nothing else.</li>
+            <li>Paste it below. It is stored only in this browser
+              (<span class="font-mono">localStorage</span>), is never sent anywhere
+              except api.github.com, and is never committed to the repo.</li>
+          </ol>
+        </div>
+      </template>
+
+      <div class="flex gap-2 mb-3">
+        <input type="password" class="inp flex-1" placeholder="github_pat_…"
+               x-model="gh.draft" @keydown.enter="saveToken()">
+        <button class="btn btn-acc" @click="saveToken()" x-show="gh.draft">Save</button>
+        <button class="btn" @click="forgetToken()" x-show="gh.token">Forget</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2" :class="gh.token ? '' : 'opacity-40 pointer-events-none'">
+        <template x-for="j in GH_JOBS" :key="j.id">
+          <button class="btn text-left !justify-start !px-3 !py-2" @click="ghRun(j.id)">
+            <div>
+              <div class="font-black text-xs" x-text="j.label"></div>
+              <div class="text-3xs text-slate-400" x-text="j.detail"></div>
+            </div>
+          </button>
+        </template>
+      </div>
+
+      <div class="mt-3 text-xs" x-show="gh.msg"
+           :class="gh.ok ? 'text-emerald-300' : 'text-red-300'" x-text="gh.msg"></div>
+
+      <div class="mt-3 flex items-center gap-2">
+        <button class="btn" @click="ghRuns()" x-show="gh.token">↻ Recent runs</button>
+        <a class="btn" :href="`https://github.com/${gh.owner}/${gh.repo}/actions`"
+           target="_blank" rel="noopener">Open Actions ↗</a>
+      </div>
+      <template x-for="r in gh.runs" :key="r.id">
+        <div class="glass p-2 mt-1.5 flex items-center justify-between gap-2">
+          <span class="text-2xs font-bold" x-text="r.name"></span>
+          <span class="text-2xs" x-text="r.when"></span>
+          <span class="text-2xs font-black"
+                :class="r.status==='completed' ? (r.ok ? 'text-emerald-400' : 'text-red-400') : 'text-amber-300'"
+                x-text="r.status==='completed' ? (r.ok ? '✓ ok' : '✕ failed') : r.status"></span>
+        </div>
+      </template>
+    </div>
   </div>
 
   <!-- reel tabs: each is one video -->

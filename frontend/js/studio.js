@@ -35,6 +35,32 @@ function studio() {
     hasH2C: typeof html2canvas !== 'undefined',
     hasBackend: false,          // set by probeBackend(); gates the Trigger button
 
+    /* Remote trigger, for the published site.
+     *
+     * GitHub Pages serves files and runs no processes, so /api/* 404s there
+     * and the local Trigger button cannot appear — correct, but it left the
+     * public site with no way to run anything at all.
+     *
+     * The jobs already run somewhere else: .github/workflows/schedule.yml,
+     * which accepts `workflow_dispatch`. So this dispatches that workflow
+     * through api.github.com directly from the browser.
+     *
+     * On the token: it is the OWNER'S own fine-grained PAT, typed in by them,
+     * kept in this browser's localStorage and sent only to api.github.com. It
+     * is never written to the repo — which is the thing that actually matters,
+     * because the repo is public. A visitor who is not the owner simply has no
+     * token and sees a setup panel. Scope it to Actions:write on this one repo
+     * and the worst case is that someone with access to this browser can run
+     * the same jobs the cron already runs. */
+    gh: { open: false, token: '', draft: '', owner: '', repo: '',
+          msg: '', ok: false, runs: [] },
+    GH_JOBS: [
+      { id: 'daily',  label: 'Daily chain',   detail: 'sync → enrich → doctor → build → push' },
+      { id: 'grey',   label: 'GMP chain',     detail: 'refresh GMP → push to the GMP tab' },
+      { id: 'enrich', label: 'Fill gaps',     detail: 'research + RHP + analyse + translate' },
+      { id: 'build',  label: 'Rebuild JSON',  detail: 'recompute and republish, no network' },
+    ],
+
     REELS, PRESETS, REGISTRARS, RING,
 
     // ── lifecycle ──────────────────────────────────────────────────────
@@ -52,6 +78,7 @@ function studio() {
         .forEach((k) => this.$watch(k, () => this.savePrefs()));
 
       this.probeBackend();
+      this.initRemote();
       await this.loadCatalogue();
       this.$nextTick(() => this.autoFit && this.fit());
     },
@@ -65,6 +92,74 @@ function studio() {
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => { this.hasBackend = !!(d && d.ok && d.auth); })
         .catch(() => { this.hasBackend = false; });
+    },
+
+    /* owner/repo from the Pages URL, so nothing is hardcoded and a fork just
+       works: nisanth2003.github.io/IPO_PULSE/ -> nisanth2003 / IPO_PULSE */
+    initRemote() {
+      const host = location.hostname.split('.')[0];
+      const seg = location.pathname.split('/').filter(Boolean)[0];
+      this.gh.owner = host || '';
+      this.gh.repo = seg || host || '';
+      try { this.gh.token = localStorage.getItem('ipoPulse.ghToken') || ''; } catch (e) {}
+    },
+    saveToken() {
+      const t = (this.gh.draft || '').trim();
+      if (!t) return;
+      this.gh.token = t; this.gh.draft = '';
+      try { localStorage.setItem('ipoPulse.ghToken', t); } catch (e) {}
+      this.gh.ok = true; this.gh.msg = 'Token saved in this browser.';
+      this.ghRuns();
+    },
+    forgetToken() {
+      this.gh.token = ''; this.gh.runs = [];
+      try { localStorage.removeItem('ipoPulse.ghToken'); } catch (e) {}
+      this.gh.ok = true; this.gh.msg = 'Token removed from this browser.';
+    },
+    _ghHeaders() {
+      return { Accept: 'application/vnd.github+json',
+               Authorization: `Bearer ${this.gh.token}`,
+               'X-GitHub-Api-Version': '2022-11-28' };
+    },
+    async ghRun(jobs) {
+      const { owner, repo } = this.gh;
+      this.gh.msg = `Asking GitHub to run “${jobs}”…`; this.gh.ok = true;
+      try {
+        const r = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/actions/workflows/schedule.yml/dispatches`,
+          { method: 'POST', headers: this._ghHeaders(),
+            body: JSON.stringify({ ref: 'main', inputs: { jobs } }) });
+        if (r.status === 204) {
+          this.gh.ok = true;
+          this.gh.msg = `Started “${jobs}”. It takes a few minutes; the site redeploys when it commits.`;
+          setTimeout(() => this.ghRuns(), 4000);
+        } else {
+          // GitHub's message is far more useful than a generic failure —
+          // 401 means the token, 404 usually means the workflow file name.
+          const body = await r.json().catch(() => ({}));
+          this.gh.ok = false;
+          this.gh.msg = `GitHub said ${r.status}: ${body.message || 'request refused'}`;
+        }
+      } catch (err) {
+        this.gh.ok = false;
+        this.gh.msg = `Could not reach api.github.com — ${err.message}`;
+      }
+    },
+    async ghRuns() {
+      const { owner, repo } = this.gh;
+      try {
+        const r = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/actions/runs?per_page=5`,
+          { headers: this._ghHeaders() });
+        if (!r.ok) { this.gh.runs = []; return; }
+        const d = await r.json();
+        this.gh.runs = (d.workflow_runs || []).map((w) => ({
+          id: w.id, name: w.display_title || w.name, status: w.status,
+          ok: w.conclusion === 'success',
+          when: new Date(w.created_at).toLocaleString('en-GB',
+                  { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+        }));
+      } catch (err) { this.gh.runs = []; }
     },
 
     async loadCatalogue() {

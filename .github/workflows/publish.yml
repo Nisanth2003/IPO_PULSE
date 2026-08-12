@@ -77,7 +77,7 @@ jobs:
         run: |
           if grep -rIn --include='*.js' --include='*.html' --include='*.json' \
                --include='*.css' --include='*.md' -E \
-               'AIza[0-9A-Za-z_-]{20,}|AQ\.[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|(GEMINI_API_KEY|IPOPULSE_TRIGGER_PASSWORD|GOOGLE_SHEETS_ID)[[:space:]]*[:=][[:space:]]*["'\''][^"'\'']+|iam\.gserviceaccount\.com' \
+               'AIza[0-9A-Za-z_-]{20,}|AQ\.[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|(GEMINI_API_KEY|IPOPULSE_TRIGGER_PASSWORD|GOOGLE_SHEETS_ID)[[:space:]]*[:=][[:space:]]*["'\''][^"'\'']+|iam\.gserviceaccount\.com|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{30,}' \
                frontend/; then
             echo "::error::Possible secret in frontend/ — refusing to publish."
             exit 1

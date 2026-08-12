@@ -110,7 +110,8 @@ JOBS: dict[str, dict[str, Any]] = {
     },
     "daily": {
         "label": "Daily chain",
-        "detail": "sync → doctor → build → push. The scheduled one; run this if you run one.",
+        "detail": "sync → enrich → doctor → build → push. The scheduled one; "
+                  "run this if you run one.",
         "argv": None,                       # composite; see CHAINS
         "schedule": "13:00 & 16:30 Mon-Fri, 18:00 daily",
     },

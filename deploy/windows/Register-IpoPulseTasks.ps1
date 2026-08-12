@@ -41,12 +41,12 @@ $Backend = Join-Path $Repo 'backend'
 # Indian IPO bidding runs 10:00-17:00 IST. Subscription is a running total
 # that only moves inside that window, so a single evening pull would miss the
 # whole intraday story - hence three triggers on the daily chain rather than
-# one. Chained jobs (daily = sync,build,push) are scheduled as ONE task so a
+# one. Chained jobs (daily = sync,enrich,doctor,build,push) run as ONE task so a
 # later step cannot start before the earlier one has exited 0; two tasks a
 # fixed 15 minutes apart is a race on a slow NSE day.
 $Jobs = @(
     @{ Name = 'daily'
-       Why  = 'sync,build,push. 13:00 mid-window, 16:30 pre-close surge, 18:00 final.'
+       Why  = 'sync,enrich,doctor,build,push. 13:00 mid-window, 16:30 pre-close surge, 18:00 final.'
        Triggers = @(
            @{ Kind = 'Weekdays'; At = '13:00' },
            @{ Kind = 'Weekdays'; At = '16:30' },
