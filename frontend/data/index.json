@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T11:43:53",
-  "count": 15,
+  "generated_at": "2026-08-12T13:55:22",
+  "count": 16,
   "ipos": [
     {
       "slug": "vertex-aerospace",
@@ -84,6 +84,13 @@
       "slug": "shankesh-jewellers",
       "company": "Shankesh Jewellers Limited",
       "initials": "SJ",
+      "board": "Mainboard",
+      "status": "upcoming"
+    },
+    {
+      "slug": "skytech-infinite-platform",
+      "company": "Skytech Infinite Platform Limited",
+      "initials": "SI",
       "board": "Mainboard",
       "status": "upcoming"
     },

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T11:43:53",
+  "generated_at": "2026-08-12T13:55:22",
   "rows": [
     {
       "slug": "vertex-aerospace",
@@ -241,6 +241,26 @@
       "open": "2026-08-18",
       "close": "2026-08-20",
       "listing": "2026-08-25"
+    },
+    {
+      "slug": "skytech-infinite-platform",
+      "company": "Skytech Infinite Platform Limited",
+      "initials": "SI",
+      "board": "Mainboard",
+      "status": "upcoming",
+      "price_low": 73.0,
+      "price_high": 77.0,
+      "lot_size": 0,
+      "min_investment": 0,
+      "gmp": 0.0,
+      "gmp_pct": 0.0,
+      "est_listing": 77.0,
+      "gain_per_lot": 0,
+      "movement": "stable",
+      "subscription": null,
+      "open": "2026-08-14",
+      "close": "2026-08-18",
+      "listing": "2026-08-21"
     },
     {
       "slug": "technocraft-ventures",
