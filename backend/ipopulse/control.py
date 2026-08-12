@@ -57,6 +57,13 @@ JOBS: dict[str, dict[str, Any]] = {
         "argv": ["sync", "--provider", "nse", "--discover", "--no-translate"],
         "schedule": "part of daily",
     },
+    "gmp-sync": {
+        "label": "GMP from ipoji",
+        "detail": "Free, keyless, no AI. Today's board plus any missing days "
+                  "from each IPO's dated page. Fills gaps, never overwrites.",
+        "argv": ["gmp-sync", "--history", "--write"],
+        "schedule": "part of grey",
+    },
     "gmp": {
         "label": "Refresh GMP",
         "detail": "Grey-market premium via Gemini grounded search. Needs billing enabled.",
@@ -140,7 +147,10 @@ JOBS: dict[str, dict[str, Any]] = {
 # day: the work spreads across runs instead of exhausting the free tier in one.
 CHAINS = {
     "daily": ["sync", "enrich", "doctor", "build", "push"],
-    "grey": ["gmp", "push-gmp"],
+    # gmp-sync runs BEFORE the model-based refresh: it is free, keyless and
+    # deterministic, so anything it can supply should not cost a Gemini call
+    # or need vetting. `gmp` then fills only what ipoji did not cover.
+    "grey": ["gmp-sync", "gmp", "push-gmp"],
 }
 
 

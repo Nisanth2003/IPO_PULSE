@@ -55,11 +55,18 @@ def board_row(ipo: Ipo) -> dict:
         "price_high": ipo.issue.price_high,
         "lot_size": ipo.issue.lot_size,
         "min_investment": d["issue"]["min_investment"],
-        "gmp": g["gmp"],
-        "gmp_pct": g["pct"],
-        "est_listing": g["est_listing"],
-        "gain_per_lot": g["gain_per_lot"],
-        "movement": g["movement"],
+        # `null`, not 0, when nothing has been read. gmp_metrics defaults to
+        # 0.0 for the arithmetic, but publishing that put "₹0 · 0.00%" on the
+        # round-up board for IPOs with an empty gmp_history — indistinguishable
+        # from a genuine zero premium, which some of these actually have. The
+        # est_listing was worse: it equalled the price band exactly and read as
+        # a forecast.
+        "has_gmp": bool(ipo.gmp_history),
+        "gmp": g["gmp"] if ipo.gmp_history else None,
+        "gmp_pct": g["pct"] if ipo.gmp_history else None,
+        "est_listing": g["est_listing"] if ipo.gmp_history else None,
+        "gain_per_lot": g["gain_per_lot"] if ipo.gmp_history else None,
+        "movement": g["movement"] if ipo.gmp_history else None,
         "subscription": s["total"] if s["has_data"] else None,
         "open": d["dates"]["open"],
         "close": d["dates"]["close"],

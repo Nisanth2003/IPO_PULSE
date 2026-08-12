@@ -952,6 +952,99 @@ def cmd_analyse(args) -> int:
     return 0
 
 
+def cmd_gmp_sync(args) -> int:
+    """Pull GMP from ipoji.com — free, keyless, no model, no vetting needed.
+
+    This is the source that was missing. Every previous GMP came from a model
+    reading a page, which cost quota, needed vetting, and returned nothing at
+    all once the site started blocking. ipoji serves it server-side with the
+    figures in `data-*` attributes, so the numbers arrive as numbers.
+
+    `--history` additionally walks each IPO's dated page, which is what makes
+    a missed day recoverable: the days lost to the CI bug in early August were
+    written off as gone forever because the old source published only today.
+    """
+    from .providers import ipoji
+
+    rows = ipoji.board()
+    if not rows:
+        print("ipoji returned no rows — the board markup may have changed, "
+              "or the site is unreachable.")
+        return 1
+    print(f"ipoji board: {len(rows)} IPO(s)")
+
+    ipos = [store.load(args.slug)] if args.slug else store.load_all()
+    slugs = [i.slug for i in ipos]
+    companies = {i.slug: (i.company or "") for i in ipos}
+    by_slug = {i.slug: i for i in ipos}
+
+    matched: dict[str, dict] = {}
+    for row in rows:
+        slug = ipoji.match_slug(row["name"], row.get("url") or "", slugs, companies)
+        if slug:
+            matched[slug] = row
+    print(f"matched {len(matched)} of ours; "
+          f"unmatched on ipoji: "
+          f"{', '.join(r['name'] for r in rows if r['name'] not in {matched[s]['name'] for s in matched})[:90] or 'none'}")
+
+    today = date.today().isoformat()
+    wrote = filled = clashed = 0
+    for slug, row in sorted(matched.items()):
+        ipo = by_slug[slug]
+        have = {p.date.isoformat(): p.gmp for p in ipo.gmp_history if p.date}
+        incoming: list[dict] = []
+
+        if row["gmp"] is not None and row.get("has_gmp"):
+            incoming.append({"date": today, "gmp": row["gmp"], "source": "ipoji"})
+        if args.history and row.get("url"):
+            incoming.extend(ipoji.history(row["url"]))
+
+        # Gap-fill only. A reading already on file was taken live on its own
+        # day, from whichever desk was quoting then; this page is a different
+        # desk's later record of the same day. Filling a hole is strictly an
+        # improvement, replacing a reading is a judgement nobody asked for.
+        fresh = [p for p in incoming if p["date"] not in have]
+        clash = [p for p in incoming
+                 if p["date"] in have and abs(have[p["date"]] - p["gmp"]) > 0.01]
+        if clash:
+            clashed += len(clash)
+
+        if not fresh:
+            continue
+        # Same implausibility bound the model-sourced path uses.
+        band = ipo.issue.price_high
+        sane, wild = [], []
+        for p in fresh:
+            pct = (p["gmp"] / band * 100) if band else 0
+            (wild if band and (pct > 150 or pct < -30) else sane).append(p)
+        for p in wild:
+            print(f"  ! {slug} {p['date']}: ₹{p['gmp']:g} is "
+                  f"{p['gmp'] / band * 100:.0f}% of the band — skipped")
+        if not sane:
+            continue
+
+        if args.write:
+            raw = store.load(slug).to_dict()
+            raw["gmp_history"] = merge_series(raw.get("gmp_history", []), sane)
+            store.save(Ipo.from_dict(raw))
+            wrote += 1
+        filled += len(sane)
+        days = ", ".join(f"{p['date'][5:]}=₹{p['gmp']:g}" for p in sane[:6])
+        print(f"  {'+' if args.write else '·'} {slug:<32}{len(sane):>2} day(s): {days}")
+
+    print()
+    print(f"{filled} reading(s) across {wrote} IPO(s) "
+          f"{'written' if args.write else 'found (re-run with --write)'}.")
+    if clashed:
+        # Reported, never silently reconciled — see the module docstring.
+        print(f"{clashed} day(s) where ipoji disagrees with a reading already "
+              f"on file; left alone.")
+    if args.write and wrote:
+        publish(store.load_all())
+        print(f"Published -> {store.FRONTEND_DATA}")
+    return 0
+
+
 def enrich_plan(ipo: Ipo) -> list[tuple[str, list[str], int]]:
     """What this IPO still needs, as (label, argv, ai_calls).
 
@@ -1398,6 +1491,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--prune", action="store_true", help="delete entries past the TTL")
     sp.add_argument("--clear", action="store_true", help="delete everything")
     sp.set_defaults(func=cmd_cache)
+
+    sp = sub.add_parser("gmp-sync", help="GMP from ipoji.com — free, keyless, no AI")
+    sp.add_argument("slug", nargs="?", help="just this one; default is every IPO")
+    sp.add_argument("--history", action="store_true",
+                    help="also walk each IPO's dated page and backfill missing days")
+    sp.add_argument("--write", action="store_true", help="save what was found")
+    sp.set_defaults(func=cmd_gmp_sync)
 
     sp = sub.add_parser("enrich", help="fill whatever each IPO is still missing "
                                        "(research + RHP + analyse + translate)")

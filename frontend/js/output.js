@@ -15,6 +15,11 @@ const OUTPUT = {
     const f = this.fmt.bind(this), dt = (x) => this.fmtDate(x, true);
     const iss = ipo.issue, g = d.gmp, s = d.subscription, fin = d.financials;
     const pctTxt = g.pct.toFixed(1);
+    // The card's reel-6 range falls back to the GMP-implied band when nobody
+    // has typed an expected range; the script used the raw d.listing and so
+    // read "expected range ₹0 to ₹0 — that's -100% to -100%" while the screen
+    // beside it showed a real band. Same source for both now.
+    const listingRange = this.listingRange;
 
     const move = {
       surge: ['GMP is surging.', 'GMP में तेज़ी है।', 'GMP జోరుగా ఉంది.'],
@@ -45,10 +50,11 @@ const OUTPUT = {
     // Withheld rather than stated when coverage is too thin: a freshly
     // discovered IPO with only its fresh/OFS split scores a clean 10.0, which
     // is true arithmetic and a nonsense verdict to read aloud.
+    const scoreValue = Number(d.score.effective).toFixed(1);
     const scoreSentence = d.score.has_data
-      ? [`${scoreSentence}`,
-         `${scoreSentence}`,
-         `${scoreSentence}`][i]
+      ? [`IPO Pulse score: ${scoreValue} out of 10.`,
+         `IPO पल्स स्कोर: 10 में से ${scoreValue}।`,
+         `IPO పల్స్ స్కోర్: 10కి ${scoreValue}.`][i]
       : [`Too little data to score this one yet.`,
          `इसे स्कोर देने के लिए अभी बहुत कम डेटा है।`,
          `దీనికి స్కోర్ ఇవ్వడానికి ఇంకా చాలా తక్కువ డేటా.`][i];
@@ -80,15 +86,15 @@ ${dt(ipo.dates.open)}న ఓపెన్, ${dt(ipo.dates.close)}న క్లో
       ],
       2: this.gmpMode === 'board' ? [
 `Today's GMP board. ${this.boardRows.length} IPOs on the radar.
-${this.boardRows.slice(0, 5).map((r) => `${r.company}: GMP ₹${r.gmp}, that's ${r.gmp_pct}%`).join('. ')}.
+${this.boardRows.filter((r) => r.has_gmp).slice(0, 5).map((r) => `${r.company}: GMP ₹${r.gmp}, that's ${r.gmp_pct}%`).join('. ')}.
 GMP is unofficial grey-market data and it changes every day.`,
 
 `आज का GMP बोर्ड। ${this.boardRows.length} IPO नज़र में हैं।
-${this.boardRows.slice(0, 5).map((r) => `${r.company}: GMP ₹${r.gmp}, यानी ${r.gmp_pct}%`).join('। ')}।
+${this.boardRows.filter((r) => r.has_gmp).slice(0, 5).map((r) => `${r.company}: GMP ₹${r.gmp}, यानी ${r.gmp_pct}%`).join('। ')}।
 याद रखें, GMP अनऑफिशियल है और रोज़ बदलता है।`,
 
 `నేటి GMP బోర్డ్. ${this.boardRows.length} IPOలు రాడార్‌లో ఉన్నాయి.
-${this.boardRows.slice(0, 5).map((r) => `${r.company}: GMP ₹${r.gmp}, అంటే ${r.gmp_pct}%`).join('. ')}.
+${this.boardRows.filter((r) => r.has_gmp).slice(0, 5).map((r) => `${r.company}: GMP ₹${r.gmp}, అంటే ${r.gmp_pct}%`).join('. ')}.
 GMP అనధికారికం, ప్రతిరోజూ మారుతుంది.`,
       ] : [
 `${ipo.company} — ${gmpWhen} ₹${g.gmp}, that is ${pctTxt}% over the upper band of ₹${iss.price_high}.
@@ -163,17 +169,17 @@ This is not investment advice — do your own research.`,
       6: [
 `${ipo.company} allotment ${d.listing.status === 'out' ? 'is OUT — check right now' : `is expected on ${dt(ipo.dates.allotment)}`}. Registrar is ${iss.registrar}.
 How to check in 10 seconds: ${this.steps.join('. ')}.
-Listing on ${dt(ipo.dates.listing)}, expected range ₹${d.listing.low} to ₹${d.listing.high} — that's ${this.signed(d.listing.low_pct, 0)}% to ${this.signed(d.listing.high_pct, 0)}% on the issue price.
+Listing on ${dt(ipo.dates.listing)}, expected range ₹${listingRange.low} to ₹${listingRange.high} — that's ${this.signed(listingRange.low_pct, 0)}% to ${this.signed(listingRange.high_pct, 0)}% on the issue price.
 Follow for the allotment alert.`,
 
 `${ipo.company} का अलॉटमेंट ${d.listing.status === 'out' ? 'आ चुका है — अभी चेक करें' : `${dt(ipo.dates.allotment)} को आने की उम्मीद है`}। रजिस्ट्रार है ${iss.registrar}।
 10 सेकंड में ऐसे चेक करें: ${this.steps.join('। ')}।
-लिस्टिंग ${dt(ipo.dates.listing)} को, संभावित रेंज ₹${d.listing.low} से ₹${d.listing.high} — यानी इश्यू प्राइस पर ${this.signed(d.listing.low_pct, 0)}% से ${this.signed(d.listing.high_pct, 0)}%।
+लिस्टिंग ${dt(ipo.dates.listing)} को, संभावित रेंज ₹${listingRange.low} से ₹${listingRange.high} — यानी इश्यू प्राइस पर ${this.signed(listingRange.low_pct, 0)}% से ${this.signed(listingRange.high_pct, 0)}%।
 अलॉटमेंट अलर्ट के लिए फॉलो करें।`,
 
 `${ipo.company} అలాట్‌మెంట్ ${d.listing.status === 'out' ? 'వచ్చేసింది — ఇప్పుడే చెక్ చేయండి' : `${dt(ipo.dates.allotment)}న వస్తుందని అంచనా`}. రిజిస్ట్రార్ ${iss.registrar}.
 10 సెకన్లలో ఇలా చెక్ చేయండి: ${this.steps.join('. ')}.
-లిస్టింగ్ ${dt(ipo.dates.listing)}న, అంచనా రేంజ్ ₹${d.listing.low} నుంచి ₹${d.listing.high} — అంటే ఇష్యూ ధరపై ${this.signed(d.listing.low_pct, 0)}% నుంచి ${this.signed(d.listing.high_pct, 0)}%.
+లిస్టింగ్ ${dt(ipo.dates.listing)}న, అంచనా రేంజ్ ₹${listingRange.low} నుంచి ₹${listingRange.high} — అంటే ఇష్యూ ధరపై ${this.signed(listingRange.low_pct, 0)}% నుంచి ${this.signed(listingRange.high_pct, 0)}%.
 అలాట్‌మెంట్ అలర్ట్ కోసం ఫాలో అవ్వండి.`,
       ],
     };

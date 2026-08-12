@@ -708,11 +708,14 @@
                   <tbody>
                     <template x-for="r in boardTable.rows" :key="r.slug">
                       <tr>
+                        <!-- has_gmp false means nobody has read one, which is
+                             not the same as a zero premium — several of these
+                             genuinely quote ₹0. Publish the difference. -->
                         <td class="truncate" style="max-width:calc(var(--fs)*10)" x-text="r.company"></td>
-                        <td class="tnum" x-text="'₹'+r.gmp"></td>
+                        <td class="tnum" x-text="r.has_gmp ? '₹'+r.gmp : '—'"></td>
                         <td class="tnum font-black"
-                            :class="r.gmp_pct>=0?'text-emerald-400':'text-red-400'"
-                            x-text="signed(r.gmp_pct,0)+'%'"></td>
+                            :class="!r.has_gmp ? 'text-slate-500' : (r.gmp_pct>=0?'text-emerald-400':'text-red-400')"
+                            x-text="r.has_gmp ? signed(r.gmp_pct,0)+'%' : '—'"></td>
                         <td class="tnum" x-text="fmtShort(r.close)"></td>
                       </tr>
                     </template>
@@ -1064,12 +1067,25 @@
             </div>
 
             <div x-show="at(5,'verdict')" class="scene items-center">
-              <div class="relative rounded-2xl px-5 py-6 text-center overflow-hidden w-full"
+              <!-- The verdict is an editorial call, and `apply` is the
+                   scaffold's default — so an IPO nobody has judged rendered a
+                   full-width green APPLY. That is an unearned buy
+                   recommendation on a company the tool knows nothing about,
+                   and it sat next to "too little data to score". The badge is
+                   withheld on the same test as the score. -->
+              <div x-show="!scoreThin"
+                   class="relative rounded-2xl px-5 py-6 text-center overflow-hidden w-full"
                    :style="`background:linear-gradient(135deg,${verdict.hex}33,${verdict.hex}0D);border:2px solid ${verdict.hex};box-shadow:0 0 44px ${verdict.hex}45`">
                 <div class="sheen"></div>
                 <div class="lbl !tracking-[.24em]" x-text="t('verdictL')"></div>
                 <div class="font-black text-4xl leading-[1.1] mt-2" :style="`color:${verdict.hex}`"
                      x-text="verdictText"></div>
+              </div>
+              <div x-show="scoreThin" class="glass glass-a p-4 text-center w-full">
+                <div class="text-3xl mb-1">🕗</div>
+                <div class="font-black text-xl text-amber-300" x-text="t('noVerdict')"></div>
+                <div class="text-2xs text-amber-200/70 font-semibold mt-2 leading-snug"
+                     x-text="t('noVerdictWhy')"></div>
               </div>
               <!-- The score is withheld, not greyed, when coverage is too
                    thin to mean anything. A newly discovered IPO with nothing
@@ -1086,7 +1102,14 @@
             </div>
 
             <div x-show="at(5,'who')" class="scene">
-              <template x-for="r in [[t('forRetail'),ipo.analysis.reco_retail],[t('forHni'),ipo.analysis.reco_hni],[t('forLong'),ipo.analysis.reco_long]]" :key="r[0]">
+              <!-- Same rule as the verdict badge: retail/HNI/long-term all
+                   default to apply/watch/watch in the scaffold, so an
+                   unjudged IPO showed "For Retail — ✅ APPLY". -->
+              <div x-show="scoreThin" class="glass glass-a p-4 text-center">
+                <div class="font-black text-lg text-amber-300" x-text="t('noVerdict')"></div>
+                <div class="text-2xs text-amber-200/70 font-semibold mt-1" x-text="t('noVerdictWhy')"></div>
+              </div>
+              <template x-for="r in (scoreThin ? [] : [[t('forRetail'),ipo.analysis.reco_retail],[t('forHni'),ipo.analysis.reco_hni],[t('forLong'),ipo.analysis.reco_long]])" :key="r[0]">
                 <div class="flex items-center justify-between gap-2 rounded-xl px-3.5 py-3 glass"
                      :class="r[1]==='apply' ? 'glass-g' : (r[1]==='avoid' ? 'glass-r' : 'glass-a')">
                   <span class="text-base font-bold text-slate-100" x-text="r[0]"></span>

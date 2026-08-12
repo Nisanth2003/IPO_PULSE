@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T02:14:52",
+  "generated_at": "2026-08-13T02:44:11",
   "ipo": {
     "slug": "credent-connect-n-care",
     "company": "Credent Connect N Care Limited",
@@ -52,6 +52,20 @@
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
+      },
+      {
+        "date": "2026-08-12",
+        "gmp": 24.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
+        "date": "2026-08-13",
+        "gmp": 24.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
       }
     ],
     "subscription": [],
@@ -142,16 +156,16 @@
       "is_fresh_heavy": true
     },
     "gmp": {
-      "gmp": 35.0,
-      "prev": 0.0,
-      "delta": 35.0,
-      "pct": 18.52,
-      "est_listing": 224.0,
+      "gmp": 24.0,
+      "prev": 24.0,
+      "delta": 0.0,
+      "pct": 12.7,
+      "est_listing": 213.0,
       "gain_per_lot": 0.0,
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-11",
+      "updated": "2026-08-13",
       "series": [
         {
           "date": "2026-08-11",
@@ -160,13 +174,29 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-12",
+          "gmp": 24.0,
+          "pct": 12.7,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
+        },
+        {
+          "date": "2026-08-13",
+          "gmp": 24.0,
+          "pct": 12.7,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
         }
       ],
       "peak": 35.0,
-      "trough": 35.0,
-      "days_tracked": 1,
-      "age_days": 2,
-      "is_stale": true
+      "trough": 24.0,
+      "days_tracked": 3,
+      "age_days": 0,
+      "is_stale": false
     },
     "subscription": {
       "has_data": false,
@@ -195,15 +225,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 8.0,
+      "value": 7.1,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 7.2,
-          "detail": "GMP is 18.52% of the ₹189 band"
+          "mark": 6.0,
+          "detail": "GMP is 12.7% of the ₹189 band"
         },
         {
           "key": "demand",
@@ -247,7 +277,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 8.0
+      "effective": 7.1
     }
   }
 }

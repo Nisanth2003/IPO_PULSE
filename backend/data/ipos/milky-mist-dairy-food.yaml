@@ -49,11 +49,21 @@ financials:
   eps: 0.72
   pe_peer_avg: 52.56
 gmp_history:
+- date: '2026-08-06'
+  gmp: 23.0
+  kostak: 0.0
+  sauda: 0.0
+  source: ipoji
 - date: '2026-08-07'
   gmp: 27.0
   kostak: 0.0
   sauda: 0.0
   source: gemini
+- date: '2026-08-08'
+  gmp: 22.0
+  kostak: 0.0
+  sauda: 0.0
+  source: ipoji
 - date: '2026-08-09'
   gmp: 25.0
   kostak: 0.0
@@ -69,6 +79,16 @@ gmp_history:
   kostak: 0.0
   sauda: 0.0
   source: gemini
+- date: '2026-08-12'
+  gmp: 18.0
+  kostak: 0.0
+  sauda: 0.0
+  source: ipoji
+- date: '2026-08-13'
+  gmp: 18.0
+  kostak: 0.0
+  sauda: 0.0
+  source: ipoji
 subscription:
 - day: 1
   date: '2026-08-11'

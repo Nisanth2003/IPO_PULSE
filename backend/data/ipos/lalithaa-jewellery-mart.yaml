@@ -57,6 +57,16 @@ gmp_history:
   kostak: 0.0
   sauda: 0.0
   source: gemini
+- date: '2026-08-12'
+  gmp: 35.0
+  kostak: 0.0
+  sauda: 0.0
+  source: ipoji
+- date: '2026-08-13'
+  gmp: 35.0
+  kostak: 0.0
+  sauda: 0.0
+  source: ipoji
 subscription: []
 analysis:
   overview:

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T02:14:52",
+  "generated_at": "2026-08-13T02:44:11",
   "count": 16,
   "ipos": [
     {
@@ -25,17 +25,17 @@
       "status": "open"
     },
     {
-      "slug": "credent-connect-n-care",
-      "company": "Credent Connect N Care Limited",
-      "initials": "CC",
-      "board": "SME",
-      "status": "open"
-    },
-    {
       "slug": "milky-mist-dairy-food",
       "company": "Milky Mist Dairy Food Limited",
       "initials": "MM",
       "board": "Mainboard",
+      "status": "open"
+    },
+    {
+      "slug": "credent-connect-n-care",
+      "company": "Credent Connect N Care Limited",
+      "initials": "CC",
+      "board": "SME",
       "status": "open"
     },
     {

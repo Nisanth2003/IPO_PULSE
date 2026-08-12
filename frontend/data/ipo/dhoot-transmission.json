@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T02:14:52",
+  "generated_at": "2026-08-13T02:44:11",
   "ipo": {
     "slug": "dhoot-transmission",
     "company": "Dhoot Transmission Limited",
@@ -63,11 +63,46 @@
     },
     "gmp_history": [
       {
+        "date": "2026-08-03",
+        "gmp": 90.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
+        "date": "2026-08-04",
+        "gmp": 225.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
+        "date": "2026-08-05",
+        "gmp": 232.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
+        "date": "2026-08-06",
+        "gmp": 235.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
         "date": "2026-08-07",
         "gmp": 258.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
+      },
+      {
+        "date": "2026-08-08",
+        "gmp": 235.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
       },
       {
         "date": "2026-08-09",
@@ -82,6 +117,27 @@
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
+      },
+      {
+        "date": "2026-08-11",
+        "gmp": 243.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
+        "date": "2026-08-12",
+        "gmp": 260.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
+        "date": "2026-08-13",
+        "gmp": 260.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
       }
     ],
     "subscription": [
@@ -221,17 +277,49 @@
       "is_fresh_heavy": false
     },
     "gmp": {
-      "gmp": 259.0,
-      "prev": 259.0,
+      "gmp": 260.0,
+      "prev": 260.0,
       "delta": 0.0,
-      "pct": 29.74,
-      "est_listing": 1130.0,
-      "gain_per_lot": 4403.0,
+      "pct": 29.85,
+      "est_listing": 1131.0,
+      "gain_per_lot": 4420.0,
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-10",
+      "updated": "2026-08-13",
       "series": [
+        {
+          "date": "2026-08-03",
+          "gmp": 90.0,
+          "pct": 10.33,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
+        },
+        {
+          "date": "2026-08-04",
+          "gmp": 225.0,
+          "pct": 25.83,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
+        },
+        {
+          "date": "2026-08-05",
+          "gmp": 232.0,
+          "pct": 26.64,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
+        },
+        {
+          "date": "2026-08-06",
+          "gmp": 235.0,
+          "pct": 26.98,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
+        },
         {
           "date": "2026-08-07",
           "gmp": 258.0,
@@ -239,6 +327,14 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-08",
+          "gmp": 235.0,
+          "pct": 26.98,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
         },
         {
           "date": "2026-08-09",
@@ -255,13 +351,37 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-11",
+          "gmp": 243.0,
+          "pct": 27.9,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
+        },
+        {
+          "date": "2026-08-12",
+          "gmp": 260.0,
+          "pct": 29.85,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
+        },
+        {
+          "date": "2026-08-13",
+          "gmp": 260.0,
+          "pct": 29.85,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
         }
       ],
-      "peak": 259.0,
-      "trough": 258.0,
-      "days_tracked": 3,
-      "age_days": 3,
-      "is_stale": true
+      "peak": 260.0,
+      "trough": 90.0,
+      "days_tracked": 11,
+      "age_days": 0,
+      "is_stale": false
     },
     "subscription": {
       "has_data": true,
@@ -483,7 +603,7 @@
           "full_weight": 25,
           "has_data": true,
           "mark": 9.0,
-          "detail": "GMP is 29.74% of the ₹871 band"
+          "detail": "GMP is 29.85% of the ₹871 band"
         },
         {
           "key": "demand",
