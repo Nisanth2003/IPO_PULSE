@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T16:15:10",
+  "generated_at": "2026-08-12T08:49:10",
   "ipo": {
     "slug": "dhoot-transmission",
     "company": "Dhoot Transmission Limited",
@@ -102,6 +102,15 @@
         "retail": 2.97,
         "employee": 3.46,
         "total": 3.94
+      },
+      {
+        "day": 3,
+        "date": "2026-08-12",
+        "qib": 27.61,
+        "nii": 42.69,
+        "retail": 6.55,
+        "employee": 6.65,
+        "total": 20.18
       }
     ],
     "analysis": {
@@ -242,19 +251,19 @@
       "peak": 259.0,
       "trough": 258.0,
       "days_tracked": 3,
-      "age_days": 1,
+      "age_days": 2,
       "is_stale": true
     },
     "subscription": {
       "has_data": true,
-      "day": 2,
-      "qib": 0.5,
-      "nii": 10.62,
-      "retail": 2.97,
-      "employee": 3.46,
-      "total": 3.94,
-      "max_category": 10.62,
-      "sentiment": "good",
+      "day": 3,
+      "qib": 27.61,
+      "nii": 42.69,
+      "retail": 6.55,
+      "employee": 6.65,
+      "total": 20.18,
+      "max_category": 42.69,
+      "sentiment": "heavy",
       "leader": "nii",
       "days": [
         {
@@ -274,6 +283,15 @@
           "retail": 2.97,
           "employee": 3.46,
           "total": 3.94
+        },
+        {
+          "day": 3,
+          "date": "2026-08-12",
+          "qib": 27.61,
+          "nii": 42.69,
+          "retail": 6.55,
+          "employee": 6.65,
+          "total": 20.18
         }
       ]
     },
@@ -439,7 +457,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 8.0,
+      "value": 8.6,
       "components": [
         {
           "key": "grey",
@@ -454,8 +472,8 @@
           "weight": 20.0,
           "full_weight": 20,
           "has_data": true,
-          "mark": 6.2,
-          "detail": "3.94x overall on day 2"
+          "mark": 8.3,
+          "detail": "20.18x overall on day 3"
         },
         {
           "key": "fundamentals",
@@ -489,7 +507,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 8.0
+      "effective": 8.6
     }
   }
 }

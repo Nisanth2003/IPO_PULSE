@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T16:15:10",
+  "generated_at": "2026-08-12T08:49:10",
   "ipo": {
     "slug": "shiprocket",
     "company": "Shiprocket Limited",
@@ -54,7 +54,17 @@
         "source": "gemini"
       }
     ],
-    "subscription": [],
+    "subscription": [
+      {
+        "day": 1,
+        "date": "2026-08-12",
+        "qib": 0.0,
+        "nii": 0.7,
+        "retail": 2.34,
+        "employee": 3.78,
+        "total": 0.63
+      }
+    ],
     "analysis": {
       "overview": [],
       "green_flags": [],
@@ -116,12 +126,31 @@
       "peak": 21.0,
       "trough": 21.0,
       "days_tracked": 1,
-      "age_days": 2,
+      "age_days": 3,
       "is_stale": true
     },
     "subscription": {
-      "has_data": false,
-      "days": []
+      "has_data": true,
+      "day": 1,
+      "qib": 0.0,
+      "nii": 0.7,
+      "retail": 2.34,
+      "employee": 3.78,
+      "total": 0.63,
+      "max_category": 3.78,
+      "sentiment": "weak",
+      "leader": "retail",
+      "days": [
+        {
+          "day": 1,
+          "date": "2026-08-12",
+          "qib": 0.0,
+          "nii": 0.7,
+          "retail": 2.34,
+          "employee": 3.78,
+          "total": 0.63
+        }
+      ]
     },
     "financials": {
       "has_data": false,
@@ -136,7 +165,7 @@
       "refund": "2026-08-18",
       "listing": "2026-08-19",
       "close_at": "2026-08-14T17:00:00",
-      "status": "upcoming"
+      "status": "open"
     },
     "listing": {
       "status": "expected",
@@ -146,7 +175,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 7.3,
+      "value": 5.6,
       "components": [
         {
           "key": "grey",
@@ -160,9 +189,9 @@
           "key": "demand",
           "weight": 20.0,
           "full_weight": 20,
-          "has_data": false,
-          "mark": null,
-          "detail": "issue has not opened / no subscription read"
+          "has_data": true,
+          "mark": 2.5,
+          "detail": "0.63x overall on day 1"
         },
         {
           "key": "fundamentals",
@@ -189,16 +218,15 @@
           "detail": "54.7% fresh issue"
         }
       ],
-      "covered_pct": 35,
-      "has_data": false,
+      "covered_pct": 55,
+      "has_data": true,
       "missing": [
-        "demand",
         "fundamentals",
         "valuation"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 7.3
+      "effective": 5.6
     }
   }
 }

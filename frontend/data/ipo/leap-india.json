@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T16:15:10",
+  "generated_at": "2026-08-12T08:49:10",
   "ipo": {
     "slug": "leap-india",
     "company": "Leap India Limited",
@@ -101,6 +101,15 @@
       {
         "day": 5,
         "date": "2026-08-11",
+        "qib": 16.84,
+        "nii": 12.64,
+        "retail": 1.71,
+        "employee": 10.99,
+        "total": 8.38
+      },
+      {
+        "day": 6,
+        "date": "2026-08-12",
         "qib": 16.84,
         "nii": 12.64,
         "retail": 1.71,
@@ -245,12 +254,12 @@
       "peak": 18.0,
       "trough": 12.5,
       "days_tracked": 3,
-      "age_days": 1,
+      "age_days": 2,
       "is_stale": true
     },
     "subscription": {
       "has_data": true,
-      "day": 5,
+      "day": 6,
       "qib": 16.84,
       "nii": 12.64,
       "retail": 1.71,
@@ -272,6 +281,15 @@
         {
           "day": 5,
           "date": "2026-08-11",
+          "qib": 16.84,
+          "nii": 12.64,
+          "retail": 1.71,
+          "employee": 10.99,
+          "total": 8.38
+        },
+        {
+          "day": 6,
+          "date": "2026-08-12",
           "qib": 16.84,
           "nii": 12.64,
           "retail": 1.71,
@@ -432,7 +450,7 @@
       "refund": "2026-08-13",
       "listing": "2026-08-14",
       "close_at": "2026-08-11T17:00:00",
-      "status": "open"
+      "status": "allotment"
     },
     "listing": {
       "status": "expected",
@@ -458,7 +476,7 @@
           "full_weight": 20,
           "has_data": true,
           "mark": 7.2,
-          "detail": "8.38x overall on day 5"
+          "detail": "8.38x overall on day 6"
         },
         {
           "key": "fundamentals",

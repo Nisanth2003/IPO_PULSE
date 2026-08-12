@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T16:15:10",
+  "generated_at": "2026-08-12T08:49:10",
   "ipo": {
     "slug": "pramodini-medicare",
     "company": "Pramodini Medicare Limited",
@@ -156,7 +156,7 @@
       "peak": 0.0,
       "trough": 0.0,
       "days_tracked": 1,
-      "age_days": 1,
+      "age_days": 2,
       "is_stale": true
     },
     "subscription": {
@@ -176,7 +176,7 @@
       "refund": "2026-08-18",
       "listing": "2026-08-19",
       "close_at": "2026-08-14T17:00:00",
-      "status": "upcoming"
+      "status": "open"
     },
     "listing": {
       "status": "expected",

@@ -62,7 +62,14 @@ gmp_history:
   kostak: 0.0
   sauda: 0.0
   source: gemini
-subscription: []
+subscription:
+- day: 1
+  date: '2026-08-12'
+  qib: 0.35
+  nii: 1.19
+  retail: 1.8
+  employee: 0.0
+  total: 1.27
 analysis:
   overview:
   - It makes iron and steel products.

@@ -82,6 +82,13 @@ subscription:
   retail: 1.71
   employee: 10.99
   total: 8.38
+- day: 6
+  date: '2026-08-12'
+  qib: 16.84
+  nii: 12.64
+  retail: 1.71
+  employee: 10.99
+  total: 8.38
 analysis:
   overview:
   - Operates in supply chain asset pooling.

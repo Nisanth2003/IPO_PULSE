@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T16:15:10",
+  "generated_at": "2026-08-12T08:49:10",
   "ipo": {
     "slug": "behari-lal-engineering",
     "company": "Behari Lal Engineering Limited",
@@ -81,7 +81,17 @@
         "source": "gemini"
       }
     ],
-    "subscription": [],
+    "subscription": [
+      {
+        "day": 1,
+        "date": "2026-08-12",
+        "qib": 0.35,
+        "nii": 1.19,
+        "retail": 1.8,
+        "employee": 0.0,
+        "total": 1.27
+      }
+    ],
     "analysis": {
       "overview": [
         "It makes iron and steel products.",
@@ -211,12 +221,31 @@
       "peak": 53.0,
       "trough": 25.0,
       "days_tracked": 2,
-      "age_days": 1,
+      "age_days": 2,
       "is_stale": true
     },
     "subscription": {
-      "has_data": false,
-      "days": []
+      "has_data": true,
+      "day": 1,
+      "qib": 0.35,
+      "nii": 1.19,
+      "retail": 1.8,
+      "employee": 0.0,
+      "total": 1.27,
+      "max_category": 1.8,
+      "sentiment": "ok",
+      "leader": "retail",
+      "days": [
+        {
+          "day": 1,
+          "date": "2026-08-12",
+          "qib": 0.35,
+          "nii": 1.19,
+          "retail": 1.8,
+          "employee": 0.0,
+          "total": 1.27
+        }
+      ]
     },
     "financials": {
       "has_data": true,
@@ -370,7 +399,7 @@
       "refund": "2026-08-18",
       "listing": "2026-08-19",
       "close_at": "2026-08-14T17:00:00",
-      "status": "upcoming"
+      "status": "open"
     },
     "listing": {
       "status": "expected",
@@ -380,7 +409,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 7.2,
+      "value": 6.5,
       "components": [
         {
           "key": "grey",
@@ -394,9 +423,9 @@
           "key": "demand",
           "weight": 20.0,
           "full_weight": 20,
-          "has_data": false,
-          "mark": null,
-          "detail": "issue has not opened / no subscription read"
+          "has_data": true,
+          "mark": 4.3,
+          "detail": "1.27x overall on day 1"
         },
         {
           "key": "fundamentals",
@@ -423,15 +452,14 @@
           "detail": "30.8% fresh issue"
         }
       ],
-      "covered_pct": 61,
+      "covered_pct": 81,
       "has_data": true,
       "missing": [
-        "demand",
         "valuation"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 7.2
+      "effective": 6.5
     }
   }
 }

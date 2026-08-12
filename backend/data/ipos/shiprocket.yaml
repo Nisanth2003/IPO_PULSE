@@ -42,7 +42,14 @@ gmp_history:
   kostak: 0.0
   sauda: 0.0
   source: gemini
-subscription: []
+subscription:
+- day: 1
+  date: '2026-08-12'
+  qib: 0.0
+  nii: 0.7
+  retail: 2.34
+  employee: 3.78
+  total: 0.63
 analysis:
   overview: []
   green_flags: []

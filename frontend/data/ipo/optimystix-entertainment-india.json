@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T16:15:10",
+  "generated_at": "2026-08-12T08:49:10",
   "ipo": {
     "slug": "optimystix-entertainment-india",
     "company": "Optimystix Entertainment India Limited",
@@ -193,7 +193,7 @@
       "peak": 5.0,
       "trough": 5.0,
       "days_tracked": 2,
-      "age_days": 1,
+      "age_days": 2,
       "is_stale": true
     },
     "subscription": {
@@ -352,7 +352,7 @@
       "refund": "2026-08-13",
       "listing": "2026-08-14",
       "close_at": "2026-08-11T17:00:00",
-      "status": "open"
+      "status": "allotment"
     },
     "listing": {
       "status": "expected",

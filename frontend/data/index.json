@@ -1,12 +1,33 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-11T16:15:10",
+  "generated_at": "2026-08-12T08:49:10",
   "count": 13,
   "ipos": [
+    {
+      "slug": "vertex-aerospace",
+      "company": "Vertex Aerospace Ltd",
+      "initials": "VA",
+      "board": "Mainboard",
+      "status": "open"
+    },
     {
       "slug": "dhoot-transmission",
       "company": "Dhoot Transmission Limited",
       "initials": "DT",
+      "board": "Mainboard",
+      "status": "open"
+    },
+    {
+      "slug": "shiprocket",
+      "company": "Shiprocket Limited",
+      "initials": "S",
+      "board": "Mainboard",
+      "status": "open"
+    },
+    {
+      "slug": "behari-lal-engineering",
+      "company": "Behari Lal Engineering Limited",
+      "initials": "BL",
       "board": "Mainboard",
       "status": "open"
     },
@@ -25,27 +46,6 @@
       "status": "open"
     },
     {
-      "slug": "technocraft-ventures",
-      "company": "Technocraft Ventures Limited",
-      "initials": "TV",
-      "board": "Mainboard",
-      "status": "open"
-    },
-    {
-      "slug": "leap-india",
-      "company": "Leap India Limited",
-      "initials": "L",
-      "board": "Mainboard",
-      "status": "open"
-    },
-    {
-      "slug": "optimystix-entertainment-india",
-      "company": "Optimystix Entertainment India Limited",
-      "initials": "OE",
-      "board": "SME",
-      "status": "open"
-    },
-    {
       "slug": "fascinate-textiles",
       "company": "Fascinate Textiles Limited",
       "initials": "FT",
@@ -53,25 +53,11 @@
       "status": "open"
     },
     {
-      "slug": "vertex-aerospace",
-      "company": "Vertex Aerospace Ltd",
-      "initials": "VA",
-      "board": "Mainboard",
-      "status": "upcoming"
-    },
-    {
-      "slug": "shiprocket",
-      "company": "Shiprocket Limited",
-      "initials": "S",
-      "board": "Mainboard",
-      "status": "upcoming"
-    },
-    {
-      "slug": "behari-lal-engineering",
-      "company": "Behari Lal Engineering Limited",
-      "initials": "BL",
-      "board": "Mainboard",
-      "status": "upcoming"
+      "slug": "pramodini-medicare",
+      "company": "Pramodini Medicare Limited",
+      "initials": "PM",
+      "board": "SME",
+      "status": "open"
     },
     {
       "slug": "meridian-logistics",
@@ -88,11 +74,25 @@
       "status": "upcoming"
     },
     {
-      "slug": "pramodini-medicare",
-      "company": "Pramodini Medicare Limited",
-      "initials": "PM",
+      "slug": "technocraft-ventures",
+      "company": "Technocraft Ventures Limited",
+      "initials": "TV",
+      "board": "Mainboard",
+      "status": "allotment"
+    },
+    {
+      "slug": "leap-india",
+      "company": "Leap India Limited",
+      "initials": "L",
+      "board": "Mainboard",
+      "status": "allotment"
+    },
+    {
+      "slug": "optimystix-entertainment-india",
+      "company": "Optimystix Entertainment India Limited",
+      "initials": "OE",
       "board": "SME",
-      "status": "upcoming"
+      "status": "allotment"
     }
   ]
 }
