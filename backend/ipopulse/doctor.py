@@ -335,6 +335,27 @@ def plan_repairs(ipo: Ipo) -> list[dict[str, Any]]:
         add("dates.close_time = 17:00 (standard bidding cut-off)",
             lambda raw: raw["dates"].__setitem__("close_time", "17:00"))
 
+    # Post-issue shares follow from PAT and post-issue EPS by definition:
+    # EPS = PAT / shares, so shares = PAT / EPS. That is arithmetic, and it
+    # unlocks the market-cap tile on reel 1, which had never once rendered
+    # because nothing filled `shares_post_issue_cr` for any IPO.
+    #
+    # Guarded on the result being sane: an IPO sells a slice of the company,
+    # so implied market cap below the issue size means the EPS is for a
+    # different basis (pre-issue, or a different year) and the division is
+    # meaningless. Better no tile than a market cap smaller than the raise.
+    pat_series = ipo.financials.pat or []
+    eps = ipo.financials.eps
+    if pat_series and eps > 0 and not iss.shares_post_issue_cr:
+        shares = round(pat_series[-1] / eps, 4)
+        mcap = shares * iss.price_high
+        total = (iss.fresh_cr + iss.ofs_cr) or iss.total_cr
+        if shares > 0 and (not total or mcap > total):
+            add(f"issue.shares_post_issue_cr = PAT / EPS = {shares:g} cr shares "
+                f"(market cap ₹{mcap:,.0f} Cr)",
+                lambda raw, v=shares: raw["issue"].__setitem__(
+                    "shares_post_issue_cr", v))
+
     if iss.registrar and not iss.registrar_url:
         url = _match_registrar(iss.registrar)
         if url:

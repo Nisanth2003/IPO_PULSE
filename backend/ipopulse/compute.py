@@ -10,10 +10,28 @@ Rule: an LLM never produces any number in this file.
 
 from __future__ import annotations
 
+import math
 from datetime import date, datetime
 from typing import Any
 
 from .models import Ipo
+
+
+def _round(value: float, dp: int = 0) -> float:
+    """Round half UP, exactly as JavaScript's Math.round does.
+
+    Python's built-in `round` is half-to-even, so `round(7.05, 1)` is 7.0
+    while `Math.round(70.5) / 10` is 7.1. That difference is invisible until
+    a value lands precisely on the boundary — Lalithaa Jewellery's score did,
+    and the published JSON then said 7.0 while the studio recomputed 7.1 from
+    the same inputs. compute.js is the reference because the browser's
+    arithmetic is not ours to change.
+
+    `floor(v * m + 0.5)` is Math.round's actual definition, negatives
+    included: Math.round(-70.5) is -70, not -71.
+    """
+    m = 10 ** dp
+    return math.floor(value * m + 0.5) / m
 
 
 def _pct(part: float, whole: float) -> float:
@@ -95,14 +113,14 @@ def judge(metric: str, value: float, good_at: float | None = None,
     # Scale the track so the benchmark sits at 50% — the marker is the story.
     span = max(abs(value), abs(line)) * 2 or 1
     return {
-        "value": round(value, 2),
+        "value": _round(value, 2),
         "good_at": line,
         "higher_is_better": higher,
         "verdict": "good" if good else "poor",
         "unit": spec.get("unit", ""),
-        "pos": max(0, min(100, round(value / span * 100))),
-        "mark": max(0, min(100, round(line / span * 100))),
-        "gap_pct": round((value - line) / line * 100, 1) if line else 0.0,
+        "pos": max(0, min(100, _round(value / span * 100))),
+        "mark": max(0, min(100, _round(line / span * 100))),
+        "gap_pct": _round((value - line) / line * 100, 1) if line else 0.0,
     }
 
 
@@ -116,11 +134,11 @@ def issue_metrics(ipo: Ipo) -> dict[str, Any]:
     # say "not disclosed" instead of drawing a 0/0 bar that reads as a fact.
     total = split or iss.total_cr
     return {
-        "total_cr": round(total, 2),
+        "total_cr": _round(total, 2),
         "has_split": split > 0,
-        "fresh_pct": round(_pct(iss.fresh_cr, split), 1),
-        "ofs_pct": round(_pct(iss.ofs_cr, split), 1),
-        "min_investment": round(iss.lot_size * iss.price_high),
+        "fresh_pct": _round(_pct(iss.fresh_cr, split), 1),
+        "ofs_pct": _round(_pct(iss.ofs_cr, split), 1),
+        "min_investment": _round(iss.lot_size * iss.price_high),
         # a fresh-heavy issue funds the company; an OFS-heavy one cashes out
         "is_fresh_heavy": iss.fresh_cr >= iss.ofs_cr,
     }
@@ -148,7 +166,7 @@ def gmp_metrics(ipo: Ipo, now: datetime | None = None) -> dict[str, Any]:
         {
             "date": p.date.isoformat() if p.date else None,
             "gmp": p.gmp,
-            "pct": round(_pct(p.gmp, band), 2),
+            "pct": _round(_pct(p.gmp, band), 2),
             "kostak": p.kostak,
             "sauda": p.sauda,
             "source": p.source,
@@ -163,10 +181,10 @@ def gmp_metrics(ipo: Ipo, now: datetime | None = None) -> dict[str, Any]:
     return {
         "gmp": gmp,
         "prev": prev_gmp,
-        "delta": round(delta, 2),
-        "pct": round(_pct(gmp, band), 2),
-        "est_listing": round(band + gmp, 2),
-        "gain_per_lot": round(gmp * ipo.issue.lot_size),
+        "delta": _round(delta, 2),
+        "pct": _round(_pct(gmp, band), 2),
+        "est_listing": _round(band + gmp, 2),
+        "gain_per_lot": _round(gmp * ipo.issue.lot_size),
         "movement": movement,
         "kostak": latest.kostak if latest else 0.0,
         "sauda": latest.sauda if latest else 0.0,
@@ -250,24 +268,24 @@ def financial_metrics(ipo: Ipo) -> dict[str, Any]:
             "year": yr,
             "revenue": rev,
             "ebitda": ebitda,
-            "ebitda_margin": round(_pct(ebitda, rev), 1),
+            "ebitda_margin": _round(_pct(ebitda, rev), 1),
             "pat": pat,
-            "pat_margin": round(_pct(pat, rev), 1),
+            "pat_margin": _round(_pct(pat, rev), 1),
             "net_worth": nw,
             "total_debt": debt,
-            "ronw": round(_pct(pat, nw), 1),
-            "debt_equity": round(debt / nw, 2) if nw else 0.0,
+            "ronw": _round(_pct(pat, nw), 1),
+            "debt_equity": _round(debt / nw, 2) if nw else 0.0,
         })
 
     span = n - 1
     first, last = rows[0], rows[-1]
     band = ipo.issue.price_high
-    pe = round(band / f.eps, 1) if f.eps else 0.0
+    pe = _round(band / f.eps, 1) if f.eps else 0.0
     shares = ipo.issue.shares_post_issue_cr        # crore shares, post-issue
-    mcap = round(band * shares) if (band and shares) else 0.0
+    mcap = _round(band * shares) if (band and shares) else 0.0
 
-    rev_cagr = round(_cagr(first["revenue"], last["revenue"], span), 1)
-    pat_cagr = round(_cagr(first["pat"], last["pat"], span), 1)
+    rev_cagr = _round(_cagr(first["revenue"], last["revenue"], span), 1)
+    pat_cagr = _round(_cagr(first["pat"], last["pat"], span), 1)
     overrides = getattr(ipo, "benchmarks", None) or {}
 
     out = {
@@ -275,14 +293,14 @@ def financial_metrics(ipo: Ipo) -> dict[str, Any]:
         "rows": rows,
         "latest": last,
         "revenue_cagr": rev_cagr,
-        "ebitda_cagr": round(_cagr(first["ebitda"], last["ebitda"], span), 1),
+        "ebitda_cagr": _round(_cagr(first["ebitda"], last["ebitda"], span), 1),
         "pat_cagr": pat_cagr,
-        "margin_shift_bps": round((last["ebitda_margin"] - first["ebitda_margin"]) * 100),
+        "margin_shift_bps": _round((last["ebitda_margin"] - first["ebitda_margin"]) * 100),
         "eps": f.eps,
         "pe": pe,
         "pe_peer_avg": f.pe_peer_avg,
         # positive => priced above peers
-        "pe_premium_pct": round(_pct(pe - f.pe_peer_avg, f.pe_peer_avg), 1) if f.pe_peer_avg else 0.0,
+        "pe_premium_pct": _round(_pct(pe - f.pe_peer_avg, f.pe_peer_avg), 1) if f.pe_peer_avg else 0.0,
         "market_cap_cr": mcap,
     }
 
@@ -379,8 +397,8 @@ def listing_metrics(ipo: Ipo) -> dict[str, Any]:
         "status": a.status,
         "low": a.listing_low,
         "high": a.listing_high,
-        "low_pct": round(_pct(a.listing_low - band, band), 1) if band else 0.0,
-        "high_pct": round(_pct(a.listing_high - band, band), 1) if band else 0.0,
+        "low_pct": _round(_pct(a.listing_low - band, band), 1) if band else 0.0,
+        "high_pct": _round(_pct(a.listing_high - band, band), 1) if band else 0.0,
     }
 
 
@@ -436,10 +454,10 @@ def score_metrics(ipo: Ipo, d: dict[str, Any]) -> dict[str, Any]:
         """
         parts.append({
             "key": key,
-            "weight": round(SCORE_WEIGHTS[key] * (share if has else 1.0), 1),
+            "weight": _round(SCORE_WEIGHTS[key] * (share if has else 1.0), 1),
             "full_weight": SCORE_WEIGHTS[key],
             "has_data": bool(has),
-            "mark": round(max(0.0, min(10.0, mark)), 1) if has else None,
+            "mark": _round(max(0.0, min(10.0, mark)), 1) if has else None,
             "detail": detail,
         })
 
@@ -476,8 +494,8 @@ def score_metrics(ipo: Ipo, d: dict[str, Any]) -> dict[str, Any]:
     covered = sum(p["weight"] for p in parts if p["has_data"])
     total_w = float(sum(SCORE_WEIGHTS.values()))
     earned = sum(p["weight"] * p["mark"] for p in parts if p["has_data"])
-    value = round(earned / covered, 1) if covered else 0.0
-    covered_pct = round(covered / total_w * 100)
+    value = _round(earned / covered, 1) if covered else 0.0
+    covered_pct = _round(covered / total_w * 100)
 
     # A hand-set score in the YAML always wins — the slider is the editor's
     # override, and an editor who has read the DRHP knows more than this does.

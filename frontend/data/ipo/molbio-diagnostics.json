@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T16:15:28",
+  "generated_at": "2026-08-13T02:11:21",
   "ipo": {
     "slug": "molbio-diagnostics",
     "company": "Molbio Diagnostics Limited",
@@ -14,7 +14,7 @@
       "price_low": 768.0,
       "price_high": 807.0,
       "lot_size": 18,
-      "shares_post_issue_cr": 0.0,
+      "shares_post_issue_cr": 11.1131,
       "registrar": "KFintech",
       "registrar_url": "https://kosmic.kfintech.com/ipostatus/",
       "exchanges": [
@@ -23,7 +23,7 @@
       ]
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-03",
       "open": "2026-08-10",
       "close": "2026-08-12",
       "close_time": "17:00",
@@ -106,7 +106,7 @@
       },
       {
         "date": "2026-08-12",
-        "gmp": 149.0,
+        "gmp": 145.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
@@ -134,6 +134,15 @@
       {
         "day": 3,
         "date": "2026-08-12",
+        "qib": 186.39,
+        "nii": 49.77,
+        "retail": 12.79,
+        "employee": 13.14,
+        "total": 70.17
+      },
+      {
+        "day": 4,
+        "date": "2026-08-13",
         "qib": 186.39,
         "nii": 49.8,
         "retail": 12.96,
@@ -239,16 +248,16 @@
       "has_split": true,
       "fresh_pct": 21.3,
       "ofs_pct": 78.7,
-      "min_investment": 14526,
+      "min_investment": 14526.0,
       "is_fresh_heavy": false
     },
     "gmp": {
-      "gmp": 149.0,
+      "gmp": 145.0,
       "prev": 135.0,
-      "delta": 14.0,
-      "pct": 18.46,
-      "est_listing": 956.0,
-      "gain_per_lot": 2682,
+      "delta": 10.0,
+      "pct": 17.97,
+      "est_listing": 952.0,
+      "gain_per_lot": 2610.0,
       "movement": "surge",
       "kostak": 0.0,
       "sauda": 0.0,
@@ -304,8 +313,8 @@
         },
         {
           "date": "2026-08-12",
-          "gmp": 149.0,
-          "pct": 18.46,
+          "gmp": 145.0,
+          "pct": 17.97,
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
@@ -314,12 +323,12 @@
       "peak": 220.0,
       "trough": 122.0,
       "days_tracked": 7,
-      "age_days": 0,
-      "is_stale": false
+      "age_days": 1,
+      "is_stale": true
     },
     "subscription": {
       "has_data": true,
-      "day": 3,
+      "day": 4,
       "qib": 186.39,
       "nii": 49.8,
       "retail": 12.96,
@@ -350,6 +359,15 @@
         {
           "day": 3,
           "date": "2026-08-12",
+          "qib": 186.39,
+          "nii": 49.77,
+          "retail": 12.79,
+          "employee": 13.14,
+          "total": 70.17
+        },
+        {
+          "day": 4,
+          "date": "2026-08-13",
           "qib": 186.39,
           "nii": 49.8,
           "retail": 12.96,
@@ -413,12 +431,12 @@
       "revenue_cagr": 31.5,
       "ebitda_cagr": 33.2,
       "pat_cagr": 40.2,
-      "margin_shift_bps": 60,
+      "margin_shift_bps": 60.0,
       "eps": 14.77,
       "pe": 54.6,
       "pe_peer_avg": 64.89,
       "pe_premium_pct": -15.9,
-      "market_cap_cr": 0.0,
+      "market_cap_cr": 8968.0,
       "marks": {
         "ebitda_margin": {
           "value": 22.7,
@@ -426,8 +444,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 33,
+          "pos": 50.0,
+          "mark": 33.0,
           "gap_pct": 51.3
         },
         "pat_margin": {
@@ -436,8 +454,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 35,
+          "pos": 50.0,
+          "mark": 35.0,
           "gap_pct": 42.5
         },
         "revenue_cagr": {
@@ -446,8 +464,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 24,
+          "pos": 50.0,
+          "mark": 24.0,
           "gap_pct": 110.0
         },
         "pat_cagr": {
@@ -456,8 +474,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 19,
+          "pos": 50.0,
+          "mark": 19.0,
           "gap_pct": 168.0
         },
         "ronw": {
@@ -486,8 +504,8 @@
           "higher_is_better": false,
           "verdict": "good",
           "unit": "x",
-          "pos": 42,
-          "mark": 50,
+          "pos": 42.0,
+          "mark": 50.0,
           "gap_pct": -15.9
         }
       },
@@ -502,7 +520,7 @@
       }
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-03",
       "open": "2026-08-10",
       "close": "2026-08-12",
       "close_time": "17:00",
@@ -510,7 +528,7 @@
       "refund": "2026-08-14",
       "listing": "2026-08-17",
       "close_at": "2026-08-12T17:00:00",
-      "status": "open"
+      "status": "allotment"
     },
     "listing": {
       "status": "expected",
@@ -520,15 +538,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 8.2,
+      "value": 8.1,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 7.2,
-          "detail": "GMP is 18.46% of the ₹807 band"
+          "mark": 7.1,
+          "detail": "GMP is 17.97% of the ₹807 band"
         },
         {
           "key": "demand",
@@ -536,7 +554,7 @@
           "full_weight": 20,
           "has_data": true,
           "mark": 10.0,
-          "detail": "70.26x overall on day 3"
+          "detail": "70.26x overall on day 4"
         },
         {
           "key": "fundamentals",
@@ -563,12 +581,12 @@
           "detail": "21.3% fresh issue"
         }
       ],
-      "covered_pct": 91,
+      "covered_pct": 91.0,
       "has_data": true,
       "missing": [],
       "manual": 0.0,
       "source": "auto",
-      "effective": 8.2
+      "effective": 8.1
     }
   }
 }

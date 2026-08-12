@@ -2,3 +2,6 @@
 # RHP text extracts: 10MB downloads re-parsed into ~1.5M chars of JSON.
 # Regenerable from NSE at any time, so never worth committing.
 .cache/
+
+# enrich attempt log — local bookkeeping, regenerable
+.cache/

@@ -1,19 +1,12 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T16:15:28",
+  "generated_at": "2026-08-13T02:11:21",
   "count": 16,
   "ipos": [
     {
       "slug": "vertex-aerospace",
       "company": "Vertex Aerospace Ltd",
       "initials": "VA",
-      "board": "Mainboard",
-      "status": "open"
-    },
-    {
-      "slug": "dhoot-transmission",
-      "company": "Dhoot Transmission Limited",
-      "initials": "DT",
       "board": "Mainboard",
       "status": "open"
     },
@@ -32,10 +25,10 @@
       "status": "open"
     },
     {
-      "slug": "molbio-diagnostics",
-      "company": "Molbio Diagnostics Limited",
-      "initials": "MD",
-      "board": "Mainboard",
+      "slug": "credent-connect-n-care",
+      "company": "Credent Connect N Care Limited",
+      "initials": "CC",
+      "board": "SME",
       "status": "open"
     },
     {
@@ -60,23 +53,16 @@
       "status": "open"
     },
     {
-      "slug": "meridian-logistics",
-      "company": "Meridian Logistics Ltd",
-      "initials": "ML",
+      "slug": "lalithaa-jewellery-mart",
+      "company": "Lalithaa Jewellery Mart Limited",
+      "initials": "LJ",
       "board": "Mainboard",
       "status": "upcoming"
     },
     {
-      "slug": "credent-connect-n-care",
-      "company": "Credent Connect N Care Limited",
-      "initials": "CC",
-      "board": "SME",
-      "status": "upcoming"
-    },
-    {
-      "slug": "lalithaa-jewellery-mart",
-      "company": "Lalithaa Jewellery Mart Limited",
-      "initials": "LJ",
+      "slug": "meridian-logistics",
+      "company": "Meridian Logistics Ltd",
+      "initials": "ML",
       "board": "Mainboard",
       "status": "upcoming"
     },
@@ -93,6 +79,20 @@
       "initials": "SI",
       "board": "Mainboard",
       "status": "upcoming"
+    },
+    {
+      "slug": "dhoot-transmission",
+      "company": "Dhoot Transmission Limited",
+      "initials": "DT",
+      "board": "Mainboard",
+      "status": "allotment"
+    },
+    {
+      "slug": "molbio-diagnostics",
+      "company": "Molbio Diagnostics Limited",
+      "initials": "MD",
+      "board": "Mainboard",
+      "status": "allotment"
     },
     {
       "slug": "technocraft-ventures",

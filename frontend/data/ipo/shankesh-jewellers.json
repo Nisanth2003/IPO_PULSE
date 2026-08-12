@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T16:15:28",
+  "generated_at": "2026-08-13T02:11:21",
   "ipo": {
     "slug": "shankesh-jewellers",
     "company": "Shankesh Jewellers Limited",
@@ -23,7 +23,7 @@
       ]
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-10",
       "open": "2026-08-18",
       "close": "2026-08-20",
       "close_time": "17:00",
@@ -48,12 +48,22 @@
     "gmp_history": [],
     "subscription": [],
     "analysis": {
-      "overview": [],
-      "green_flags": [],
-      "red_flags": [],
+      "overview": [
+        "Shankesh Jewellers Limited is launching an IPO.",
+        "It is a mainboard public issue."
+      ],
+      "green_flags": [
+        "The total issue size is Rs 367.18 crore.",
+        "Fresh issue makes up 74.7 percent.",
+        "OFS is 25.3 percent of the issue."
+      ],
+      "red_flags": [
+        "Grey market premium is currently zero percent.",
+        "Financial data is not available."
+      ],
       "growth": "",
       "valuation": "",
-      "risk": "",
+      "risk": "Financial data is not available for assessment.",
       "growth_tone": "good",
       "valuation_tone": "warn",
       "score": 0.0,
@@ -69,7 +79,58 @@
       "listing_high": 0.0,
       "steps": []
     },
-    "i18n": {},
+    "i18n": {
+      "hi": {
+        "overview": [
+          "Shankesh Jewellers Limited ला रहा है एक IPO.",
+          "यह एक mainboard public issue है।"
+        ],
+        "green_flags": [
+          "कुल issue size Rs 367.18 crore है।",
+          "Fresh issue 74.7 percent है।",
+          "OFS issue का 25.3 percent है।"
+        ],
+        "red_flags": [
+          "Grey market premium फिलहाल zero percent है।",
+          "Financial data उपलब्ध नहीं है।"
+        ],
+        "growth": "",
+        "valuation": "",
+        "risk": "आकलन के लिए financial data उपलब्ध नहीं है।",
+        "sector": "",
+        "allotment_steps": [
+          "रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें",
+          "ड्रॉपडाउन से IPO का नाम चुनें",
+          "PAN या एप्लिकेशन नंबर डालें",
+          "सर्च दबाएँ — स्टेटस तुरंत दिखेगा"
+        ]
+      },
+      "te": {
+        "overview": [
+          "Shankesh Jewellers Limited ఐపీఓ తెస్తోంది.",
+          "ఇది ఒక మెయిన్‌బోర్డ్ పబ్లిక్ ఇష్యూ."
+        ],
+        "green_flags": [
+          "మొత్తం ఇష్యూ సైజు Rs 367.18 crore.",
+          "ఫ్రెష్ ఇష్యూ 74.7 percent.",
+          "OFS ఇష్యూలో 25.3 percent."
+        ],
+        "red_flags": [
+          "గ్రే మార్కెట్ ప్రీమియం ప్రస్తుతం zero percent.",
+          "ఫైనాన్షియల్ డేటా అందుబాటులో లేదు."
+        ],
+        "growth": "",
+        "valuation": "",
+        "risk": "అంచనా వేయడానికి ఫైనాన్షియల్ డేటా అందుబాటులో లేదు.",
+        "sector": "",
+        "allotment_steps": [
+          "రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి",
+          "డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి",
+          "PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి",
+          "సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది"
+        ]
+      }
+    },
     "benchmarks": {},
     "sources": {},
     "notes": ""
@@ -81,7 +142,7 @@
       "has_split": true,
       "fresh_pct": 74.7,
       "ofs_pct": 25.3,
-      "min_investment": 14880,
+      "min_investment": 14880.0,
       "is_fresh_heavy": true
     },
     "gmp": {
@@ -90,7 +151,7 @@
       "delta": 0.0,
       "pct": 0.0,
       "est_listing": 93.0,
-      "gain_per_lot": 0,
+      "gain_per_lot": 0.0,
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
@@ -111,7 +172,7 @@
       "rows": []
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-10",
       "open": "2026-08-18",
       "close": "2026-08-20",
       "close_time": "17:00",
@@ -172,7 +233,7 @@
           "detail": "74.7% fresh issue"
         }
       ],
-      "covered_pct": 10,
+      "covered_pct": 10.0,
       "has_data": false,
       "missing": [
         "grey",

@@ -17,7 +17,7 @@ issue:
   - BSE
   - NSE
 dates:
-  announced: null
+  announced: '2026-06-17'
   open: '2026-08-13'
   close: '2026-08-17'
   close_time: '17:00'
@@ -36,15 +36,24 @@ financials:
   total_debt: []
   eps: 0.0
   pe_peer_avg: 0.0
-gmp_history: []
+gmp_history:
+- date: '2026-08-11'
+  gmp: 35.0
+  kostak: 0.0
+  sauda: 0.0
+  source: gemini
 subscription: []
 analysis:
-  overview: []
-  green_flags: []
+  overview:
+  - Credent Connect N Care Limited is launching an SME IPO.
+  - The issue size totals 93.9 crores with a 100 percent fresh issue.
+  green_flags:
+  - The grey market premium stands at 18.52 percent.
+  - The entire 93.9 crores is a fresh issue.
   red_flags: []
   growth: ''
   valuation: ''
-  risk: ''
+  risk: No financial data is available in the facts.
   growth_tone: good
   valuation_tone: warn
   score: 0.0
@@ -58,7 +67,41 @@ allotment:
   listing_low: 0.0
   listing_high: 0.0
   steps: []
-i18n: {}
+i18n:
+  hi:
+    overview:
+    - Credent Connect N Care Limited एक SME IPO ला रहा है।
+    - इश्यू का कुल साइज़ 93.9 crores है जिसमें 100 percent फ्रेश इश्यू शामिल है।
+    green_flags:
+    - GMP 18.52 percent चल रहा है।
+    - पूरा 93.9 crores एक फ्रेश इश्यू है।
+    red_flags: []
+    growth: ''
+    valuation: ''
+    risk: फैक्ट्स में कोई वित्तीय डेटा उपलब्ध नहीं है।
+    sector: ''
+    allotment_steps:
+    - रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें
+    - ड्रॉपडाउन से IPO का नाम चुनें
+    - PAN या एप्लिकेशन नंबर डालें
+    - सर्च दबाएँ — स्टेटस तुरंत दिखेगा
+  te:
+    overview:
+    - Credent Connect N Care Limited ఒక SME IPOని తీసుకువస్తోంది.
+    - ఇష్యూ పరిమాణం మొత్తం 93.9 కోట్లు, ఇందులో 100 శాతం ఫ్రెష్ ఇష్యూ ఉంది.
+    green_flags:
+    - గ్రే మార్కెట్ ప్రీమియం (GMP) 18.52 శాతం వద్ద ఉంది.
+    - మొత్తం 93.9 కోట్లు ఫ్రెష్ ఇష్యూ రూపంలో వస్తోంది.
+    red_flags: []
+    growth: ''
+    valuation: ''
+    risk: ఫ్యాక్ట్స్‌లో ఎలాంటి ఆర్థిక డేటా అందుబాటులో లేదు.
+    sector: ''
+    allotment_steps:
+    - రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి
+    - డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి
+    - PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి
+    - సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది
 benchmarks: {}
 sources: {}
 notes: ''

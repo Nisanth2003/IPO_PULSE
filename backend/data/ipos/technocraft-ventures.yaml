@@ -10,7 +10,7 @@ issue:
   price_low: 200.0
   price_high: 212.0
   lot_size: 70
-  shares_post_issue_cr: 0.0
+  shares_post_issue_cr: 3.0097
   registrar: Bigshare Services
   registrar_url: https://ipo.bigshareonline.com/ipo_status.html
   exchanges:
@@ -65,7 +65,7 @@ gmp_history:
   sauda: 0.0
   source: gemini
 - date: '2026-08-11'
-  gmp: 22.0
+  gmp: 29.0
   kostak: 0.0
   sauda: 0.0
   source: gemini

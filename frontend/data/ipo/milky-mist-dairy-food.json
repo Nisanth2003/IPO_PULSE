@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T16:15:28",
+  "generated_at": "2026-08-13T02:11:21",
   "ipo": {
     "slug": "milky-mist-dairy-food",
     "company": "Milky Mist Dairy Food Limited",
@@ -14,7 +14,7 @@
       "price_low": 133.0,
       "price_high": 140.0,
       "lot_size": 107,
-      "shares_post_issue_cr": 0.0,
+      "shares_post_issue_cr": 99.2266,
       "registrar": "KFintech",
       "registrar_url": "https://kosmic.kfintech.com/ipostatus/",
       "exchanges": [
@@ -23,7 +23,7 @@
       ]
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-04",
       "open": "2026-08-11",
       "close": "2026-08-13",
       "close_time": "17:00",
@@ -58,7 +58,7 @@
         1376.38,
         1671.85
       ],
-      "eps": 1.28,
+      "eps": 0.72,
       "pe_peer_avg": 52.56
     },
     "gmp_history": [
@@ -82,6 +82,13 @@
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
+      },
+      {
+        "date": "2026-08-11",
+        "gmp": 22.5,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
       }
     ],
     "subscription": [
@@ -97,6 +104,15 @@
       {
         "day": 2,
         "date": "2026-08-12",
+        "qib": 0.65,
+        "nii": 3.51,
+        "retail": 2.4,
+        "employee": 4.81,
+        "total": 2.14
+      },
+      {
+        "day": 3,
+        "date": "2026-08-13",
         "qib": 0.65,
         "nii": 3.56,
         "retail": 2.44,
@@ -198,20 +214,20 @@
       "has_split": true,
       "fresh_pct": 92.0,
       "ofs_pct": 8.0,
-      "min_investment": 14980,
+      "min_investment": 14980.0,
       "is_fresh_heavy": true
     },
     "gmp": {
-      "gmp": 23.5,
-      "prev": 25.0,
-      "delta": -1.5,
-      "pct": 16.79,
-      "est_listing": 163.5,
-      "gain_per_lot": 2514,
-      "movement": "drop",
+      "gmp": 22.5,
+      "prev": 23.5,
+      "delta": -1.0,
+      "pct": 16.07,
+      "est_listing": 162.5,
+      "gain_per_lot": 2408.0,
+      "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-10",
+      "updated": "2026-08-11",
       "series": [
         {
           "date": "2026-08-07",
@@ -236,17 +252,25 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-11",
+          "gmp": 22.5,
+          "pct": 16.07,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
         }
       ],
       "peak": 27.0,
-      "trough": 23.5,
-      "days_tracked": 3,
+      "trough": 22.5,
+      "days_tracked": 4,
       "age_days": 2,
       "is_stale": true
     },
     "subscription": {
       "has_data": true,
-      "day": 2,
+      "day": 3,
       "qib": 0.65,
       "nii": 3.56,
       "retail": 2.44,
@@ -268,6 +292,15 @@
         {
           "day": 2,
           "date": "2026-08-12",
+          "qib": 0.65,
+          "nii": 3.51,
+          "retail": 2.4,
+          "employee": 4.81,
+          "total": 2.14
+        },
+        {
+          "day": 3,
+          "date": "2026-08-13",
           "qib": 0.65,
           "nii": 3.56,
           "retail": 2.44,
@@ -331,12 +364,12 @@
       "revenue_cagr": 31.3,
       "ebitda_cagr": 39.9,
       "pat_cagr": 155.6,
-      "margin_shift_bps": 170,
-      "eps": 1.28,
-      "pe": 109.4,
+      "margin_shift_bps": 170.0,
+      "eps": 0.72,
+      "pe": 194.4,
       "pe_peer_avg": 52.56,
-      "pe_premium_pct": 108.1,
-      "market_cap_cr": 0.0,
+      "pe_premium_pct": 269.9,
+      "market_cap_cr": 13892.0,
       "marks": {
         "ebitda_margin": {
           "value": 13.9,
@@ -344,8 +377,8 @@
           "higher_is_better": true,
           "verdict": "poor",
           "unit": "%",
-          "pos": 46,
-          "mark": 50,
+          "pos": 46.0,
+          "mark": 50.0,
           "gap_pct": -7.3
         },
         "pat_margin": {
@@ -354,8 +387,8 @@
           "higher_is_better": true,
           "verdict": "poor",
           "unit": "%",
-          "pos": 25,
-          "mark": 50,
+          "pos": 25.0,
+          "mark": 50.0,
           "gap_pct": -50.0
         },
         "revenue_cagr": {
@@ -364,8 +397,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 24,
+          "pos": 50.0,
+          "mark": 24.0,
           "gap_pct": 108.7
         },
         "pat_cagr": {
@@ -374,8 +407,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 5,
+          "pos": 50.0,
+          "mark": 5.0,
           "gap_pct": 937.3
         },
         "ronw": {
@@ -399,14 +432,14 @@
           "gap_pct": 0.0
         },
         "pe": {
-          "value": 109.4,
+          "value": 194.4,
           "good_at": 52.56,
           "higher_is_better": false,
           "verdict": "poor",
           "unit": "x",
-          "pos": 50,
-          "mark": 24,
-          "gap_pct": 108.1
+          "pos": 50.0,
+          "mark": 14.0,
+          "gap_pct": 269.9
         }
       },
       "score_good": 2,
@@ -420,7 +453,7 @@
       }
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-04",
       "open": "2026-08-11",
       "close": "2026-08-13",
       "close_time": "17:00",
@@ -438,15 +471,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 5.1,
+      "value": 4.9,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 6.9,
-          "detail": "GMP is 16.79% of the ₹140 band"
+          "mark": 6.7,
+          "detail": "GMP is 16.07% of the ₹140 band"
         },
         {
           "key": "demand",
@@ -454,7 +487,7 @@
           "full_weight": 20,
           "has_data": true,
           "mark": 5.2,
-          "detail": "2.17x overall on day 2"
+          "detail": "2.17x overall on day 3"
         },
         {
           "key": "fundamentals",
@@ -469,8 +502,8 @@
           "weight": 15.0,
           "full_weight": 15,
           "has_data": true,
-          "mark": 0.9,
-          "detail": "P/E 109.4 vs peers 52.56 (+108.1%)"
+          "mark": 0.0,
+          "detail": "P/E 194.4 vs peers 52.56 (+269.9%)"
         },
         {
           "key": "structure",
@@ -481,12 +514,12 @@
           "detail": "92.0% fresh issue"
         }
       ],
-      "covered_pct": 91,
+      "covered_pct": 91.0,
       "has_data": true,
       "missing": [],
       "manual": 0.0,
       "source": "auto",
-      "effective": 5.1
+      "effective": 4.9
     }
   }
 }

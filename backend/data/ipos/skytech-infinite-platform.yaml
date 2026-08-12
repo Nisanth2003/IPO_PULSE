@@ -10,7 +10,7 @@ issue:
   price_low: 73.0
   price_high: 77.0
   lot_size: 0
-  shares_post_issue_cr: 0.0
+  shares_post_issue_cr: 0.6863
   registrar: Integrated Registry Management Services Private Limited
   registrar_url: ''
   exchanges:
@@ -29,22 +29,42 @@ financials:
   - FY23
   - FY24
   - FY25
-  revenue: []
-  ebitda: []
-  pat: []
-  net_worth: []
-  total_debt: []
-  eps: 0.0
+  revenue:
+  - 44.13
+  - 45.14
+  - 51.65
+  ebitda:
+  - 3.09
+  - 6.13
+  - 6.65
+  pat:
+  - 1.35
+  - 3.71
+  - 4.2
+  net_worth:
+  - 11.1
+  - 14.81
+  - 19.02
+  total_debt:
+  - 3.9
+  - 5.39
+  - 9.25
+  eps: 6.12
   pe_peer_avg: 0.0
 gmp_history: []
 subscription: []
 analysis:
   overview: []
-  green_flags: []
-  red_flags: []
-  growth: ''
+  green_flags:
+  - PAT CAGR is strong at 76.4%
+  - RoNW is healthy at 22.1%
+  - Debt-to-equity is low at 0.49x
+  red_flags:
+  - Revenue CAGR is low at 8.2%
+  - EBITDA margin is poor at 12.9%
+  growth: PAT grew at 76.4% CAGR with revenue growing at 8.2% CAGR.
   valuation: ''
-  risk: ''
+  risk: Revenue CAGR is low at 8.2%.
   growth_tone: good
   valuation_tone: warn
   score: 0.0
@@ -58,7 +78,43 @@ allotment:
   listing_low: 0.0
   listing_high: 0.0
   steps: []
-i18n: {}
+i18n:
+  hi:
+    overview: []
+    green_flags:
+    - PAT CAGR 76.4% पर मजबूत है
+    - RoNW 22.1% पर हेल्दी है
+    - डेब्ट-टू-इक्विटी 0.49x पर कम है
+    red_flags:
+    - रेवेन्यू CAGR 8.2% पर कम है
+    - EBITDA मार्जिन 12.9% पर खराब है
+    growth: PAT 76.4% CAGR से बढ़ा और रेवेन्यू 8.2% CAGR से बढ़ा।
+    valuation: ''
+    risk: रेवेन्यू CAGR 8.2% पर कम है।
+    sector: ''
+    allotment_steps:
+    - रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें
+    - ड्रॉपडाउन से IPO का नाम चुनें
+    - PAN या एप्लिकेशन नंबर डालें
+    - सर्च दबाएँ — स्टेटस तुरंत दिखेगा
+  te:
+    overview: []
+    green_flags:
+    - PAT CAGR 76.4% చాలా స్ట్రాంగ్ గా ఉంది
+    - RoNW 22.1% హెల్దీగా ఉంది
+    - డెట్-టు-ఈక్విటీ 0.49x తక్కువగా ఉంది
+    red_flags:
+    - రెవెన్యూ CAGR 8.2% తక్కువగా ఉంది
+    - EBITDA మార్జిన్ 12.9% బాగోలేదు
+    growth: PAT 76.4% CAGR తో పెరిగింది, అలాగే రెవెన్యూ 8.2% CAGR తో పెరిగింది.
+    valuation: ''
+    risk: రెవెన్యూ CAGR 8.2% తక్కువగా ఉంది.
+    sector: ''
+    allotment_steps:
+    - రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి
+    - డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి
+    - PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి
+    - సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది
 benchmarks: {}
 sources: {}
 notes: ''

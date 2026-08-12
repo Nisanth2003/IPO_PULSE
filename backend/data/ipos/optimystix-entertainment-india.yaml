@@ -10,7 +10,7 @@ issue:
   price_low: 166.0
   price_high: 175.0
   lot_size: 800
-  shares_post_issue_cr: 0.0
+  shares_post_issue_cr: 1.8267
   registrar: Maashitla Securities
   registrar_url: https://maashitla.com/allotment-status/public-issues
   exchanges:
@@ -50,6 +50,11 @@ gmp_history:
   source: gemini
 - date: '2026-08-10'
   gmp: 5.0
+  kostak: 0.0
+  sauda: 0.0
+  source: gemini
+- date: '2026-08-11'
+  gmp: 0.0
   kostak: 0.0
   sauda: 0.0
   source: gemini

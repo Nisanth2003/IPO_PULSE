@@ -69,6 +69,14 @@ JOBS: dict[str, dict[str, Any]] = {
         "argv": ["translate"],
         "schedule": "Sun 03:00 IST",
     },
+    "enrich": {
+        "label": "Fill missing data",
+        "detail": "For any IPO still missing them: issue details, RHP "
+                  "financials, analysis draft, hi/te translation. Budgeted, "
+                  "idempotent, and skips whatever is already there.",
+        "argv": ["enrich", "--max-ai", "6"],
+        "schedule": "part of daily",
+    },
     "doctor": {
         "label": "Check & repair",
         "detail": "Lists what is missing and which scene it blanks; repairs "
@@ -122,8 +130,15 @@ JOBS: dict[str, dict[str, Any]] = {
 # URL are filled from whatever NSE just supplied, before the JSON is written.
 # It never exits non-zero without --strict, so it cannot break the chain — a
 # repair step that could stop a publish would be worse than the gaps it fixes.
+# `enrich` sits right after `sync`, because sync is what discovers a new IPO
+# and enrich is what makes it usable. Without that pairing, discovery only
+# ever produced an empty card that waited for somebody to type four commands
+# at it — the tools to fill it existed but nothing ran them.
+#
+# Its budget is small (6 calls) precisely because the chain runs three times a
+# day: the work spreads across runs instead of exhausting the free tier in one.
 CHAINS = {
-    "daily": ["sync", "doctor", "build", "push"],
+    "daily": ["sync", "enrich", "doctor", "build", "push"],
     "grey": ["gmp", "push-gmp"],
 }
 

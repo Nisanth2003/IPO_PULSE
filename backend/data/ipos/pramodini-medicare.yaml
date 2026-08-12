@@ -10,14 +10,14 @@ issue:
   price_low: 110.0
   price_high: 118.0
   lot_size: 0
-  shares_post_issue_cr: 0.0
+  shares_post_issue_cr: 1.6695
   registrar: KFintech
   registrar_url: https://kosmic.kfintech.com/ipostatus/
   exchanges:
   - BSE
   - NSE
 dates:
-  announced: null
+  announced: '2026-08-03'
   open: '2026-08-12'
   close: '2026-08-14'
   close_time: '17:00'
@@ -29,13 +29,28 @@ financials:
   - FY23
   - FY24
   - FY25
-  revenue: []
-  ebitda: []
-  pat: []
-  net_worth: []
-  total_debt: []
-  eps: 0.0
-  pe_peer_avg: 0.0
+  revenue:
+  - 35.23
+  - 38.24
+  - 62.29
+  ebitda:
+  - 15.53
+  - 20.97
+  - 30.9
+  pat:
+  - 6.93
+  - 11.03
+  - 17.38
+  net_worth:
+  - 24.75
+  - 35.77
+  - 53.15
+  total_debt:
+  - 11.96
+  - 10.81
+  - 17.85
+  eps: 10.41
+  pe_peer_avg: 12.75
 gmp_history:
 - date: '2026-08-10'
   gmp: 0.0
@@ -47,10 +62,13 @@ analysis:
   overview:
   - Pramodini Medicare Limited is launching an IPO.
   - The issue size is total 69.04 crore.
-  green_flags: []
+  green_flags:
+  - Revenue CAGR stands at 33.0 percent.
+  - PAT CAGR reaches 58.4 percent.
+  - RoNW is strong at 32.7 percent.
   red_flags: []
-  growth: ''
-  valuation: The price band is set at ₹110 to ₹118.
+  growth: Revenue grew at 33.0 percent CAGR and PAT grew at 58.4 percent CAGR.
+  valuation: Priced at a PE of 11.3x, which is below the peer average of 12.75x.
   risk: ''
   growth_tone: good
   valuation_tone: warn

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T16:15:28",
+  "generated_at": "2026-08-13T02:11:21",
   "ipo": {
     "slug": "shiprocket",
     "company": "Shiprocket Limited",
@@ -23,7 +23,7 @@
       ]
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-05",
       "open": "2026-08-12",
       "close": "2026-08-14",
       "close_time": "17:00",
@@ -43,12 +43,19 @@
       "net_worth": [],
       "total_debt": [],
       "eps": 0.0,
-      "pe_peer_avg": 0.0
+      "pe_peer_avg": 47.75
     },
     "gmp_history": [
       {
         "date": "2026-08-09",
         "gmp": 21.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
+      },
+      {
+        "date": "2026-08-11",
+        "gmp": 30.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
@@ -58,6 +65,15 @@
       {
         "day": 1,
         "date": "2026-08-12",
+        "qib": 0.0,
+        "nii": 1.21,
+        "retail": 3.29,
+        "employee": 5.14,
+        "total": 0.94
+      },
+      {
+        "day": 2,
+        "date": "2026-08-13",
         "qib": 0.02,
         "nii": 1.23,
         "retail": 3.33,
@@ -66,12 +82,21 @@
       }
     ],
     "analysis": {
-      "overview": [],
-      "green_flags": [],
-      "red_flags": [],
+      "overview": [
+        "Shiprocket Limited is launching a mainboard IPO.",
+        "The total issue size is 1617.49 crore rupees."
+      ],
+      "green_flags": [
+        "Fresh issue makes up 54.7 percent of the total.",
+        "Current grey market premium stands at 30.93 percent."
+      ],
+      "red_flags": [
+        "Overall subscription is currently at 0.97 times.",
+        "Offer for sale makes up 45.3 percent."
+      ],
       "growth": "",
       "valuation": "",
-      "risk": "",
+      "risk": "Subscription is below one time at 0.97.",
       "growth_tone": "good",
       "valuation_tone": "warn",
       "score": 0.0,
@@ -87,7 +112,56 @@
       "listing_high": 0.0,
       "steps": []
     },
-    "i18n": {},
+    "i18n": {
+      "hi": {
+        "overview": [
+          "Shiprocket Limited एक mainboard IPO ला रहा है।",
+          "कुल इश्यू साइज़ 1617.49 करोड़ रुपये है।"
+        ],
+        "green_flags": [
+          "फ्रेश इश्यू कुल का 54.7 प्रतिशत है।",
+          "मौजूदा GMP 30.93 प्रतिशत है।"
+        ],
+        "red_flags": [
+          "कुल सब्सक्रिप्शन फिलहाल 0.97 गुना है।",
+          "ऑफर फॉर सेल 45.3 प्रतिशत है।"
+        ],
+        "growth": "",
+        "valuation": "",
+        "risk": "सब्सक्रिप्शन एक गुना से कम यानी 0.97 है।",
+        "sector": "",
+        "allotment_steps": [
+          "रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें",
+          "ड्रॉपडाउन से IPO का नाम चुनें",
+          "PAN या एप्लिकेशन नंबर डालें",
+          "सर्च दबाएँ — स्टेटस तुरंत दिखेगा"
+        ]
+      },
+      "te": {
+        "overview": [
+          "Shiprocket Limited మెయిన్‌బోర్డ్ IPO ని లాంచ్ చేస్తోంది.",
+          "మొత్తం ఇష్యూ సైజు 1617.49 కోట్ల రూపాయలు."
+        ],
+        "green_flags": [
+          "మొత్తంలో ఫ్రెష్ ఇష్యూ వాటా 54.7 శాతం.",
+          "ప్రస్తుత GMP 30.93 శాతంగా ఉంది."
+        ],
+        "red_flags": [
+          "మొత్తం సబ్‌స్క్రిప్షన్ ప్రస్తుతం 0.97 రెట్లు ఉంది.",
+          "ఆఫర్ ఫర్ సేల్ వాటా 45.3 శాతం."
+        ],
+        "growth": "",
+        "valuation": "",
+        "risk": "సబ్‌స్క్రిప్షన్ ఒకటి కంటే తక్కువగా 0.97 వద్ద ఉంది.",
+        "sector": "",
+        "allotment_steps": [
+          "రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి",
+          "డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి",
+          "PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి",
+          "సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది"
+        ]
+      }
+    },
     "benchmarks": {},
     "sources": {},
     "notes": ""
@@ -99,20 +173,20 @@
       "has_split": true,
       "fresh_pct": 54.7,
       "ofs_pct": 45.3,
-      "min_investment": 14938,
+      "min_investment": 14938.0,
       "is_fresh_heavy": true
     },
     "gmp": {
-      "gmp": 21.0,
-      "prev": 0.0,
-      "delta": 21.0,
-      "pct": 21.65,
-      "est_listing": 118.0,
-      "gain_per_lot": 3234,
-      "movement": "stable",
+      "gmp": 30.0,
+      "prev": 21.0,
+      "delta": 9.0,
+      "pct": 30.93,
+      "est_listing": 127.0,
+      "gain_per_lot": 4620.0,
+      "movement": "surge",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-09",
+      "updated": "2026-08-11",
       "series": [
         {
           "date": "2026-08-09",
@@ -121,17 +195,25 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-11",
+          "gmp": 30.0,
+          "pct": 30.93,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
         }
       ],
-      "peak": 21.0,
+      "peak": 30.0,
       "trough": 21.0,
-      "days_tracked": 1,
-      "age_days": 3,
+      "days_tracked": 2,
+      "age_days": 2,
       "is_stale": true
     },
     "subscription": {
       "has_data": true,
-      "day": 1,
+      "day": 2,
       "qib": 0.02,
       "nii": 1.23,
       "retail": 3.33,
@@ -144,6 +226,15 @@
         {
           "day": 1,
           "date": "2026-08-12",
+          "qib": 0.0,
+          "nii": 1.21,
+          "retail": 3.29,
+          "employee": 5.14,
+          "total": 0.94
+        },
+        {
+          "day": 2,
+          "date": "2026-08-13",
           "qib": 0.02,
           "nii": 1.23,
           "retail": 3.33,
@@ -157,7 +248,7 @@
       "rows": []
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-05",
       "open": "2026-08-12",
       "close": "2026-08-14",
       "close_time": "17:00",
@@ -175,15 +266,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 6.1,
+      "value": 6.7,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 7.7,
-          "detail": "GMP is 21.65% of the ₹97 band"
+          "mark": 9.0,
+          "detail": "GMP is 30.93% of the ₹97 band"
         },
         {
           "key": "demand",
@@ -191,7 +282,7 @@
           "full_weight": 20,
           "has_data": true,
           "mark": 3.9,
-          "detail": "0.97x overall on day 1"
+          "detail": "0.97x overall on day 2"
         },
         {
           "key": "fundamentals",
@@ -218,7 +309,7 @@
           "detail": "54.7% fresh issue"
         }
       ],
-      "covered_pct": 55,
+      "covered_pct": 55.0,
       "has_data": true,
       "missing": [
         "fundamentals",
@@ -226,7 +317,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 6.1
+      "effective": 6.7
     }
   }
 }

@@ -11,6 +11,8 @@
     ipopulse sub <slug> 2 --qib 12.4 --nii 24.9 --retail 9.2 --total 14.6
     ipopulse translate [slug]        Gemini -> hi/te, cached, written to YAML
     ipopulse analyse <slug>          Gemini drafts overview / flags
+    ipopulse enrich [slug]           fill whatever is missing, automatically
+    ipopulse rhp <slug> --write      financials from NSE's prospectus
     ipopulse doctor [slug] [--fix]   what is missing; repair what is derivable
     ipopulse cache --prune           drop Gemini responses past their TTL
     ipopulse build                   compute + publish JSON for the frontend
@@ -761,6 +763,12 @@ def cmd_rhp(args) -> int:
     elif flagged:
         print(f"\n  ⚠ confidence {raw.get('confidence')}")
 
+    # The cover date is free and independent of whether the figures vetted —
+    # it comes from the text, not the model, so it is written either way.
+    announced = rhpmod.filing_date(doc["pages"], opens=ipo.dates.open)
+    if announced:
+        print(f"  filed (announced): {announced}")
+
     if args.write and (not flagged or args.force):
         base = store.load(args.slug).to_dict()
         blk = base.setdefault("financials", {})
@@ -770,10 +778,19 @@ def cmd_rhp(args) -> int:
                 kept.append(key)
                 continue
             blk[key] = value
+        if announced and not base.get("dates", {}).get("announced"):
+            base.setdefault("dates", {})["announced"] = announced
         store.save(Ipo.from_dict(base))
         print("  written to the YAML")
         if kept:
             print(f"  kept existing {', '.join(kept)}")
+    elif args.write and announced:
+        # Even a flagged read still yields a trustworthy filing date.
+        base = store.load(args.slug).to_dict()
+        if not base.get("dates", {}).get("announced"):
+            base.setdefault("dates", {})["announced"] = announced
+            store.save(Ipo.from_dict(base))
+            print("  wrote dates.announced only (figures were flagged)")
     elif args.write:
         print("  not written (flagged) — re-run with --force to accept")
     else:
@@ -932,6 +949,150 @@ def cmd_analyse(args) -> int:
         maybe_translate(args.slug, args)      # new prose -> translate now, once
     else:
         print("\n(Not saved. Re-run with --write to put it in the YAML.)")
+    return 0
+
+
+def enrich_plan(ipo: Ipo) -> list[tuple[str, list[str], int]]:
+    """What this IPO still needs, as (label, argv, ai_calls).
+
+    Ordered by dependency, not by importance: issue details name the sector
+    and the registrar, the RHP supplies the figures, and `analyse` is last
+    because a draft written before the financials land describes an empty
+    company. Everything is keyed on what is *absent*, so running this twice
+    does nothing the second time.
+    """
+    f, a = ipo.financials, ipo.analysis
+    steps: list[tuple[str, list[str], int]] = []
+
+    if not ipo.sector or not ipo.issue.registrar:
+        steps.append(("issue details",
+                      ["research", ipo.slug, "--what", "ipo", "--write"], 1))
+
+    # One RHP read fills five fields, so it is worth running if any is absent.
+    if not (f.revenue and f.ebitda and f.net_worth and f.eps and f.pe_peer_avg):
+        steps.append(("financials from the RHP",
+                      ["rhp", ipo.slug, "--write"], 1))
+
+    if not a.overview or not (a.green_flags or a.red_flags):
+        steps.append(("analysis draft",
+                      ["analyse", ipo.slug, "--write", "--no-translate"], 1))
+
+    # Translation is two calls (hi + te) and only makes sense once there is
+    # prose to translate — which the step above may have just created.
+    if not ipo.i18n.get("hi") or not ipo.i18n.get("te"):
+        steps.append(("hi / te translation", ["translate", ipo.slug], 2))
+
+    return steps
+
+
+def _attempts_path() -> Path:
+    d = store.BACKEND_ROOT / ".cache"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "enrich.json"
+
+
+def _load_attempts() -> dict[str, dict[str, str]]:
+    try:
+        return json.loads(_attempts_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _record_attempt(log: dict[str, dict[str, str]], slug: str, label: str) -> None:
+    log.setdefault(slug, {})[label] = date.today().isoformat()
+    try:
+        _attempts_path().write_text(json.dumps(log, indent=1), encoding="utf-8")
+    except OSError:
+        pass                                  # a lost log costs a retry, not data
+
+
+def cmd_enrich(args) -> int:
+    """Take every IPO from 'discovered' to 'complete', automatically.
+
+    The tools to fill each field already existed; nothing ran them. A newly
+    discovered IPO was scaffolded by `sync` and then sat empty until somebody
+    typed four commands at it, which is not automation. This is the step that
+    was missing from the chain.
+
+    Two things keep it safe to run unattended:
+
+      * **Budget.** Gemini's free tier binds on requests per day, so a run
+        that fans out over a dozen IPOs can exhaust the day's quota and leave
+        the next job with nothing. `--max-ai` caps the spend and the tail is
+        reported, never silently dropped.
+      * **Vetting is untouched.** Each step is the same command a human would
+        run, dispatched through `main()`, so every guard still applies: a
+        flagged GMP is not written, a short financial series is refused, a
+        pre-issue EPS is dropped.
+    """
+    ipos = [store.load(args.slug)] if args.slug else store.load_all()
+    plans = [(ipo, enrich_plan(ipo)) for ipo in ipos]
+    todo = [(ipo, s) for ipo, steps in plans for s in steps]
+
+    # A step is planned from what is ABSENT, but absence is not always
+    # fillable: Dhoot's prospectus prints no peer P/E, so "financials from the
+    # RHP" would stay outstanding forever and re-run on every scheduled pass,
+    # spending the day's quota on a step that can never finish. Remember the
+    # attempt, not just the outcome.
+    log = _load_attempts()
+    cutoff = date.today().toordinal() - args.retry_after
+    if not args.retry:
+        held = [(i, s) for i, s in todo
+                if date.fromisoformat(
+                    log.get(i.slug, {}).get(s[0], "1970-01-01")).toordinal() > cutoff]
+        todo = [x for x in todo if x not in held]
+        if held:
+            print(f"({len(held)} step(s) tried within the last "
+                  f"{args.retry_after} day(s) — use --retry to force)")
+
+    if not todo:
+        print(f"Nothing to enrich — all {len(ipos)} IPO(s) are complete "
+              f"or recently attempted.")
+        return 0
+
+    print(f"{len(todo)} step(s) across "
+          f"{len({i.slug for i, _ in todo})} IPO(s); "
+          f"budget {args.max_ai} AI call(s)\n")
+
+    spent = ran = failed = 0
+    skipped: list[str] = []
+    for ipo, (label, argv, cost) in todo:
+        if spent + cost > args.max_ai:
+            skipped.append(f"{ipo.slug}: {label}")
+            continue
+        print(f"── {ipo.slug}: {label}")
+        if args.dry_run:
+            print(f"   $ ipopulse {' '.join(argv)}")
+            spent += cost
+            continue
+        try:
+            rc = main(argv)
+        except Exception as exc:                     # one bad IPO must not
+            print(f"   ! {type(exc).__name__}: {exc}")   # stop the rest
+            rc = 1
+        spent += cost
+        ran += 1
+        _record_attempt(log, ipo.slug, label)
+        if rc:
+            failed += 1
+            print(f"   ! exited {rc} — continuing")
+
+    print()
+    if skipped:
+        # Never a silent cap: the tail is the whole reason a budget is safe.
+        print(f"⏸ {len(skipped)} step(s) left for the next run (budget spent):")
+        for s in skipped[:8]:
+            print(f"   {s}")
+        if len(skipped) > 8:
+            print(f"   … and {len(skipped) - 8} more")
+    print(f"{ran} step(s) run, {failed} failed, {spent} AI call(s) used.")
+
+    if not args.dry_run and ran:
+        # doctor picks up what the new figures make derivable — post-issue
+        # shares from PAT/EPS, a total from its parts — then republish.
+        main(["doctor", "--fix"])
+        publish(store.load_all())
+        print(f"Published -> {store.FRONTEND_DATA}")
     return 0
 
 
@@ -1237,6 +1398,20 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--prune", action="store_true", help="delete entries past the TTL")
     sp.add_argument("--clear", action="store_true", help="delete everything")
     sp.set_defaults(func=cmd_cache)
+
+    sp = sub.add_parser("enrich", help="fill whatever each IPO is still missing "
+                                       "(research + RHP + analyse + translate)")
+    sp.add_argument("slug", nargs="?", help="just this one; default is every IPO")
+    sp.add_argument("--max-ai", type=int, default=12,
+                    help="cap on Gemini calls this run (free tier is per-day)")
+    sp.add_argument("--dry-run", action="store_true",
+                    help="print the plan without running or spending anything")
+    sp.add_argument("--retry-after", type=int, default=7, metavar="DAYS",
+                    help="how long before a tried-and-incomplete step is "
+                         "attempted again (default 7)")
+    sp.add_argument("--retry", action="store_true",
+                    help="ignore the attempt log and run every planned step")
+    sp.set_defaults(func=cmd_enrich)
 
     sp = sub.add_parser("doctor", help="what is missing, and repair what is derivable")
     sp.add_argument("slug", nargs="?", help="just this one; default is every IPO")

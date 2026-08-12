@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T16:15:28",
+  "generated_at": "2026-08-13T02:11:21",
   "ipo": {
     "slug": "behari-lal-engineering",
     "company": "Behari Lal Engineering Limited",
@@ -23,7 +23,7 @@
       ]
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-06",
       "open": "2026-08-12",
       "close": "2026-08-14",
       "close_time": "17:00",
@@ -79,12 +79,28 @@
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
+      },
+      {
+        "date": "2026-08-11",
+        "gmp": 67.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
       }
     ],
     "subscription": [
       {
         "day": 1,
         "date": "2026-08-12",
+        "qib": 0.73,
+        "nii": 2.07,
+        "retail": 2.65,
+        "employee": 0.0,
+        "total": 2.0
+      },
+      {
+        "day": 2,
+        "date": "2026-08-13",
         "qib": 0.73,
         "nii": 2.11,
         "retail": 2.69,
@@ -186,20 +202,20 @@
       "has_split": true,
       "fresh_pct": 30.8,
       "ofs_pct": 69.2,
-      "min_investment": 14820,
+      "min_investment": 14820.0,
       "is_fresh_heavy": false
     },
     "gmp": {
-      "gmp": 53.0,
-      "prev": 25.0,
-      "delta": 28.0,
-      "pct": 18.6,
-      "est_listing": 338.0,
-      "gain_per_lot": 2756,
+      "gmp": 67.0,
+      "prev": 53.0,
+      "delta": 14.0,
+      "pct": 23.51,
+      "est_listing": 352.0,
+      "gain_per_lot": 3484.0,
       "movement": "surge",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-10",
+      "updated": "2026-08-11",
       "series": [
         {
           "date": "2026-08-09",
@@ -216,17 +232,25 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-11",
+          "gmp": 67.0,
+          "pct": 23.51,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
         }
       ],
-      "peak": 53.0,
+      "peak": 67.0,
       "trough": 25.0,
-      "days_tracked": 2,
+      "days_tracked": 3,
       "age_days": 2,
       "is_stale": true
     },
     "subscription": {
       "has_data": true,
-      "day": 1,
+      "day": 2,
       "qib": 0.73,
       "nii": 2.11,
       "retail": 2.69,
@@ -239,6 +263,15 @@
         {
           "day": 1,
           "date": "2026-08-12",
+          "qib": 0.73,
+          "nii": 2.07,
+          "retail": 2.65,
+          "employee": 0.0,
+          "total": 2.0
+        },
+        {
+          "day": 2,
+          "date": "2026-08-13",
           "qib": 0.73,
           "nii": 2.11,
           "retail": 2.69,
@@ -302,7 +335,7 @@
       "revenue_cagr": 9.4,
       "ebitda_cagr": 28.9,
       "pat_cagr": 34.4,
-      "margin_shift_bps": 530,
+      "margin_shift_bps": 530.0,
       "eps": 0.0,
       "pe": 0.0,
       "pe_peer_avg": 0.0,
@@ -315,8 +348,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 39,
+          "pos": 50.0,
+          "mark": 39.0,
           "gap_pct": 26.7
         },
         "pat_margin": {
@@ -325,8 +358,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 33,
+          "pos": 50.0,
+          "mark": 33.0,
           "gap_pct": 51.2
         },
         "revenue_cagr": {
@@ -335,8 +368,8 @@
           "higher_is_better": true,
           "verdict": "poor",
           "unit": "%",
-          "pos": 31,
-          "mark": 50,
+          "pos": 31.0,
+          "mark": 50.0,
           "gap_pct": -37.3
         },
         "pat_cagr": {
@@ -345,8 +378,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 22,
+          "pos": 50.0,
+          "mark": 22.0,
           "gap_pct": 129.3
         },
         "ronw": {
@@ -355,8 +388,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 36,
+          "pos": 50.0,
+          "mark": 36.0,
           "gap_pct": 40.7
         },
         "debt_equity": {
@@ -365,8 +398,8 @@
           "higher_is_better": false,
           "verdict": "good",
           "unit": "x",
-          "pos": 3,
-          "mark": 50,
+          "pos": 3.0,
+          "mark": 50.0,
           "gap_pct": -94.0
         },
         "pe": {
@@ -391,7 +424,7 @@
       }
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-06",
       "open": "2026-08-12",
       "close": "2026-08-14",
       "close_time": "17:00",
@@ -409,15 +442,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 6.7,
+      "value": 6.9,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 7.2,
-          "detail": "GMP is 18.6% of the ₹285 band"
+          "mark": 8.0,
+          "detail": "GMP is 23.51% of the ₹285 band"
         },
         {
           "key": "demand",
@@ -425,7 +458,7 @@
           "full_weight": 20,
           "has_data": true,
           "mark": 5.0,
-          "detail": "2.03x overall on day 1"
+          "detail": "2.03x overall on day 2"
         },
         {
           "key": "fundamentals",
@@ -452,14 +485,14 @@
           "detail": "30.8% fresh issue"
         }
       ],
-      "covered_pct": 81,
+      "covered_pct": 81.0,
       "has_data": true,
       "missing": [
         "valuation"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 6.7
+      "effective": 6.9
     }
   }
 }

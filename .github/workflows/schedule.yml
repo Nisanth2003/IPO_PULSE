@@ -95,7 +95,7 @@ jobs:
           # because a spreadsheet could not be written. Drop the push steps
           # instead of running them into a certain failure.
           if [ "${{ steps.key.outputs.has_key }}" != 'true' ]; then
-            JOBS="${JOBS//daily/sync doctor build}"
+            JOBS="${JOBS//daily/sync enrich doctor build}"
             JOBS="${JOBS//grey/gmp}"
             JOBS="$(printf '%s' "$JOBS" | tr ' ' '\n' \
                     | grep -vx -e push -e push-gmp -e '' | tr '\n' ' ' || true)"

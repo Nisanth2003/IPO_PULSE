@@ -10,14 +10,14 @@ issue:
   price_low: 829.0
   price_high: 871.0
   lot_size: 17
-  shares_post_issue_cr: 0.0
+  shares_post_issue_cr: 16.2639
   registrar: KFintech
   registrar_url: https://kosmic.kfintech.com/ipostatus/
   exchanges:
   - BSE
   - NSE
 dates:
-  announced: null
+  announced: '2026-08-03'
   open: '2026-08-10'
   close: '2026-08-12'
   close_time: '17:00'
@@ -81,6 +81,13 @@ subscription:
   total: 3.94
 - day: 3
   date: '2026-08-12'
+  qib: 212.92
+  nii: 51.91
+  retail: 8.05
+  employee: 8.08
+  total: 74.17
+- day: 4
+  date: '2026-08-13'
   qib: 212.92
   nii: 51.93
   retail: 8.12

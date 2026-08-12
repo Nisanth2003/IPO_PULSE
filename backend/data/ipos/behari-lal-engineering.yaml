@@ -17,7 +17,7 @@ issue:
   - BSE
   - NSE
 dates:
-  announced: null
+  announced: '2026-08-06'
   open: '2026-08-12'
   close: '2026-08-14'
   close_time: '17:00'
@@ -62,9 +62,21 @@ gmp_history:
   kostak: 0.0
   sauda: 0.0
   source: gemini
+- date: '2026-08-11'
+  gmp: 67.0
+  kostak: 0.0
+  sauda: 0.0
+  source: gemini
 subscription:
 - day: 1
   date: '2026-08-12'
+  qib: 0.73
+  nii: 2.07
+  retail: 2.65
+  employee: 0.0
+  total: 2.0
+- day: 2
+  date: '2026-08-13'
   qib: 0.73
   nii: 2.11
   retail: 2.69

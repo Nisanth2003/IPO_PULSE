@@ -17,7 +17,7 @@ issue:
   - BSE
   - NSE
 dates:
-  announced: null
+  announced: '2026-08-05'
   open: '2026-08-12'
   close: '2026-08-14'
   close_time: '17:00'
@@ -35,28 +35,46 @@ financials:
   net_worth: []
   total_debt: []
   eps: 0.0
-  pe_peer_avg: 0.0
+  pe_peer_avg: 47.75
 gmp_history:
 - date: '2026-08-09'
   gmp: 21.0
   kostak: 0.0
   sauda: 0.0
   source: gemini
+- date: '2026-08-11'
+  gmp: 30.0
+  kostak: 0.0
+  sauda: 0.0
+  source: gemini
 subscription:
 - day: 1
   date: '2026-08-12'
+  qib: 0.0
+  nii: 1.21
+  retail: 3.29
+  employee: 5.14
+  total: 0.94
+- day: 2
+  date: '2026-08-13'
   qib: 0.02
   nii: 1.23
   retail: 3.33
   employee: 5.2
   total: 0.97
 analysis:
-  overview: []
-  green_flags: []
-  red_flags: []
+  overview:
+  - Shiprocket Limited is launching a mainboard IPO.
+  - The total issue size is 1617.49 crore rupees.
+  green_flags:
+  - Fresh issue makes up 54.7 percent of the total.
+  - Current grey market premium stands at 30.93 percent.
+  red_flags:
+  - Overall subscription is currently at 0.97 times.
+  - Offer for sale makes up 45.3 percent.
   growth: ''
   valuation: ''
-  risk: ''
+  risk: Subscription is below one time at 0.97.
   growth_tone: good
   valuation_tone: warn
   score: 0.0
@@ -70,7 +88,45 @@ allotment:
   listing_low: 0.0
   listing_high: 0.0
   steps: []
-i18n: {}
+i18n:
+  hi:
+    overview:
+    - Shiprocket Limited एक mainboard IPO ला रहा है।
+    - कुल इश्यू साइज़ 1617.49 करोड़ रुपये है।
+    green_flags:
+    - फ्रेश इश्यू कुल का 54.7 प्रतिशत है।
+    - मौजूदा GMP 30.93 प्रतिशत है।
+    red_flags:
+    - कुल सब्सक्रिप्शन फिलहाल 0.97 गुना है।
+    - ऑफर फॉर सेल 45.3 प्रतिशत है।
+    growth: ''
+    valuation: ''
+    risk: सब्सक्रिप्शन एक गुना से कम यानी 0.97 है।
+    sector: ''
+    allotment_steps:
+    - रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें
+    - ड्रॉपडाउन से IPO का नाम चुनें
+    - PAN या एप्लिकेशन नंबर डालें
+    - सर्च दबाएँ — स्टेटस तुरंत दिखेगा
+  te:
+    overview:
+    - Shiprocket Limited మెయిన్‌బోర్డ్ IPO ని లాంచ్ చేస్తోంది.
+    - మొత్తం ఇష్యూ సైజు 1617.49 కోట్ల రూపాయలు.
+    green_flags:
+    - మొత్తంలో ఫ్రెష్ ఇష్యూ వాటా 54.7 శాతం.
+    - ప్రస్తుత GMP 30.93 శాతంగా ఉంది.
+    red_flags:
+    - మొత్తం సబ్‌స్క్రిప్షన్ ప్రస్తుతం 0.97 రెట్లు ఉంది.
+    - ఆఫర్ ఫర్ సేల్ వాటా 45.3 శాతం.
+    growth: ''
+    valuation: ''
+    risk: సబ్‌స్క్రిప్షన్ ఒకటి కంటే తక్కువగా 0.97 వద్ద ఉంది.
+    sector: ''
+    allotment_steps:
+    - రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి
+    - డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి
+    - PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి
+    - సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది
 benchmarks: {}
 sources: {}
 notes: ''

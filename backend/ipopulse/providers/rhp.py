@@ -35,6 +35,7 @@ import json
 import re
 import urllib.request
 import zipfile
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -136,6 +137,55 @@ def pages_for(slug: str, symbol: str, series: str = "EQ",
                "readable": _readable("\n".join(pages[:40]))}
     path.write_text(json.dumps(payload), encoding="utf-8")
     return payload
+
+
+_DATED = re.compile(
+    r"\bdated\s+"
+    r"(january|february|march|april|may|june|july|august|september|october|"
+    r"november|december)\s+(\d{1,2}),?\s+(\d{4})", re.I)
+_MONTHS = ["january", "february", "march", "april", "may", "june", "july",
+           "august", "september", "october", "november", "december"]
+
+
+def filing_date(pages: list[str], opens: date | None = None,
+                max_lead_days: int = 200) -> str | None:
+    """The RHP's own cover date — the day the issue became public.
+
+    `dates.announced` had no source at all: no exchange feed carries it and
+    nothing derives it, so it was blank for every IPO and reel 1 simply
+    dropped the row. It is printed on the cover of the document we are
+    already holding:
+
+        RED HERRING PROSPECTUS
+        Dated August 3, 2026
+
+    Bounded two ways, because "Dated <month> <d>, <y>" is not unique. It
+    appears on cover pages of superseded drafts, auditor certificates and
+    board resolutions, and taking the first match gave Credent Connect an
+    announcement date of May 2024 for an issue opening in August 2026 — 825
+    days early, and perfectly plausible-looking on its own.
+
+      * only the first three pages are read, and
+      * given `opens`, the date must fall in the {max_lead_days} days before
+        it. An RHP is filed one to three weeks ahead; anything outside that
+        window is a different document's date.
+
+    Of the candidates that survive, the latest wins: a cover page can carry
+    both the current filing and a reference to the draft it replaces.
+    """
+    found: list[date] = []
+    for page in pages[:3]:
+        for m in _DATED.finditer(page or ""):
+            try:
+                d = date(int(m.group(3)),
+                         _MONTHS.index(m.group(1).lower()) + 1,
+                         int(m.group(2)))
+            except ValueError:
+                continue
+            if opens and not (0 <= (opens - d).days <= max_lead_days):
+                continue
+            found.append(d)
+    return max(found).isoformat() if found else None
 
 
 def excerpts(pages: list[str], budget: int = MAX_CHARS) -> dict[str, str]:

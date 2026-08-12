@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T16:15:28",
+  "generated_at": "2026-08-13T02:11:21",
   "ipo": {
     "slug": "dhoot-transmission",
     "company": "Dhoot Transmission Limited",
@@ -14,7 +14,7 @@
       "price_low": 829.0,
       "price_high": 871.0,
       "lot_size": 17,
-      "shares_post_issue_cr": 0.0,
+      "shares_post_issue_cr": 16.2639,
       "registrar": "KFintech",
       "registrar_url": "https://kosmic.kfintech.com/ipostatus/",
       "exchanges": [
@@ -23,7 +23,7 @@
       ]
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-03",
       "open": "2026-08-10",
       "close": "2026-08-12",
       "close_time": "17:00",
@@ -106,6 +106,15 @@
       {
         "day": 3,
         "date": "2026-08-12",
+        "qib": 212.92,
+        "nii": 51.91,
+        "retail": 8.05,
+        "employee": 8.08,
+        "total": 74.17
+      },
+      {
+        "day": 4,
+        "date": "2026-08-13",
         "qib": 212.92,
         "nii": 51.93,
         "retail": 8.12,
@@ -208,7 +217,7 @@
       "has_split": true,
       "fresh_pct": 45.6,
       "ofs_pct": 54.4,
-      "min_investment": 14807,
+      "min_investment": 14807.0,
       "is_fresh_heavy": false
     },
     "gmp": {
@@ -217,7 +226,7 @@
       "delta": 0.0,
       "pct": 29.74,
       "est_listing": 1130.0,
-      "gain_per_lot": 4403,
+      "gain_per_lot": 4403.0,
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
@@ -251,12 +260,12 @@
       "peak": 259.0,
       "trough": 258.0,
       "days_tracked": 3,
-      "age_days": 2,
+      "age_days": 3,
       "is_stale": true
     },
     "subscription": {
       "has_data": true,
-      "day": 3,
+      "day": 4,
       "qib": 212.92,
       "nii": 51.93,
       "retail": 8.12,
@@ -287,6 +296,15 @@
         {
           "day": 3,
           "date": "2026-08-12",
+          "qib": 212.92,
+          "nii": 51.91,
+          "retail": 8.05,
+          "employee": 8.08,
+          "total": 74.17
+        },
+        {
+          "day": 4,
+          "date": "2026-08-13",
           "qib": 212.92,
           "nii": 51.93,
           "retail": 8.12,
@@ -350,12 +368,12 @@
       "revenue_cagr": 27.2,
       "ebitda_cagr": 17.8,
       "pat_cagr": 15.3,
-      "margin_shift_bps": -260,
+      "margin_shift_bps": -260.0,
       "eps": 24.4,
       "pe": 35.7,
       "pe_peer_avg": 0.0,
       "pe_premium_pct": 0.0,
-      "market_cap_cr": 0.0,
+      "market_cap_cr": 14166.0,
       "marks": {
         "ebitda_margin": {
           "value": 15.7,
@@ -363,8 +381,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 48,
+          "pos": 50.0,
+          "mark": 48.0,
           "gap_pct": 4.7
         },
         "pat_margin": {
@@ -373,8 +391,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 45,
+          "pos": 50.0,
+          "mark": 45.0,
           "gap_pct": 10.0
         },
         "revenue_cagr": {
@@ -383,8 +401,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 28,
+          "pos": 50.0,
+          "mark": 28.0,
           "gap_pct": 81.3
         },
         "pat_cagr": {
@@ -393,8 +411,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 49,
+          "pos": 50.0,
+          "mark": 49.0,
           "gap_pct": 2.0
         },
         "ronw": {
@@ -439,7 +457,7 @@
       }
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-08-03",
       "open": "2026-08-10",
       "close": "2026-08-12",
       "close_time": "17:00",
@@ -447,7 +465,7 @@
       "refund": "2026-08-14",
       "listing": "2026-08-17",
       "close_at": "2026-08-12T17:00:00",
-      "status": "open"
+      "status": "allotment"
     },
     "listing": {
       "status": "expected",
@@ -473,7 +491,7 @@
           "full_weight": 20,
           "has_data": true,
           "mark": 10.0,
-          "detail": "74.21x overall on day 3"
+          "detail": "74.21x overall on day 4"
         },
         {
           "key": "fundamentals",
@@ -500,7 +518,7 @@
           "detail": "45.6% fresh issue"
         }
       ],
-      "covered_pct": 72,
+      "covered_pct": 72.0,
       "has_data": true,
       "missing": [
         "valuation"

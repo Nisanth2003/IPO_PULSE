@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T16:15:28",
+  "generated_at": "2026-08-13T02:11:21",
   "ipo": {
     "slug": "leap-india",
     "company": "Leap India Limited",
@@ -68,13 +68,6 @@
     "gmp_history": [
       {
         "date": "2026-08-07",
-        "gmp": 18.0,
-        "kostak": 0.0,
-        "sauda": 0.0,
-        "source": "gemini"
-      },
-      {
-        "date": "2026-08-09",
         "gmp": 16.0,
         "kostak": 0.0,
         "sauda": 0.0,
@@ -83,6 +76,13 @@
       {
         "date": "2026-08-10",
         "gmp": 12.5,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
+      },
+      {
+        "date": "2026-08-11",
+        "gmp": 13.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
@@ -211,31 +211,23 @@
       "has_split": true,
       "fresh_pct": 19.4,
       "ofs_pct": 80.6,
-      "min_investment": 14946,
+      "min_investment": 14946.0,
       "is_fresh_heavy": false
     },
     "gmp": {
-      "gmp": 12.5,
-      "prev": 16.0,
-      "delta": -3.5,
-      "pct": 7.86,
-      "est_listing": 171.5,
-      "gain_per_lot": 1175,
-      "movement": "drop",
+      "gmp": 13.0,
+      "prev": 12.5,
+      "delta": 0.5,
+      "pct": 8.18,
+      "est_listing": 172.0,
+      "gain_per_lot": 1222.0,
+      "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-10",
+      "updated": "2026-08-11",
       "series": [
         {
           "date": "2026-08-07",
-          "gmp": 18.0,
-          "pct": 11.32,
-          "kostak": 0.0,
-          "sauda": 0.0,
-          "source": "gemini"
-        },
-        {
-          "date": "2026-08-09",
           "gmp": 16.0,
           "pct": 10.06,
           "kostak": 0.0,
@@ -249,9 +241,17 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-11",
+          "gmp": 13.0,
+          "pct": 8.18,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
         }
       ],
-      "peak": 18.0,
+      "peak": 16.0,
       "trough": 12.5,
       "days_tracked": 3,
       "age_days": 2,
@@ -353,7 +353,7 @@
       "revenue_cagr": 41.8,
       "ebitda_cagr": 34.3,
       "pat_cagr": 29.5,
-      "margin_shift_bps": -570,
+      "margin_shift_bps": -570.0,
       "eps": 0.0,
       "pe": 0.0,
       "pe_peer_avg": 0.0,
@@ -366,8 +366,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 15,
+          "pos": 50.0,
+          "mark": 15.0,
           "gap_pct": 238.0
         },
         "pat_margin": {
@@ -376,8 +376,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 48,
+          "pos": 50.0,
+          "mark": 48.0,
           "gap_pct": 3.8
         },
         "revenue_cagr": {
@@ -386,8 +386,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 18,
+          "pos": 50.0,
+          "mark": 18.0,
           "gap_pct": 178.7
         },
         "pat_cagr": {
@@ -396,8 +396,8 @@
           "higher_is_better": true,
           "verdict": "good",
           "unit": "%",
-          "pos": 50,
-          "mark": 25,
+          "pos": 50.0,
+          "mark": 25.0,
           "gap_pct": 96.7
         },
         "ronw": {
@@ -406,8 +406,8 @@
           "higher_is_better": true,
           "verdict": "poor",
           "unit": "%",
-          "pos": 21,
-          "mark": 50,
+          "pos": 21.0,
+          "mark": 50.0,
           "gap_pct": -58.7
         },
         "debt_equity": {
@@ -416,8 +416,8 @@
           "higher_is_better": false,
           "verdict": "poor",
           "unit": "x",
-          "pos": 50,
-          "mark": 50,
+          "pos": 50.0,
+          "mark": 50.0,
           "gap_pct": 1.0
         },
         "pe": {
@@ -467,8 +467,8 @@
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 4.9,
-          "detail": "GMP is 7.86% of the ₹159 band"
+          "mark": 5.0,
+          "detail": "GMP is 8.18% of the ₹159 band"
         },
         {
           "key": "demand",
@@ -503,7 +503,7 @@
           "detail": "19.4% fresh issue"
         }
       ],
-      "covered_pct": 81,
+      "covered_pct": 81.0,
       "has_data": true,
       "missing": [
         "valuation"

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-12T16:15:28",
+  "generated_at": "2026-08-13T02:11:21",
   "ipo": {
     "slug": "credent-connect-n-care",
     "company": "Credent Connect N Care Limited",
@@ -23,7 +23,7 @@
       ]
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-06-17",
       "open": "2026-08-13",
       "close": "2026-08-17",
       "close_time": "17:00",
@@ -45,15 +45,29 @@
       "eps": 0.0,
       "pe_peer_avg": 0.0
     },
-    "gmp_history": [],
+    "gmp_history": [
+      {
+        "date": "2026-08-11",
+        "gmp": 35.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "gemini"
+      }
+    ],
     "subscription": [],
     "analysis": {
-      "overview": [],
-      "green_flags": [],
+      "overview": [
+        "Credent Connect N Care Limited is launching an SME IPO.",
+        "The issue size totals 93.9 crores with a 100 percent fresh issue."
+      ],
+      "green_flags": [
+        "The grey market premium stands at 18.52 percent.",
+        "The entire 93.9 crores is a fresh issue."
+      ],
       "red_flags": [],
       "growth": "",
       "valuation": "",
-      "risk": "",
+      "risk": "No financial data is available in the facts.",
       "growth_tone": "good",
       "valuation_tone": "warn",
       "score": 0.0,
@@ -69,7 +83,50 @@
       "listing_high": 0.0,
       "steps": []
     },
-    "i18n": {},
+    "i18n": {
+      "hi": {
+        "overview": [
+          "Credent Connect N Care Limited एक SME IPO ला रहा है।",
+          "इश्यू का कुल साइज़ 93.9 crores है जिसमें 100 percent फ्रेश इश्यू शामिल है।"
+        ],
+        "green_flags": [
+          "GMP 18.52 percent चल रहा है।",
+          "पूरा 93.9 crores एक फ्रेश इश्यू है।"
+        ],
+        "red_flags": [],
+        "growth": "",
+        "valuation": "",
+        "risk": "फैक्ट्स में कोई वित्तीय डेटा उपलब्ध नहीं है।",
+        "sector": "",
+        "allotment_steps": [
+          "रजिस्ट्रार या BSE अलॉटमेंट पेज खोलें",
+          "ड्रॉपडाउन से IPO का नाम चुनें",
+          "PAN या एप्लिकेशन नंबर डालें",
+          "सर्च दबाएँ — स्टेटस तुरंत दिखेगा"
+        ]
+      },
+      "te": {
+        "overview": [
+          "Credent Connect N Care Limited ఒక SME IPOని తీసుకువస్తోంది.",
+          "ఇష్యూ పరిమాణం మొత్తం 93.9 కోట్లు, ఇందులో 100 శాతం ఫ్రెష్ ఇష్యూ ఉంది."
+        ],
+        "green_flags": [
+          "గ్రే మార్కెట్ ప్రీమియం (GMP) 18.52 శాతం వద్ద ఉంది.",
+          "మొత్తం 93.9 కోట్లు ఫ్రెష్ ఇష్యూ రూపంలో వస్తోంది."
+        ],
+        "red_flags": [],
+        "growth": "",
+        "valuation": "",
+        "risk": "ఫ్యాక్ట్స్‌లో ఎలాంటి ఆర్థిక డేటా అందుబాటులో లేదు.",
+        "sector": "",
+        "allotment_steps": [
+          "రిజిస్ట్రార్ లేదా BSE అలాట్‌మెంట్ పేజీ తెరవండి",
+          "డ్రాప్‌డౌన్‌లో IPO పేరు ఎంచుకోండి",
+          "PAN లేదా అప్లికేషన్ నంబర్ ఎంటర్ చేయండి",
+          "సెర్చ్ నొక్కండి — స్టేటస్ వెంటనే కనిపిస్తుంది"
+        ]
+      }
+    },
     "benchmarks": {},
     "sources": {},
     "notes": ""
@@ -81,26 +138,35 @@
       "has_split": true,
       "fresh_pct": 100.0,
       "ofs_pct": 0.0,
-      "min_investment": 0,
+      "min_investment": 0.0,
       "is_fresh_heavy": true
     },
     "gmp": {
-      "gmp": 0.0,
+      "gmp": 35.0,
       "prev": 0.0,
-      "delta": 0.0,
-      "pct": 0.0,
-      "est_listing": 189.0,
-      "gain_per_lot": 0,
+      "delta": 35.0,
+      "pct": 18.52,
+      "est_listing": 224.0,
+      "gain_per_lot": 0.0,
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": null,
-      "series": [],
-      "peak": 0.0,
-      "trough": 0.0,
-      "days_tracked": 0,
-      "age_days": null,
-      "is_stale": false
+      "updated": "2026-08-11",
+      "series": [
+        {
+          "date": "2026-08-11",
+          "gmp": 35.0,
+          "pct": 18.52,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "gemini"
+        }
+      ],
+      "peak": 35.0,
+      "trough": 35.0,
+      "days_tracked": 1,
+      "age_days": 2,
+      "is_stale": true
     },
     "subscription": {
       "has_data": false,
@@ -111,7 +177,7 @@
       "rows": []
     },
     "dates": {
-      "announced": null,
+      "announced": "2026-06-17",
       "open": "2026-08-13",
       "close": "2026-08-17",
       "close_time": "17:00",
@@ -119,7 +185,7 @@
       "refund": "2026-08-19",
       "listing": "2026-08-20",
       "close_at": "2026-08-17T17:00:00",
-      "status": "upcoming"
+      "status": "open"
     },
     "listing": {
       "status": "expected",
@@ -129,15 +195,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 10.0,
+      "value": 8.0,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
-          "has_data": false,
-          "mark": null,
-          "detail": "no GMP logged yet"
+          "has_data": true,
+          "mark": 7.2,
+          "detail": "GMP is 18.52% of the ₹189 band"
         },
         {
           "key": "demand",
@@ -172,17 +238,16 @@
           "detail": "100.0% fresh issue"
         }
       ],
-      "covered_pct": 10,
+      "covered_pct": 35.0,
       "has_data": false,
       "missing": [
-        "grey",
         "demand",
         "fundamentals",
         "valuation"
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 10.0
+      "effective": 8.0
     }
   }
 }
