@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T08:53:50",
+  "generated_at": "2026-08-13T11:44:06",
   "ipo": {
     "slug": "shiprocket",
     "company": "Shiprocket Limited",
@@ -117,10 +117,10 @@
         "day": 2,
         "date": "2026-08-13",
         "qib": 0.03,
-        "nii": 3.76,
-        "retail": 8.07,
-        "employee": 11.03,
-        "total": 2.55
+        "nii": 4.84,
+        "retail": 9.76,
+        "employee": 13.26,
+        "total": 3.16
       }
     ],
     "analysis": {
@@ -305,12 +305,12 @@
       "has_data": true,
       "day": 2,
       "qib": 0.03,
-      "nii": 3.76,
-      "retail": 8.07,
-      "employee": 11.03,
-      "total": 2.55,
-      "max_category": 11.03,
-      "sentiment": "ok",
+      "nii": 4.84,
+      "retail": 9.76,
+      "employee": 13.26,
+      "total": 3.16,
+      "max_category": 13.26,
+      "sentiment": "good",
       "leader": "retail",
       "days": [
         {
@@ -326,10 +326,10 @@
           "day": 2,
           "date": "2026-08-13",
           "qib": 0.03,
-          "nii": 3.76,
-          "retail": 8.07,
-          "employee": 11.03,
-          "total": 2.55
+          "nii": 4.84,
+          "retail": 9.76,
+          "employee": 13.26,
+          "total": 3.16
         }
       ]
     },
@@ -356,7 +356,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 7.3,
+      "value": 7.4,
       "components": [
         {
           "key": "grey",
@@ -371,8 +371,8 @@
           "weight": 20.0,
           "full_weight": 20,
           "has_data": true,
-          "mark": 5.6,
-          "detail": "2.55x overall on day 2"
+          "mark": 6.0,
+          "detail": "3.16x overall on day 2"
         },
         {
           "key": "fundamentals",
@@ -407,7 +407,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 7.3
+      "effective": 7.4
     }
   }
 }

@@ -106,11 +106,11 @@ subscription:
   total: 2.14
 - day: 3
   date: '2026-08-13'
-  qib: 40.33
-  nii: 26.67
-  retail: 6.14
-  employee: 9.73
-  total: 20.29
+  qib: 155.83
+  nii: 34.91
+  retail: 8.4
+  employee: 12.41
+  total: 56.12
 analysis:
   overview:
   - Operates in the dairy and packaged food sector.

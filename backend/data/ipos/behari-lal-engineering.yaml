@@ -97,11 +97,11 @@ subscription:
   total: 2.0
 - day: 2
   date: '2026-08-13'
-  qib: 1.17
-  nii: 7.96
-  retail: 7.23
+  qib: 2.22
+  nii: 11.11
+  retail: 9.36
   employee: 0.0
-  total: 5.73
+  total: 7.78
 analysis:
   overview:
   - It makes iron and steel products.
