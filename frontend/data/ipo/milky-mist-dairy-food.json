@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T11:44:06",
+  "generated_at": "2026-08-13T13:56:12",
   "ipo": {
     "slug": "milky-mist-dairy-food",
     "company": "Milky Mist Dairy Food Limited",
@@ -143,8 +143,8 @@
         "date": "2026-08-13",
         "qib": 155.83,
         "nii": 34.91,
-        "retail": 8.4,
-        "employee": 12.41,
+        "retail": 8.41,
+        "employee": 12.43,
         "total": 56.12
       }
     ],
@@ -333,8 +333,8 @@
       "day": 3,
       "qib": 155.83,
       "nii": 34.91,
-      "retail": 8.4,
-      "employee": 12.41,
+      "retail": 8.41,
+      "employee": 12.43,
       "total": 56.12,
       "max_category": 155.83,
       "sentiment": "heavy",
@@ -363,8 +363,8 @@
           "date": "2026-08-13",
           "qib": 155.83,
           "nii": 34.91,
-          "retail": 8.4,
-          "employee": 12.41,
+          "retail": 8.41,
+          "employee": 12.43,
           "total": 56.12
         }
       ]
