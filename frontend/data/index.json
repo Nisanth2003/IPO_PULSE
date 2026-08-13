@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T13:56:12",
+  "generated_at": "2026-08-13T16:15:50",
   "count": 17,
   "ipos": [
     {
@@ -60,13 +60,6 @@
       "status": "upcoming"
     },
     {
-      "slug": "meridian-logistics",
-      "company": "Meridian Logistics Ltd",
-      "initials": "ML",
-      "board": "Mainboard",
-      "status": "upcoming"
-    },
-    {
       "slug": "horizon-industrial-parks",
       "company": "Horizon Industrial Parks Limited",
       "initials": "HI",
@@ -77,6 +70,13 @@
       "slug": "shankesh-jewellers",
       "company": "Shankesh Jewellers Limited",
       "initials": "SJ",
+      "board": "Mainboard",
+      "status": "upcoming"
+    },
+    {
+      "slug": "meridian-logistics",
+      "company": "Meridian Logistics Ltd",
+      "initials": "ML",
       "board": "Mainboard",
       "status": "upcoming"
     },

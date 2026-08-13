@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T13:56:12",
+  "generated_at": "2026-08-13T16:15:50",
   "ipo": {
     "slug": "molbio-diagnostics",
     "company": "Molbio Diagnostics Limited",
@@ -120,10 +120,10 @@
       },
       {
         "date": "2026-08-13",
-        "gmp": 141.0,
+        "gmp": 156.0,
         "kostak": 0.0,
         "sauda": 0.0,
-        "source": "ipoji"
+        "source": "gemini"
       }
     ],
     "subscription": [
@@ -266,13 +266,13 @@
       "is_fresh_heavy": false
     },
     "gmp": {
-      "gmp": 141.0,
+      "gmp": 156.0,
       "prev": 145.0,
-      "delta": -4.0,
-      "pct": 17.47,
-      "est_listing": 948.0,
-      "gain_per_lot": 2538.0,
-      "movement": "stable",
+      "delta": 11.0,
+      "pct": 19.33,
+      "est_listing": 963.0,
+      "gain_per_lot": 2808.0,
+      "movement": "surge",
       "kostak": 0.0,
       "sauda": 0.0,
       "updated": "2026-08-13",
@@ -343,11 +343,11 @@
         },
         {
           "date": "2026-08-13",
-          "gmp": 141.0,
-          "pct": 17.47,
+          "gmp": 156.0,
+          "pct": 19.33,
           "kostak": 0.0,
           "sauda": 0.0,
-          "source": "ipoji"
+          "source": "gemini"
         }
       ],
       "peak": 220.0,
@@ -568,15 +568,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 8.1,
+      "value": 8.2,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 7.0,
-          "detail": "GMP is 17.47% of the ₹807 band"
+          "mark": 7.4,
+          "detail": "GMP is 19.33% of the ₹807 band"
         },
         {
           "key": "demand",
@@ -616,7 +616,7 @@
       "missing": [],
       "manual": 0.0,
       "source": "auto",
-      "effective": 8.1
+      "effective": 8.2
     }
   }
 }
