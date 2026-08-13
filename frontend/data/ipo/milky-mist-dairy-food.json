@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T02:44:11",
+  "generated_at": "2026-08-13T08:53:50",
   "ipo": {
     "slug": "milky-mist-dairy-food",
     "company": "Milky Mist Dairy Food Limited",
@@ -141,11 +141,11 @@
       {
         "day": 3,
         "date": "2026-08-13",
-        "qib": 0.65,
-        "nii": 3.56,
-        "retail": 2.44,
-        "employee": 4.85,
-        "total": 2.17
+        "qib": 40.33,
+        "nii": 26.67,
+        "retail": 6.14,
+        "employee": 9.73,
+        "total": 20.29
       }
     ],
     "analysis": {
@@ -331,14 +331,14 @@
     "subscription": {
       "has_data": true,
       "day": 3,
-      "qib": 0.65,
-      "nii": 3.56,
-      "retail": 2.44,
-      "employee": 4.85,
-      "total": 2.17,
-      "max_category": 4.85,
-      "sentiment": "ok",
-      "leader": "nii",
+      "qib": 40.33,
+      "nii": 26.67,
+      "retail": 6.14,
+      "employee": 9.73,
+      "total": 20.29,
+      "max_category": 40.33,
+      "sentiment": "heavy",
+      "leader": "qib",
       "days": [
         {
           "day": 1,
@@ -361,11 +361,11 @@
         {
           "day": 3,
           "date": "2026-08-13",
-          "qib": 0.65,
-          "nii": 3.56,
-          "retail": 2.44,
-          "employee": 4.85,
-          "total": 2.17
+          "qib": 40.33,
+          "nii": 26.67,
+          "retail": 6.14,
+          "employee": 9.73,
+          "total": 20.29
         }
       ]
     },
@@ -531,7 +531,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 4.8,
+      "value": 5.4,
       "components": [
         {
           "key": "grey",
@@ -546,8 +546,8 @@
           "weight": 20.0,
           "full_weight": 20,
           "has_data": true,
-          "mark": 5.2,
-          "detail": "2.17x overall on day 3"
+          "mark": 8.3,
+          "detail": "20.29x overall on day 3"
         },
         {
           "key": "fundamentals",
@@ -579,7 +579,7 @@
       "missing": [],
       "manual": 0.0,
       "source": "auto",
-      "effective": 4.8
+      "effective": 5.4
     }
   }
 }

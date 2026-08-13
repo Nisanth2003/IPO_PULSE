@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T02:44:11",
-  "count": 16,
+  "generated_at": "2026-08-13T08:53:50",
+  "count": 17,
   "ipos": [
     {
       "slug": "vertex-aerospace",
@@ -63,6 +63,13 @@
       "slug": "meridian-logistics",
       "company": "Meridian Logistics Ltd",
       "initials": "ML",
+      "board": "Mainboard",
+      "status": "upcoming"
+    },
+    {
+      "slug": "horizon-industrial-parks",
+      "company": "Horizon Industrial Parks Limited",
+      "initials": "HI",
       "board": "Mainboard",
       "status": "upcoming"
     },
