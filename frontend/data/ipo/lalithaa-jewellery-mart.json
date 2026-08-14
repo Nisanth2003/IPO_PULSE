@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-14T13:52:07",
+  "generated_at": "2026-08-14T16:11:31",
   "ipo": {
     "slug": "lalithaa-jewellery-mart",
     "company": "Lalithaa Jewellery Mart Limited",
@@ -83,6 +83,13 @@
       {
         "date": "2026-08-13",
         "gmp": 35.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
+        "date": "2026-08-14",
+        "gmp": 27.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "ipoji"
@@ -191,16 +198,16 @@
       "is_fresh_heavy": true
     },
     "gmp": {
-      "gmp": 35.0,
+      "gmp": 27.0,
       "prev": 35.0,
-      "delta": 0.0,
-      "pct": 17.41,
-      "est_listing": 236.0,
-      "gain_per_lot": 2590.0,
-      "movement": "stable",
+      "delta": -8.0,
+      "pct": 13.43,
+      "est_listing": 228.0,
+      "gain_per_lot": 1998.0,
+      "movement": "drop",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-13",
+      "updated": "2026-08-14",
       "series": [
         {
           "date": "2026-08-11",
@@ -225,13 +232,21 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "ipoji"
+        },
+        {
+          "date": "2026-08-14",
+          "gmp": 27.0,
+          "pct": 13.43,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
         }
       ],
       "peak": 35.0,
       "trough": 17.0,
-      "days_tracked": 3,
-      "age_days": 1,
-      "is_stale": true
+      "days_tracked": 4,
+      "age_days": 0,
+      "is_stale": false
     },
     "subscription": {
       "has_data": false,
@@ -399,15 +414,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 7.7,
+      "value": 7.4,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 7.0,
-          "detail": "GMP is 17.41% of the ₹201 band"
+          "mark": 6.2,
+          "detail": "GMP is 13.43% of the ₹201 band"
         },
         {
           "key": "demand",
@@ -449,7 +464,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 7.7
+      "effective": 7.4
     }
   }
 }

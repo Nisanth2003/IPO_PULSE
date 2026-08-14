@@ -36,7 +36,22 @@ financials:
   total_debt: []
   eps: 0.0
   pe_peer_avg: 0.0
-gmp_history: []
+gmp_history:
+- date: '2026-08-12'
+  gmp: 14.0
+  kostak: 0.0
+  sauda: 0.0
+  source: ipoji
+- date: '2026-08-13'
+  gmp: 26.0
+  kostak: 0.0
+  sauda: 0.0
+  source: ipoji
+- date: '2026-08-14'
+  gmp: 42.0
+  kostak: 0.0
+  sauda: 0.0
+  source: ipoji
 subscription: []
 analysis:
   overview: []

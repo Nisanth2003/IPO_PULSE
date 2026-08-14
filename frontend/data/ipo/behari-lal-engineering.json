@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-14T13:52:07",
+  "generated_at": "2026-08-14T16:11:31",
   "ipo": {
     "slug": "behari-lal-engineering",
     "company": "Behari Lal Engineering Limited",
@@ -111,6 +111,13 @@
       {
         "date": "2026-08-13",
         "gmp": 65.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
+        "date": "2026-08-14",
+        "gmp": 78.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "ipoji"
@@ -243,16 +250,16 @@
       "is_fresh_heavy": false
     },
     "gmp": {
-      "gmp": 65.0,
+      "gmp": 78.0,
       "prev": 65.0,
-      "delta": 0.0,
-      "pct": 22.81,
-      "est_listing": 350.0,
-      "gain_per_lot": 3380.0,
-      "movement": "stable",
+      "delta": 13.0,
+      "pct": 27.37,
+      "est_listing": 363.0,
+      "gain_per_lot": 4056.0,
+      "movement": "surge",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-13",
+      "updated": "2026-08-14",
       "series": [
         {
           "date": "2026-08-07",
@@ -309,13 +316,21 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "ipoji"
+        },
+        {
+          "date": "2026-08-14",
+          "gmp": 78.0,
+          "pct": 27.37,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
         }
       ],
-      "peak": 67.0,
+      "peak": 78.0,
       "trough": 24.0,
-      "days_tracked": 7,
-      "age_days": 1,
-      "is_stale": true
+      "days_tracked": 8,
+      "age_days": 0,
+      "is_stale": false
     },
     "subscription": {
       "has_data": true,
@@ -520,15 +535,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 8.1,
+      "value": 8.3,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 7.9,
-          "detail": "GMP is 22.81% of the ₹285 band"
+          "mark": 8.6,
+          "detail": "GMP is 27.37% of the ₹285 band"
         },
         {
           "key": "demand",
@@ -570,7 +585,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 8.1
+      "effective": 8.3
     }
   }
 }

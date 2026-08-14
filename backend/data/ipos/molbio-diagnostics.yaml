@@ -85,7 +85,7 @@ gmp_history:
   sauda: 0.0
   source: ipoji
 - date: '2026-08-12'
-  gmp: 145.0
+  gmp: 149.0
   kostak: 0.0
   sauda: 0.0
   source: gemini
@@ -94,6 +94,11 @@ gmp_history:
   kostak: 0.0
   sauda: 0.0
   source: gemini
+- date: '2026-08-14'
+  gmp: 130.0
+  kostak: 0.0
+  sauda: 0.0
+  source: ipoji
 subscription:
 - day: 1
   date: '2026-08-10'

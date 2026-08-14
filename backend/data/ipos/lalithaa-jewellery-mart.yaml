@@ -67,6 +67,11 @@ gmp_history:
   kostak: 0.0
   sauda: 0.0
   source: ipoji
+- date: '2026-08-14'
+  gmp: 27.0
+  kostak: 0.0
+  sauda: 0.0
+  source: ipoji
 subscription: []
 analysis:
   overview:

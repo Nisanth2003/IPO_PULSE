@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-14T13:52:07",
+  "generated_at": "2026-08-14T16:11:31",
   "ipo": {
     "slug": "milky-mist-dairy-food",
     "company": "Milky Mist Dairy Food Limited",
@@ -114,6 +114,13 @@
       {
         "date": "2026-08-13",
         "gmp": 18.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
+        "date": "2026-08-14",
+        "gmp": 23.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "ipoji"
@@ -246,16 +253,16 @@
       "is_fresh_heavy": true
     },
     "gmp": {
-      "gmp": 18.0,
+      "gmp": 23.0,
       "prev": 18.0,
-      "delta": 0.0,
-      "pct": 12.86,
-      "est_listing": 158.0,
-      "gain_per_lot": 1926.0,
-      "movement": "stable",
+      "delta": 5.0,
+      "pct": 16.43,
+      "est_listing": 163.0,
+      "gain_per_lot": 2461.0,
+      "movement": "surge",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-13",
+      "updated": "2026-08-14",
       "series": [
         {
           "date": "2026-08-06",
@@ -320,13 +327,21 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "ipoji"
+        },
+        {
+          "date": "2026-08-14",
+          "gmp": 23.0,
+          "pct": 16.43,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
         }
       ],
       "peak": 27.0,
       "trough": 18.0,
-      "days_tracked": 8,
-      "age_days": 1,
-      "is_stale": true
+      "days_tracked": 9,
+      "age_days": 0,
+      "is_stale": false
     },
     "subscription": {
       "has_data": true,
@@ -531,15 +546,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 5.8,
+      "value": 6.0,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 6.1,
-          "detail": "GMP is 12.86% of the ₹140 band"
+          "mark": 6.8,
+          "detail": "GMP is 16.43% of the ₹140 band"
         },
         {
           "key": "demand",
@@ -579,7 +594,7 @@
       "missing": [],
       "manual": 0.0,
       "source": "auto",
-      "effective": 5.8
+      "effective": 6.0
     }
   }
 }

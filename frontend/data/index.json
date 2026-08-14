@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-14T13:52:07",
+  "generated_at": "2026-08-14T16:11:31",
   "count": 18,
   "ipos": [
     {
@@ -18,17 +18,17 @@
       "status": "open"
     },
     {
-      "slug": "behari-lal-engineering",
-      "company": "Behari Lal Engineering Limited",
-      "initials": "BL",
-      "board": "Mainboard",
-      "status": "open"
-    },
-    {
       "slug": "credent-connect-n-care",
       "company": "Credent Connect N Care Limited",
       "initials": "CC",
       "board": "SME",
+      "status": "open"
+    },
+    {
+      "slug": "behari-lal-engineering",
+      "company": "Behari Lal Engineering Limited",
+      "initials": "BL",
+      "board": "Mainboard",
       "status": "open"
     },
     {
@@ -49,6 +49,13 @@
       "slug": "lalithaa-jewellery-mart",
       "company": "Lalithaa Jewellery Mart Limited",
       "initials": "LJ",
+      "board": "Mainboard",
+      "status": "upcoming"
+    },
+    {
+      "slug": "sunshine-pictures",
+      "company": "Sunshine Pictures Limited",
+      "initials": "SP",
       "board": "Mainboard",
       "status": "upcoming"
     },
@@ -74,13 +81,6 @@
       "status": "upcoming"
     },
     {
-      "slug": "sunshine-pictures",
-      "company": "Sunshine Pictures Limited",
-      "initials": "SP",
-      "board": "Mainboard",
-      "status": "upcoming"
-    },
-    {
       "slug": "dhoot-transmission",
       "company": "Dhoot Transmission Limited",
       "initials": "DT",
@@ -88,16 +88,16 @@
       "status": "allotment"
     },
     {
-      "slug": "molbio-diagnostics",
-      "company": "Molbio Diagnostics Limited",
-      "initials": "MD",
+      "slug": "milky-mist-dairy-food",
+      "company": "Milky Mist Dairy Food Limited",
+      "initials": "MM",
       "board": "Mainboard",
       "status": "allotment"
     },
     {
-      "slug": "milky-mist-dairy-food",
-      "company": "Milky Mist Dairy Food Limited",
-      "initials": "MM",
+      "slug": "molbio-diagnostics",
+      "company": "Molbio Diagnostics Limited",
+      "initials": "MD",
       "board": "Mainboard",
       "status": "allotment"
     },

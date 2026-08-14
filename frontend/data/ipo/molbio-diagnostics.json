@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-14T13:52:07",
+  "generated_at": "2026-08-14T16:11:31",
   "ipo": {
     "slug": "molbio-diagnostics",
     "company": "Molbio Diagnostics Limited",
@@ -113,7 +113,7 @@
       },
       {
         "date": "2026-08-12",
-        "gmp": 145.0,
+        "gmp": 149.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
@@ -124,6 +124,13 @@
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "gemini"
+      },
+      {
+        "date": "2026-08-14",
+        "gmp": 130.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
       }
     ],
     "subscription": [
@@ -266,16 +273,16 @@
       "is_fresh_heavy": false
     },
     "gmp": {
-      "gmp": 156.0,
-      "prev": 145.0,
-      "delta": 11.0,
-      "pct": 19.33,
-      "est_listing": 963.0,
-      "gain_per_lot": 2808.0,
-      "movement": "surge",
+      "gmp": 130.0,
+      "prev": 156.0,
+      "delta": -26.0,
+      "pct": 16.11,
+      "est_listing": 937.0,
+      "gain_per_lot": 2340.0,
+      "movement": "drop",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-13",
+      "updated": "2026-08-14",
       "series": [
         {
           "date": "2026-08-05",
@@ -335,8 +342,8 @@
         },
         {
           "date": "2026-08-12",
-          "gmp": 145.0,
-          "pct": 17.97,
+          "gmp": 149.0,
+          "pct": 18.46,
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
@@ -348,13 +355,21 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "gemini"
+        },
+        {
+          "date": "2026-08-14",
+          "gmp": 130.0,
+          "pct": 16.11,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
         }
       ],
       "peak": 220.0,
       "trough": 122.0,
-      "days_tracked": 9,
-      "age_days": 1,
-      "is_stale": true
+      "days_tracked": 10,
+      "age_days": 0,
+      "is_stale": false
     },
     "subscription": {
       "has_data": true,
@@ -568,15 +583,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 8.2,
+      "value": 8.0,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 7.4,
-          "detail": "GMP is 19.33% of the ₹807 band"
+          "mark": 6.7,
+          "detail": "GMP is 16.11% of the ₹807 band"
         },
         {
           "key": "demand",
@@ -616,7 +631,7 @@
       "missing": [],
       "manual": 0.0,
       "source": "auto",
-      "effective": 8.2
+      "effective": 8.0
     }
   }
 }

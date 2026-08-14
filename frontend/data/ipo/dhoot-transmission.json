@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-14T13:52:07",
+  "generated_at": "2026-08-14T16:11:31",
   "ipo": {
     "slug": "dhoot-transmission",
     "company": "Dhoot Transmission Limited",
@@ -135,6 +135,13 @@
       {
         "date": "2026-08-13",
         "gmp": 260.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
+        "date": "2026-08-14",
+        "gmp": 264.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "ipoji"
@@ -277,16 +284,16 @@
       "is_fresh_heavy": false
     },
     "gmp": {
-      "gmp": 260.0,
+      "gmp": 264.0,
       "prev": 260.0,
-      "delta": 0.0,
-      "pct": 29.85,
-      "est_listing": 1131.0,
-      "gain_per_lot": 4420.0,
+      "delta": 4.0,
+      "pct": 30.31,
+      "est_listing": 1135.0,
+      "gain_per_lot": 4488.0,
       "movement": "stable",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-13",
+      "updated": "2026-08-14",
       "series": [
         {
           "date": "2026-08-03",
@@ -375,13 +382,21 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "ipoji"
+        },
+        {
+          "date": "2026-08-14",
+          "gmp": 264.0,
+          "pct": 30.31,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
         }
       ],
-      "peak": 260.0,
+      "peak": 264.0,
       "trough": 90.0,
-      "days_tracked": 11,
-      "age_days": 1,
-      "is_stale": true
+      "days_tracked": 12,
+      "age_days": 0,
+      "is_stale": false
     },
     "subscription": {
       "has_data": true,
@@ -603,7 +618,7 @@
           "full_weight": 25,
           "has_data": true,
           "mark": 9.0,
-          "detail": "GMP is 29.85% of the ₹871 band"
+          "detail": "GMP is 30.31% of the ₹871 band"
         },
         {
           "key": "demand",

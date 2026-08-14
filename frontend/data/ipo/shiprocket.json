@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-14T13:52:07",
+  "generated_at": "2026-08-14T16:11:31",
   "ipo": {
     "slug": "shiprocket",
     "company": "Shiprocket Limited",
@@ -98,6 +98,13 @@
       {
         "date": "2026-08-13",
         "gmp": 30.0,
+        "kostak": 0.0,
+        "sauda": 0.0,
+        "source": "ipoji"
+      },
+      {
+        "date": "2026-08-14",
+        "gmp": 34.0,
         "kostak": 0.0,
         "sauda": 0.0,
         "source": "ipoji"
@@ -228,16 +235,16 @@
       "is_fresh_heavy": true
     },
     "gmp": {
-      "gmp": 30.0,
+      "gmp": 34.0,
       "prev": 30.0,
-      "delta": 0.0,
-      "pct": 30.93,
-      "est_listing": 127.0,
-      "gain_per_lot": 4620.0,
-      "movement": "stable",
+      "delta": 4.0,
+      "pct": 35.05,
+      "est_listing": 131.0,
+      "gain_per_lot": 5236.0,
+      "movement": "surge",
       "kostak": 0.0,
       "sauda": 0.0,
-      "updated": "2026-08-13",
+      "updated": "2026-08-14",
       "series": [
         {
           "date": "2026-08-06",
@@ -302,13 +309,21 @@
           "kostak": 0.0,
           "sauda": 0.0,
           "source": "ipoji"
+        },
+        {
+          "date": "2026-08-14",
+          "gmp": 34.0,
+          "pct": 35.05,
+          "kostak": 0.0,
+          "sauda": 0.0,
+          "source": "ipoji"
         }
       ],
-      "peak": 30.0,
+      "peak": 34.0,
       "trough": 10.0,
-      "days_tracked": 8,
-      "age_days": 1,
-      "is_stale": true
+      "days_tracked": 9,
+      "age_days": 0,
+      "is_stale": false
     },
     "subscription": {
       "has_data": true,
@@ -374,15 +389,15 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 8.9,
+      "value": 9.0,
       "components": [
         {
           "key": "grey",
           "weight": 25.0,
           "full_weight": 25,
           "has_data": true,
-          "mark": 9.0,
-          "detail": "GMP is 30.93% of the ₹97 band"
+          "mark": 9.3,
+          "detail": "GMP is 35.05% of the ₹97 band"
         },
         {
           "key": "demand",
@@ -425,7 +440,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 8.9
+      "effective": 9.0
     }
   }
 }
