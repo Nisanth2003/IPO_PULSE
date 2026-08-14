@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T16:15:50",
+  "generated_at": "2026-08-14T08:48:08",
   "ipo": {
     "slug": "behari-lal-engineering",
     "company": "Behari Lal Engineering Limited",
@@ -134,6 +134,15 @@
         "retail": 9.36,
         "employee": 0.0,
         "total": 7.78
+      },
+      {
+        "day": 3,
+        "date": "2026-08-14",
+        "qib": 19.98,
+        "nii": 121.87,
+        "retail": 38.94,
+        "employee": 0.0,
+        "total": 51.77
       }
     ],
     "analysis": {
@@ -305,19 +314,19 @@
       "peak": 67.0,
       "trough": 24.0,
       "days_tracked": 7,
-      "age_days": 0,
-      "is_stale": false
+      "age_days": 1,
+      "is_stale": true
     },
     "subscription": {
       "has_data": true,
-      "day": 2,
-      "qib": 2.22,
-      "nii": 11.11,
-      "retail": 9.36,
+      "day": 3,
+      "qib": 19.98,
+      "nii": 121.87,
+      "retail": 38.94,
       "employee": 0.0,
-      "total": 7.78,
-      "max_category": 11.11,
-      "sentiment": "good",
+      "total": 51.77,
+      "max_category": 121.87,
+      "sentiment": "heavy",
       "leader": "nii",
       "days": [
         {
@@ -337,6 +346,15 @@
           "retail": 9.36,
           "employee": 0.0,
           "total": 7.78
+        },
+        {
+          "day": 3,
+          "date": "2026-08-14",
+          "qib": 19.98,
+          "nii": 121.87,
+          "retail": 38.94,
+          "employee": 0.0,
+          "total": 51.77
         }
       ]
     },
@@ -502,7 +520,7 @@
       "high_pct": -100.0
     },
     "score": {
-      "value": 7.4,
+      "value": 8.1,
       "components": [
         {
           "key": "grey",
@@ -517,8 +535,8 @@
           "weight": 20.0,
           "full_weight": 20,
           "has_data": true,
-          "mark": 7.0,
-          "detail": "7.78x overall on day 2"
+          "mark": 10.0,
+          "detail": "51.77x overall on day 3"
         },
         {
           "key": "fundamentals",
@@ -552,7 +570,7 @@
       ],
       "manual": 0.0,
       "source": "auto",
-      "effective": 7.4
+      "effective": 8.1
     }
   }
 }

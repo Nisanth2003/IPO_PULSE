@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T16:15:50",
+  "generated_at": "2026-08-14T08:48:08",
   "ipo": {
     "slug": "dhoot-transmission",
     "company": "Dhoot Transmission Limited",
@@ -380,8 +380,8 @@
       "peak": 260.0,
       "trough": 90.0,
       "days_tracked": 11,
-      "age_days": 0,
-      "is_stale": false
+      "age_days": 1,
+      "is_stale": true
     },
     "subscription": {
       "has_data": true,

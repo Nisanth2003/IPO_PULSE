@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T16:15:50",
+  "generated_at": "2026-08-14T08:48:08",
   "ipo": {
     "slug": "skytech-infinite-platform",
     "company": "Skytech Infinite Platform Limited",
@@ -330,7 +330,7 @@
       "refund": "2026-08-20",
       "listing": "2026-08-21",
       "close_at": "2026-08-18T17:00:00",
-      "status": "upcoming"
+      "status": "open"
     },
     "listing": {
       "status": "expected",

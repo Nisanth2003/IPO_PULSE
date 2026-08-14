@@ -92,6 +92,13 @@ subscription:
   retail: 9.76
   employee: 13.26
   total: 3.16
+- day: 3
+  date: '2026-08-14'
+  qib: 37.2
+  nii: 68.16
+  retail: 35.03
+  employee: 39.44
+  total: 45.33
 analysis:
   overview:
   - Shiprocket Limited is launching a mainboard IPO.

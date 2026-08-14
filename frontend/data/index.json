@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-13T16:15:50",
-  "count": 17,
+  "generated_at": "2026-08-14T08:48:08",
+  "count": 18,
   "ipos": [
     {
       "slug": "vertex-aerospace",
@@ -25,23 +25,9 @@
       "status": "open"
     },
     {
-      "slug": "milky-mist-dairy-food",
-      "company": "Milky Mist Dairy Food Limited",
-      "initials": "MM",
-      "board": "Mainboard",
-      "status": "open"
-    },
-    {
       "slug": "credent-connect-n-care",
       "company": "Credent Connect N Care Limited",
       "initials": "CC",
-      "board": "SME",
-      "status": "open"
-    },
-    {
-      "slug": "fascinate-textiles",
-      "company": "Fascinate Textiles Limited",
-      "initials": "FT",
       "board": "SME",
       "status": "open"
     },
@@ -50,6 +36,13 @@
       "company": "Pramodini Medicare Limited",
       "initials": "PM",
       "board": "SME",
+      "status": "open"
+    },
+    {
+      "slug": "skytech-infinite-platform",
+      "company": "Skytech Infinite Platform Limited",
+      "initials": "SI",
+      "board": "Mainboard",
       "status": "open"
     },
     {
@@ -81,9 +74,9 @@
       "status": "upcoming"
     },
     {
-      "slug": "skytech-infinite-platform",
-      "company": "Skytech Infinite Platform Limited",
-      "initials": "SI",
+      "slug": "sunshine-pictures",
+      "company": "Sunshine Pictures Limited",
+      "initials": "SP",
       "board": "Mainboard",
       "status": "upcoming"
     },
@@ -102,25 +95,39 @@
       "status": "allotment"
     },
     {
+      "slug": "milky-mist-dairy-food",
+      "company": "Milky Mist Dairy Food Limited",
+      "initials": "MM",
+      "board": "Mainboard",
+      "status": "allotment"
+    },
+    {
+      "slug": "fascinate-textiles",
+      "company": "Fascinate Textiles Limited",
+      "initials": "FT",
+      "board": "SME",
+      "status": "allotment"
+    },
+    {
       "slug": "technocraft-ventures",
       "company": "Technocraft Ventures Limited",
       "initials": "TV",
       "board": "Mainboard",
-      "status": "allotment"
+      "status": "listed"
     },
     {
       "slug": "leap-india",
       "company": "Leap India Limited",
       "initials": "L",
       "board": "Mainboard",
-      "status": "allotment"
+      "status": "listed"
     },
     {
       "slug": "optimystix-entertainment-india",
       "company": "Optimystix Entertainment India Limited",
       "initials": "OE",
       "board": "SME",
-      "status": "allotment"
+      "status": "listed"
     }
   ]
 }
