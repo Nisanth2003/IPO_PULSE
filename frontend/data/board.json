@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_at": "2026-08-14T08:48:08",
+  "generated_at": "2026-08-14T11:42:13",
   "rows": [
     {
       "slug": "vertex-aerospace",
@@ -39,7 +39,7 @@
       "est_listing": 127.0,
       "gain_per_lot": 4620.0,
       "movement": "stable",
-      "subscription": 45.33,
+      "subscription": 99.38,
       "open": "2026-08-12",
       "close": "2026-08-14",
       "listing": "2026-08-19"
@@ -60,7 +60,7 @@
       "est_listing": 350.0,
       "gain_per_lot": 3380.0,
       "movement": "stable",
-      "subscription": 51.77,
+      "subscription": 108.2,
       "open": "2026-08-12",
       "close": "2026-08-14",
       "listing": "2026-08-19"
