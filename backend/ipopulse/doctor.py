@@ -110,8 +110,8 @@ FILLERS = {
     "research": "ipopulse refresh            (or: ipopulse research <slug> --write)",
     "analyse":  "ipopulse analyse <slug> --write",
     "derived":  "ipopulse doctor <slug> --fix",
-    "rhp":      "type it into backend/data/ipos/<slug>.yaml — it is in the RHP PDF",
-    "you":      "type it into backend/data/ipos/<slug>.yaml",
+    "rhp":      "type it into the Financials sheet of the workbook — it is in the RHP PDF",
+    "you":      "type it into the workbook (frontend/data/ipo-pulse.xlsx)",
 }
 
 
@@ -361,6 +361,64 @@ def plan_repairs(ipo: Ipo) -> list[dict[str, Any]]:
         if url:
             add(f"issue.registrar_url = {url}",
                 lambda raw, u=url: raw["issue"].__setitem__("registrar_url", u))
+
+    # Subscription day numbers, re-derived from the dates.
+    #
+    # `sync` used to number a reading `(today - open).days + 1`, which broke
+    # twice over. Across a weekend it counted calendar days, so Leap India's
+    # three-day window was stored as days 4-6. And it never stopped at the
+    # close: NSE keeps serving final demand figures after bidding ends, so a
+    # three-day issue grew a "Day 4" and reel 4 counted days that never
+    # happened — 6 of 8 tracked IPOs had one.
+    #
+    # The row *dates* were always right, so the numbering follows from them:
+    # count working days from the open, and treat anything past the close as
+    # the final reading for the close date. scrape._bidding_day is the same
+    # rule the provider now applies to new rows; importing it keeps one
+    # definition of what "day N" means.
+    #
+    # Post-close values are kept, not dropped. A reading taken after bidding
+    # ends is the *settled* figure, truer for the last day than the intraday
+    # snapshot taken while the book was still open — so it wins the collision.
+    if dts.open and ipo.subscription:
+        from .providers.scrape import _bidding_day
+
+        planned: list[tuple[int, str]] = []
+        for row in ipo.subscription:
+            if not row.date:
+                planned.append((row.day, ""))
+                continue
+            iso, day = _bidding_day(
+                dts.open.isoformat(),
+                dts.close.isoformat() if dts.close else None,
+                row.date)
+            planned.append((day, iso))
+
+        current = [(row.day, row.date.isoformat() if row.date else "")
+                   for row in ipo.subscription]
+        if planned != current:
+            moved = sum(1 for a, b in zip(current, planned) if a[0] != b[0])
+            collapsed = len(planned) - len({p for p in planned})
+            bits = []
+            if moved:
+                bits.append(f"{moved} row(s) renumbered")
+            if collapsed:
+                bits.append(f"{collapsed} post-close row(s) folded in")
+
+            def renumber(raw: dict, plan: list = planned) -> None:
+                by_day: dict[int, dict] = {}
+                for row, (day, iso) in zip(raw.get("subscription") or [], plan):
+                    fixed = dict(row)
+                    fixed["day"] = day
+                    if iso:
+                        fixed["date"] = iso
+                    # Later readings overwrite earlier ones for the same day,
+                    # which is what makes the settled figure win.
+                    by_day[day] = {**by_day.get(day, {}), **fixed}
+                raw["subscription"] = [by_day[d] for d in sorted(by_day)]
+
+            add(f"subscription: {', '.join(bits)} from the "
+                f"{dts.open} bidding window", renumber)
 
     return out
 

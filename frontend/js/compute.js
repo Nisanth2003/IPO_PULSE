@@ -166,7 +166,15 @@ function financialMetrics(ipo) {
   // zeros. Require at least one real figure.
   const anyFigure = [f.revenue, f.ebitda, f.pat, f.net_worth]
     .some((a) => (a || []).some((v) => num(v) !== 0));
-  if (!years.length || !anyFigure) return { has_data: false, rows: [] };
+  // `present` belongs here too, all false. The reels read
+  // `financials.present.revenue` before checking `has_data`, so leaving the
+  // key out threw for every IPO with no financials typed in. Mirror of
+  // compute.py's early return.
+  if (!years.length || !anyFigure) {
+    return { has_data: false, rows: [],
+             present: { revenue: false, ebitda: false, pat: false,
+                        net_worth: false, total_debt: false } };
+  }
 
   const at = (arr, i) => num((arr || [])[i]);
   const rows = years.map((yr, i) => {

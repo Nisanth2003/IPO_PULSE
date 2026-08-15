@@ -182,6 +182,16 @@ const LABELS = {
   st_closed:   ['CLOSED', 'बंद', 'ముగిసింది'],
   st_allotment:['ALLOTMENT', 'अलॉटमेंट', 'అలాట్‌మెంట్'],
   st_listed:   ['LISTED', 'लिस्ट हो गया', 'లిస్ట్ అయ్యింది'],
+
+  // "can I apply right now?" — the board's whole point. `st_open` says the
+  // window is open; these say how much of it is left, which is the part a
+  // viewer acts on.
+  ap_lastday:  ['LAST DAY', 'आख़िरी दिन', 'చివరి రోజు'],
+  ap_open:     ['APPLY NOW', 'अभी अप्लाई करें', 'ఇప్పుడే అప్లై చేయండి'],
+  ap_soon:     ['OPENS', 'खुलेगा', 'ఓపెన్ అవుతుంది'],
+  ap_shut:     ['WINDOW SHUT', 'विंडो बंद', 'విండో మూసివేయబడింది'],
+  canApply:    ['CAN YOU APPLY?', 'क्या अप्लाई कर सकते हैं?', 'అప్లై చేయవచ్చా?'],
+  openNowCount:['OPEN NOW', 'अभी खुले', 'ఇప్పుడు ఓపెన్'],
 };
 
 const VERDICTS = {

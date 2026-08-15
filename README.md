@@ -7,7 +7,7 @@ The repo is split cleanly in two:
 
 | | |
 |---|---|
-| **`backend/`** | Owns the numbers and the prose. Python. Stores each IPO as YAML, computes every derived metric, runs Gemini for translation, writes the Excel report, and publishes static JSON. |
+| **`backend/`** | Owns the numbers and the prose. Python. Reads and writes **one Google Sheet** — the only copy of the data — computes every derived metric, and runs Gemini for analysis and translation. |
 | **`frontend/`** | Owns nothing but pixels. A static page that reads that JSON and draws it as animated scenes. Deploys to GitHub Pages as-is. |
 
 The frontend never calculates a figure it wasn't given, and never holds a
@@ -62,11 +62,12 @@ docker compose run --rm cli gmp vertex-aerospace 46
 docker compose run --rm cli import /data/ipos.xlsx    # drop files in ./import
 ```
 
-Your data is bind-mounted, not baked into the image: edit the YAML in your
-editor and the container sees it immediately.
+Your data is not in the image or the volumes — it is in the Google Sheet. Edit
+the sheet in a browser and the next run sees it; the volumes carry only the
+Gemini cache and generated reports.
 
 > Open it over **http**, not by double-clicking `index.html`. The page fetches
-> JSON, and browsers block `fetch` on `file://`.
+> the sheet over the network, and browsers block `fetch` on `file://`.
 
 Two sample IPOs ship with the repo (fictional companies, so nothing false can
 be published by accident). Delete them once you have a real one.
@@ -96,7 +97,7 @@ right panel — it already has the numbers in it.
 
 You can also type a number straight into the left panel to see it live. Those
 edits are **session-only** and are not written back; put the final value in the
-YAML so the Excel report and the published site agree.
+sheet so the report and the published site agree.
 
 ---
 
@@ -118,7 +119,7 @@ Columns it doesn't recognise are printed rather than silently dropped — always
 run `--dry-run` on a new sheet.
 
 **Translation happens here, at import.** Gemini is called once per data change,
-not once per build, and the result is written into the YAML.
+not once per build, and the result is written into the sheet.
 
 ### From the web, via Gemini
 
@@ -194,7 +195,7 @@ ipopulse doctor --strict              # exit 1 if anything would render blank
 ```
 
 A blank panel in the studio looks like a rendering bug and is almost always a
-field nobody filled, three layers away in a YAML file. `doctor` names the field,
+field nobody filled, three tabs away in the sheet. `doctor` names the field,
 the scene it breaks, and the command that fills it:
 
 ```
@@ -207,7 +208,7 @@ the scene it breaks, and the command that fills it:
 
 `--fix` only applies repairs that follow arithmetically — a total from its two
 parts, the T+3 calendar from a close date, a registrar's status URL from the
-registrar's name. The line is: if two people with the same YAML would write
+registrar's name. The line is: if two people with the same sheet would write
 down different numbers, it is not a repair. That deliberately excludes the
 tempting ones (carrying a GMP forward across a day nobody read it, guessing a
 listing range, inferring a sector from the name), which stay as findings rather
@@ -221,7 +222,10 @@ than becoming quiet fabrications that later read as data.
 python -m ipopulse.cli new zenith-motors
 ```
 
-Edit `backend/data/ipos/zenith-motors.yaml`. The fields that matter most:
+Open the Google Sheet and fill in its row on the **IPOs** tab (the long tabs
+— Financials, GMP, Subscription — are keyed by the same `slug`). Edits you
+make there are what the backend reads on its next run. The fields that
+matter most:
 
 - **`issue.fresh_cr` / `issue.ofs_cr`** — drives the "company growth vs
   promoter exit" scene, the one viewers actually care about.
@@ -313,7 +317,7 @@ on the figures, a hallucinated percentage is the one failure you cannot ship.
 cp .env.example .env          # add GEMINI_API_KEY
 python -m ipopulse.cli translate vertex-aerospace          # -> hi, te
 python -m ipopulse.cli analyse vertex-aerospace            # draft, prints only
-python -m ipopulse.cli analyse vertex-aerospace --write    # save into the YAML
+python -m ipopulse.cli analyse vertex-aerospace --write    # save into the sheet
 python -m ipopulse.cli build
 ```
 
@@ -331,9 +335,9 @@ Three things worth knowing:
   ```
 
   Set the TTL with `IPOPULSE_CACHE_DAYS` in `.env`. Pruning never loses text:
-  the translations themselves live in each IPO's YAML, so a pruned cache only
+  the translations themselves live on the sheet's I18n tab, so a pruned cache only
   means the next *edit* re-asks Gemini.
-- **The key stays local.** Translations are written into the YAML and committed;
+- **The key stays local.** Translations are written into the sheet;
   the published site only ever sees the finished text. A GitHub Pages site is
   fully public — a key in frontend JS is a leaked key within a day. The deploy
   workflow greps for key patterns and refuses to publish if it finds one.
@@ -381,8 +385,17 @@ where a figure came from.
 2. Settings → Pages → Source: **GitHub Actions**.
 3. Done — `.github/workflows/pages.yml` publishes `frontend/`.
 
-`frontend/data/` is committed, so the deploy carries your data with it. After a
-`ipopulse build`, commit the changed JSON and the site updates.
+**Nothing about the data is committed.** The site fetches the Google Sheet at
+runtime, so a pipeline run is live the moment it finishes — there is no build
+to re-run and no file to push. The deploy ships code only.
+
+Two requirements for that to work:
+
+1. The sheet must be shared as **Anyone with the link can view**, or the
+   browser cannot read it. Everything in it is therefore public.
+2. `GOOGLE_SHEETS_ID` must be set as a repository secret, so the publish
+   workflow can generate `frontend/js/config.js` (gitignored — the id is not
+   committed, though it is visible in the deployed page).
 
 Paths are relative, so it works under `https://<user>.github.io/<repo>/`
 without configuration.
@@ -421,19 +434,23 @@ backend/
   ipopulse/
     models.py       canonical IPO schema
     compute.py      every derived number (single source of truth)
-    store.py        YAML load/save
-    providers/      manual today, API-ready tomorrow
+    sheets.py       THE STORE: read/write the live Google Sheet
+    tables.py       the tab layout, shared with the browser's reader
+    workbook.py     local .xlsx snapshots, for backups only
+    store.py        load/save on top of it
+    providers/      NSE, ipoji, RHP, sheets
     ai.py           Gemini + on-disk cache
-    report.py       Excel workbook
-    publish.py      writes frontend/data/*.json
+    report.py       the formatted, human-readable Excel report
+    publish.py      verifies every record still renders
     cli.py          the commands above
-  data/ipos/        one YAML per IPO  <- you edit these
+  data/cache/       Gemini responses (gitignored)
 frontend/
   index.html        the studio shell + all scenes
   css/studio.css
   js/               i18n · compute (mirrors compute.py) · data · reels
                     · output (scripts, CSV, PNG) · studio
-  data/             generated JSON  <- committed, this is the deploy
+  js/config.js      generated, gitignored: the sheet id
+  js/sheet.js       reads the sheet as CSV in the browser, no key, no library
 legacy/             the original single-file prototype
 ```
 

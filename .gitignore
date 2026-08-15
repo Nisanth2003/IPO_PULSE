@@ -19,8 +19,12 @@ secrets/
 *credentials*.json
 portfolio-*-*.json
 
-# Generated Excel reports
-backend/out/*.xlsx
+# Everything generated: the formatted Excel reports, the pre-change snapshot
+# store.backup() writes, and the JSON dump of the sheet taken before it was
+# restructured. All of it is data, and the data lives in the Google Sheet —
+# committing a copy would recreate exactly the second source of truth this
+# repo no longer has.
+backend/out/
 
 # Gemini response cache. Purely a cost optimisation: the translations it
 # produces are written into the IPO's YAML (the `i18n:` block) and those ARE
@@ -31,3 +35,9 @@ backend/data/cache/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Generated at serve/deploy time from GOOGLE_SHEETS_ID. Not committed: the id
+# lives in .env locally and in GitHub secrets for CI. It does become visible
+# in the deployed site — the browser has to have it — but it stays out of the
+# repo, and a fork points at its own sheet without editing tracked files.
+frontend/js/config.js

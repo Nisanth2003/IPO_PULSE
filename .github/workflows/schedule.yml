@@ -5,8 +5,9 @@ name: Scheduled data refresh
 #
 # NOTE ON PAGES: GitHub Pages is static hosting — it runs no processes, so a
 # timer cannot live "on Pages". This workflow is the GitHub-native equivalent:
-# Actions runs the job, commits the regenerated JSON, and the push to
-# frontend/** makes pages.yml redeploy the site.
+# Actions runs the job and it writes straight into the Google Sheet. Nothing
+# is committed and nothing redeploys, because the site reads that sheet at
+# runtime — the data is live the moment the run finishes.
 #
 # Cron is UTC and has no timezone option, so every time below is IST minus
 # 5:30, with the IST time in the comment. Actions cron is also best-effort:
@@ -24,14 +25,16 @@ on:
   workflow_dispatch:
     inputs:
       jobs:
-        description: 'Jobs to run, in order (space separated). e.g. "sync build push"'
+        description: 'Jobs to run, in order (space separated). e.g. "sync enrich build"'
         required: false
         default: 'daily'
 
 permissions:
-  contents: write             # to commit the refreshed data back
+  contents: read              # nothing is committed any more — see the end
 
-# Never let a 16:30 run overlap a slow 13:00 one — they write the same files.
+# Never let a 16:30 run overlap a slow 13:00 one. It matters more than it did:
+# a whole-tab rewrite has no lock behind it, so two runs would be last-write-
+# wins over the entire sheet.
 concurrency:
   group: ipopulse-data
   cancel-in-progress: false
@@ -57,22 +60,30 @@ jobs:
       # contains quotes and braces, and `${{ }}` inside a shell string would
       # end the quoting at the first one.
       #
-      # Runs BEFORE `pick`, because whether the key exists decides which jobs
-      # are worth running at all.
+      # This key used to be optional: the store was a local file and only the
+      # `push` step needed Google. That is inverted now — the sheet IS the
+      # store, so without the key nothing can be read or written and there is
+      # no useful subset of the run left to attempt. Fail here, once and
+      # clearly, instead of letting every job fail in turn below.
       - name: Write service-account key
-        id: key
         shell: bash
         env:
-          SA_JSON: ${{ secrets.GOOGLE_SHEETS_KEY_JSON }}
+          # The repository secret holds the service-account JSON itself. The
+          # env var of the same name holds a PATH to it — that is what the
+          # code expects, and why this is written to a file first.
+          SA_JSON: ${{ secrets.GOOGLE_SHEETS_KEY }}
         run: |
           if [ -z "$SA_JSON" ]; then
-            echo "No GOOGLE_SHEETS_KEY_JSON secret — push jobs will be skipped."
-            echo "has_key=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "::error::GOOGLE_SHEETS_KEY is not set. The store is a Google Sheet, so every job needs it."
+            exit 1
           fi
+          case "$SA_JSON" in
+            '{'*) ;;
+            *) echo "::error::GOOGLE_SHEETS_KEY does not look like service-account JSON. Paste the whole file contents as the secret value, not a path."
+               exit 1 ;;
+          esac
           printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_SHEETS_KEY=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
-          echo "has_key=true" >> "$GITHUB_OUTPUT"
 
       # Which job? A dispatch says so explicitly; a cron is identified by the
       # schedule string that fired it.
@@ -88,20 +99,10 @@ jobs:
           esac
           JOBS="${JOBS:-daily}"
 
-          # Without a Sheets key `push` exits 1, and a failed step stops the
-          # rest of its chain. That is right for `daily` (never publish a sheet
-          # behind a failed sync) but it made the *whole run* fail on a step
-          # that was never going to work, so a good GMP read was thrown away
-          # because a spreadsheet could not be written. Drop the push steps
-          # instead of running them into a certain failure.
-          if [ "${{ steps.key.outputs.has_key }}" != 'true' ]; then
-            JOBS="${JOBS//daily/sync enrich doctor build}"
-            JOBS="${JOBS//grey/gmp-sync gmp}"
-            JOBS="$(printf '%s' "$JOBS" | tr ' ' '\n' \
-                    | grep -vx -e push -e push-gmp -e '' | tr '\n' ' ' || true)"
-            JOBS="${JOBS:-build}"
-            echo "::notice::No Sheets key — running '$JOBS' without the push step(s)."
-          fi
+          # The push-stripping fallback that used to live here is gone along
+          # with the push jobs: they existed to copy a local store up into the
+          # sheet, and the sheet is the store now. Missing credentials are
+          # caught earlier, where nothing can run at all.
           echo "jobs=$JOBS" >> "$GITHUB_OUTPUT"
           echo "Running: $JOBS"
 
@@ -119,24 +120,27 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/sa.json"
 
-      # `always()`, and this is the important part: the jobs write to disk as
-      # they go, so by the time a later step fails the earlier ones have
-      # already produced real data. Without this, one failing push discarded a
-      # whole run's GMP — the site sat on stale numbers for days while the
-      # refresh "ran" every night and succeeded at reading them.
-      - name: Commit refreshed data
+      # No commit step any more, and that is the point.
+      #
+      # The jobs write straight into the Google Sheet, which the site reads at
+      # runtime — so a run is live the moment it finishes. There is no data
+      # file in the repo to add, no binary to conflict on a rebase, and no
+      # Pages rebuild standing between a fetched number and a viewer seeing
+      # it. The whole commit-pull-rebase-push dance this replaced existed only
+      # to move a file that no longer exists.
+      #
+      # Partial runs are still safe for the same reason they were before: each
+      # job writes as it goes, so a later failure leaves the earlier jobs
+      # already saved.
+      - name: Confirm the sheet is readable
         if: always()
+        env:
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
         run: |
-          git config user.name  'ipopulse-bot'
-          git config user.email 'ipopulse-bot@users.noreply.github.com'
-          git add backend/data frontend/data
-          # Nothing changed on a quiet day; an empty commit would still push
-          # and trigger a pointless Pages rebuild.
-          if git diff --cached --quiet; then
-            echo "No data changes."
-            exit 0
+          URL="https://docs.google.com/spreadsheets/d/$GOOGLE_SHEETS_ID/gviz/tq?tqx=out:csv&sheet=IPOs"
+          if curl -sfL -o /dev/null "$URL"; then
+            echo "The sheet is readable without credentials - the site can load it."
+          else
+            echo "::error::The sheet is NOT readable anonymously, so the published site cannot load it. Set sharing to: Anyone with the link can view."
+            exit 1
           fi
-          git commit -m "data: ${{ steps.pick.outputs.jobs }} $(date -u +'%Y-%m-%d %H:%M UTC')"
-          # Another run may have landed while this one worked.
-          git pull --rebase --autostash
-          git push

@@ -17,8 +17,10 @@ on:
   push:
     branches: [main]
     paths:
+      # Code only. Data changes no longer touch the repo at all — they land
+      # in the Google Sheet, which the site reads at runtime — so a data
+      # refresh does not (and must not) trigger a redeploy.
       - 'frontend/**'
-      - 'backend/data/ipos/**'      # a data edit changes the published JSON
       - '.github/workflows/publish.yml'
   workflow_dispatch:
     inputs:
@@ -55,31 +57,65 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
 
-      # Regenerate the JSON so the site can never lag the YAML because someone
-      # forgot to run build before committing. No network, no key — build is
-      # pure local computation.
+      - run: pip install -r backend/requirements.txt
+
+      # The page fetches the sheet itself, so it needs the id — and the id is
+      # not committed (see .gitignore). Generate the one-line config here from
+      # the same secret the backend uses. Without it the site would deploy
+      # and load nothing, which is worse than not deploying.
+      - name: Write frontend config
+        env:
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+        run: |
+          if [ -z "$GOOGLE_SHEETS_ID" ]; then
+            echo "::error::GOOGLE_SHEETS_ID is not set - the site would load with no data."
+            exit 1
+          fi
+          cd backend && python -m ipopulse.cli config
+
+      # Check every record still renders before publishing, so a broken row is
+      # caught here rather than as a blank card on the live site. This reads
+      # the sheet, so unlike the old local build it needs credentials.
       #
       # The condition is not `inputs.rebuild != false`: on a push event
       # `inputs.rebuild` is null, and GitHub coerces null and false both to 0
-      # when comparing across types, so `null != false` is FALSE and the build
+      # when comparing across types, so `null != false` is FALSE and the check
       # silently skipped on every push — exactly the case it exists for.
-      - name: Build site JSON
+      - name: Check the sheet renders
         if: github.event_name != 'workflow_dispatch' || inputs.rebuild
+        env:
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          SA_JSON: ${{ secrets.GOOGLE_SHEETS_KEY }}
         run: |
-          pip install -r backend/requirements.txt
+          if [ -z "$SA_JSON" ]; then
+            echo "::notice::No service-account secret - skipping the render check."
+            exit 0
+          fi
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_SHEETS_KEY="$RUNNER_TEMP/sa.json"
           cd backend && python -m ipopulse.cli build
+          rm -f "$RUNNER_TEMP/sa.json"
 
       # THE GATE. The repo is public and so is the site; this is the last thing
       # standing between a key and the open internet, so it runs before the
       # deploy, never after. Verified to block AIza... and AQ.... keys while
       # passing ordinary code.
+      # No data file ships any more — the site fetches the sheet at runtime,
+      # so there is nothing binary to flatten and scan. What DOES ship is
+      # config.js with the sheet id, which is public by necessity: the
+      # browser cannot fetch the sheet without it.
       - name: Fail if a secret leaked into the frontend
         run: |
-          if grep -rIn --include='*.js' --include='*.html' --include='*.json' \
-               --include='*.css' --include='*.md' -E \
-               'AIza[0-9A-Za-z_-]{20,}|AQ\.[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|(GEMINI_API_KEY|IPOPULSE_TRIGGER_PASSWORD|GOOGLE_SHEETS_ID)[[:space:]]*[:=][[:space:]]*["'\''][^"'\'']+|iam\.gserviceaccount\.com|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{30,}' \
-               frontend/; then
-            echo "::error::Possible secret in frontend/ — refusing to publish."
+          SECRETS='AIza[0-9A-Za-z_-]{20,}|AQ\.[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|(GEMINI_API_KEY|IPOPULSE_TRIGGER_PASSWORD|GOOGLE_SHEETS_KEY)[[:space:]]*[:=][[:space:]]*[^[:space:]]+|iam\.gserviceaccount\.com|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{30,}'
+          if grep -rIn --include=*.js --include=*.html --include=*.json --include=*.css --include=*.md -E "$SECRETS" frontend/; then
+            echo "::error::Possible secret in frontend/ - refusing to publish."
+            exit 1
+          fi
+          # A service-account key reaching the site would be the worst case,
+          # so its marker fields are checked by name too, not just the blob.
+          SA='"private_key"|"client_email"|service_account'
+          if grep -rIn --include=*.js --include=*.json -E "$SA" frontend/; then
+            echo "::error::Service-account material in frontend/ - refusing to publish."
             exit 1
           fi
           echo "frontend/ is clean."

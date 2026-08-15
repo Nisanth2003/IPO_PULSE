@@ -1,0 +1,9 @@
+# The workbook is the database. If git ever applied line-ending conversion
+# to it, the zip would be corrupt and every record lost — mark it binary
+# explicitly rather than relying on NUL-byte autodetection.
+*.xlsx binary
+*.xlsx -diff -merge
+
+# Generated data commits come from the bot; keep them out of language stats
+# and collapsed in review, since a binary diff tells a reviewer nothing.
+frontend/data/ipo-pulse.xlsx linguist-generated=true

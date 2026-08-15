@@ -1,17 +1,29 @@
 # IPO Pulse — Backend Developer Guide
 
-The backend is a Python CLI (`ipopulse`) that maintains one YAML file per IPO, derives
-every metric from it, and publishes static JSON into `frontend/data/`. There is no
-server and no database: GitHub Pages serves files, so "deploying" is committing JSON.
+The backend is a Python CLI (`ipopulse`) that reads and writes **one Google Sheet**
+holding every IPO, and derives every metric from it. There is no server and no
+database process: the sheet IS the database.
+
+The frontend reads the same sheet (`frontend/js/sheet.js`, via Google's
+credential-free CSV export) and re-derives the numbers with `compute.js`. Nothing is
+published in between and nothing is committed, so the two sides cannot drift apart —
+a pipeline run is live the moment it finishes.
+
+Two consequences worth internalising: **every command needs the network and the
+service account**, and **the sheet must be world-readable** for the site to load it,
+because a static page has nowhere to hide a credential.
 
 ```
 backend/
   ipopulse/
     cli.py              every command; argparse wiring; also the in-process job runner
-    models.py           the Ipo dataclasses = the YAML schema
-    store.py            YAML load/save/scaffold, path constants
+    models.py           the Ipo dataclasses = the sheet schema
+    sheets.py           THE STORE: Google Sheets I/O, batched reads, whole-tab writes
+    tables.py           the tab layout + record<->rows, shared with the browser
+    workbook.py         local .xlsx snapshots (backups only, not the store)
+    store.py            load/save/scaffold/remove on top of sheets.py
     compute.py          ALL derived metrics + the 0-10 score. No LLM number ever lands here.
-    publish.py          writes frontend/data/{index,board}.json and ipo/<slug>.json
+    publish.py          verifies every record still derives (there is nothing to publish)
     doctor.py           completeness checks, consistency checks, arithmetic repairs
     ai.py               Gemini wrapper: model discovery, cache, prompts, vet_gmp/vet_subscription
     control.py          JOBS dict, CHAINS, /trigger panel + /api/* endpoints
@@ -23,13 +35,13 @@ backend/
       research.py       Gemini grounded lookup (proposes, never decides)
       sheet.py          Excel/CSV import (lenient)
       sheet_push.py     Google Sheets upsert (strict, round-trip safe)
-      manual.py         the YAML files themselves, as a provider
+      manual.py         the stored records themselves, as a provider
       api.py            skeleton for a future HTTP feed
-  data/ipos/<slug>.yaml the source of record
   data/cache/           Gemini response cache + discovered-model cache
   .cache/               RHP text extracts, enrich attempt log (gitignored)
-  out/                  Excel reports
-frontend/data/          published JSON (committed; this is the deploy)
+  out/                  reports + backups (gitignored — all of it is regenerable)
+frontend/js/config.js   generated, gitignored: the sheet id the browser needs
+THE DATABASE            a Google Sheet; nothing in the repo holds IPO data
 ```
 
 Entry point: `python -m ipopulse.cli <command>` from `backend/`, or `ipopulse` if the
@@ -53,20 +65,19 @@ flowchart TD
   RHPZ -->|rhp.pages_for -> excerpts<br/>+ ai.read_rhp| VET1
   WEB -->|research.ResearchProvider<br/>+ ai.research_*| VET2
   XLS -->|sheet.parse -> to_ipo_dict| MERGE
-  HUMAN -->|direct edit / gmp / sub / sources| YAML
+  HUMAN -->|Excel edit / gmp / sub / sources| BOOK
 
   VET1["vetting: unit conversion in code,<br/>series length == len(years),<br/>scanned-PDF refusal"] --> MERGE
   VET2["vetting: vet_gmp / vet_subscription,<br/>pre-issue EPS drop,<br/>needs_review gate"] --> MERGE
 
-  MERGE["providers.base.merge / merge_series<br/><b>fills blanks only</b> unless --prefer-*"] --> YAML
-  YAML["backend/data/ipos/&lt;slug&gt;.yaml<br/>models.Ipo — facts + prose + i18n"]
+  MERGE["providers.base.merge / merge_series<br/><b>fills blanks only</b> unless --prefer-*"] --> BOOK
+  BOOK["the Google Sheet<br/>models.Ipo — facts + prose + i18n<br/><b>the only copy</b>"]
 
-  YAML --> DOC["doctor.repair()<br/>arithmetic-only repairs"]
-  DOC --> YAML
-  YAML --> COMP["compute.derive()<br/>issue · gmp · subscription · financials ·<br/>dates · listing · score"]
-  COMP --> PUB["publish.publish()"]
-  PUB --> JSON["frontend/data/index.json<br/>frontend/data/board.json<br/>frontend/data/ipo/&lt;slug&gt;.json"]
-  JSON --> STUDIO["frontend/ studio (js/data.js)<br/>frontend/js/compute.js recomputes live"]
+  BOOK --> DOC["doctor.repair()<br/>arithmetic-only repairs"]
+  DOC --> BOOK
+  BOOK --> COMP["compute.derive()<br/>issue · gmp · subscription · financials ·<br/>dates · listing · score"]
+  COMP --> PUB["publish.verify()<br/>every record still renders?"]
+  BOOK --> STUDIO["frontend/js/sheet.js reads the same tabs<br/>frontend/js/compute.js re-derives it live"]
   COMP --> XLSX["backend/out/*.xlsx (report.py)"]
 ```
 
@@ -81,19 +92,25 @@ Narrative, in the order a number actually travels:
    `--prefer-sheet` invert this deliberately). Time series go through `merge_series()`,
    which unions on a key (`date` for GMP, `day` for subscription) so re-running the same
    day updates the row instead of duplicating it.
-3. **Store.** One YAML per IPO, `sort_keys=False`, dates dumped as ISO strings. Plain
-   text on purpose: git diffs become the history of what was published and when.
+3. **Store.** One Google Sheet, normalised across tabs (`IPOs` wide, the rest long and
+   keyed by `slug`). Dates are written as **text** with `valueInputOption: RAW`, so no
+   locale or epoch can reinterpret them. A save clears and rewrites whole tabs; there is
+   no lock and no transaction, so concurrent writers are last-write-wins — the
+   scheduler's `concurrency:` group is what keeps that from happening.
 4. **Repair.** `doctor --fix` fills only what follows arithmetically (fresh+OFS totals,
    the T+3 calendar, `shares_post_issue_cr = PAT / EPS`, the registrar's status URL).
 5. **Derive.** `compute.derive(ipo)` recomputes everything: nothing derived is ever
    stored. `score_metrics` runs last and takes the other blocks as input, so the score is
    a weighting of already-derived numbers, never a fresh reading of the IPO.
-6. **Publish.** `publish()` writes three shapes of JSON. Committing them is the deploy;
+6. **Verify.** There is nothing to publish — the sheet the browser reads is the one
+   the backend just wrote. `build` now *checks* instead: it derives every record and
+   fails if any would render blank. Committing the sheet is the deploy;
    `.github/workflows/publish.yml` then pushes `frontend/` to Pages.
-7. **Render.** The studio fetches `index.json` for the dropdown, `board.json` for the
-   all-IPO board, and `ipo/<slug>.json` for a full record. `frontend/js/compute.js` is a
-   deliberate mirror of `compute.py` so the sidebar can recompute live while you edit
-   mid-recording. **Change a formula in one and you must change it in the other.**
+7. **Render.** `frontend/js/xlsx.js` unzips the sheet in the browser
+   (`DecompressionStream` + `DOMParser`, no library) and `js/data.js` rebuilds the same
+   records, mirroring `tables.from_tables` and `models.from_dict`. `compute.js` then
+   re-derives everything. **Three mirrored pairs now: compute, the sheet layout, and the
+   model defaults. Change one side and you must change the other.**
 
 ---
 
@@ -109,21 +126,22 @@ see §9.
 
 | Command | What it does | Key flags | AI |
 |---|---|---|---|
-| `new <slug>` | Writes `data/ipos/<slug>.yaml` from `store.TEMPLATE`. `board` and `registrar` are blank *on purpose* — see §8. | `--force` overwrite | none |
+| `new <slug>` | Adds a blank row to the sheet. `board` and `registrar` are left unset *on purpose* — see §8. | `--force` overwrite | none |
+| `remove <slug>` | Drops an IPO from the sheet. Backs the book up to `out/ipo-pulse.prev.xlsx` first, since a row deletion has no git diff to undo. | `--yes` to confirm | none |
 | `list` | Table of every tracked IPO: status, latest GMP, latest total subscription. | — | none |
 | `gmp <slug> <value>` | Logs one grey-market point. Defaults to today. Goes through `merge_series` so re-logging a date updates it. | `--date --kostak --sauda --source` (default `manual`) | none |
 | `sub <slug> <day>` | Logs one bidding day. Keyed on `day`, merged field-wise, list re-sorted. | `--date --qib --nii --retail --employee --total` | none |
-| `sync` | Pull a provider into the YAML. `--provider nse` is the workhorse: keyless, no AI. `--discover` scaffolds IPOs NSE lists that we do not track (without it, a "live" feed can never introduce a new listing). | `--slug --provider manual\|api\|sheet\|nse\|research --prefer-api --discover --no-translate --model` | 0 for the fetch; **2 per touched IPO** for the auto-translate unless `--no-translate` |
+| `sync` | Pull a provider into the sheet. `--provider nse` is the workhorse: keyless, no AI. `--discover` scaffolds IPOs NSE lists that we do not track (without it, a "live" feed can never introduce a new listing). | `--slug --provider manual\|api\|sheet\|nse\|research --prefer-api --discover --no-translate --model` | 0 for the fetch; **2 per touched IPO** for the auto-translate unless `--no-translate` |
 | `translate [slug]` | Gemini → `hi`,`te`, written into `ipo.i18n`. Hard-cached 30 days on `{model, lang, fields}`. | `--langs hi,te --model --force` (bypass cache) | 1 per language per IPO, **0 on a cache hit** |
 | `analyse <slug>` | Drafts `overview / green_flags / red_flags / growth / valuation / risk` from the derived facts only. Prints unless `--write`. | `--write --force --no-translate --model` | 1 (cached on `{model, context}`) + 2 if `--write` triggers translation |
-| `import <file\|url>` | Excel/CSV/published-CSV → YAML. Fuzzy header matching (`sheet.ALIASES`), reports unmatched and skipped columns. | `--kind ipos\|gmp --sheet --slug --prefer-sheet --dry-run --no-translate` | 0 + 2 per touched IPO for auto-translate |
+| `import <file\|url>` | Excel/CSV/published-CSV → the sheet. Fuzzy header matching (`sheet.ALIASES`), reports unmatched and skipped columns. | `--kind ipos\|gmp --sheet --slug --prefer-sheet --dry-run --no-translate` | 0 + 2 per touched IPO for auto-translate |
 | `job [names…]` | Runs named jobs from `control.JOBS`, expanding chains, **in-process** via `main(argv)`. Stops at the first non-zero exit. No args = list every job and its schedule. | — | whatever the jobs cost |
 | `push [slug]` | Upserts into a Google Sheet. Matches rows on slug(company) (+date for GMP), preserves columns it does not know. Needs a service account. | `--kind ipos\|gmp --tab --sheet-id --dry-run` | none |
 | `research <slug>` | Gemini grounded lookup. `--what` selects the aspect. Every value comes back with sources, confidence and `needs_review`. **Exits 2** when anything was flagged and `--force` was not given. | `--what gmp\|gmp-history\|sub\|ipo\|financials\|both\|all --url --write --force --model` | 1 grounded call per aspect (`all` = 4) |
 | `rhp <slug>` | Downloads NSE's RHP zip, extracts text, sends only the matching sections, converts units in code, writes `financials` + `dates.announced`. | `--symbol --series EQ\|SME --write --force --refresh --model` | 1 (no tools — the text is in the prompt) |
 | `sources <slug>` | Show or pin the exact page to read per role (`gmp`, `issue`, `subscription`). A pin removes the two ways grounded lookup fails: wrong company, stale cached page. | `--set ROLE=URL` (empty URL unpins) | none |
 | `refresh` | The daily grey-market loop: re-read GMP for every IPO not yet `listed`, optionally subscription for `open` ones, then `publish()`. Flagged values are printed and **not written**. | `--slug --subscription --all --force --model` | 1 per live IPO (+1 each for subscription) |
-| `cache` | Inspect / prune / clear the Gemini response cache. Pruning never loses text: translations also live in the YAML. | `--days 30 --prune --clear` | none |
+| `cache` | Inspect / prune / clear the Gemini response cache. Pruning never loses text: translations also live on the I18n sheet. | `--days 30 --prune --clear` | none |
 | `enrich [slug]` | Takes an IPO from "discovered" to "complete" by dispatching the same commands a human would (`research --what ipo`, `rhp`, `analyse`, `translate`), planned from what is **absent**. Budgeted and idempotent; then runs `doctor --fix` and republishes. | `--max-ai 12 --dry-run --retry-after 7 --retry` | up to `--max-ai`; the untried tail is reported, never dropped |
 | `doctor [slug]` | Lists what is missing **and which scene it blanks**, plus GMP/subscription gaps, staleness, and internal contradictions. `--fix` applies arithmetic repairs and republishes. | `--fix --strict` | none |
 | `build` | `derive()` + `publish()` for every IPO. Pure local computation — no network, no key. | `--prune-cache --days 30` | none |
@@ -256,9 +274,9 @@ Three details that were each a bug once:
 **`.github/workflows/publish.yml`** — deploys `frontend/` as the **site root** via
 `actions/upload-pages-artifact` with `path: frontend` (requires Pages *Source: GitHub
 Actions*; branch-deploy can only serve `/` or `/docs`, which is why it used to show the
-README). Triggers on pushes touching `frontend/**`, `backend/data/ipos/**`, or itself.
+README). Triggers on pushes touching `frontend/**` (which now includes the sheet) or itself.
 
-It re-runs `ipopulse build` before publishing so the site can never lag the YAML because
+It re-runs `ipopulse build` before publishing so the site can never lag the sheet because
 someone forgot. The condition is `if: github.event_name != 'workflow_dispatch' || inputs.rebuild`
 and **not** `inputs.rebuild != false`: on a push `inputs.rebuild` is null, GitHub coerces
 null and false both to 0 across types, so `null != false` is FALSE and the build silently
@@ -298,7 +316,7 @@ default is rejected outright), handles gzip, and rate-limits itself to one call 
 | `dates.allotment/refund/listing` | **derived** from `close` | SEBI T+3: close + 1/2/3 **working** days, weekends skipped. Does not know exchange holidays, so a date landing on one is a day early — which is fine because these fill blanks only and a typed value always wins |
 | `subscription.{qib,nii,retail,employee,total}` | detail | Prefer `activeCat[].noOfTotalMeant`, fall back to `bidDetails[].noOfTime`. Mainboard fills `bidDetails`; SME leaves it absent and only fills `activeCat`. Category matched on a substring of long names, first match (the heading) wins; `activeCat`'s first row is a header whose "values" are column captions, so a non-numeric value aborts that field |
 | `subscription.day` | derived | `today - dates.open + 1` |
-| **`gmp_history`** | — | **Always `[]`.** No exchange publishes grey-market data. Returning nothing is the honest answer; inventing one here would put an unsourced figure straight into the YAML |
+| **`gmp_history`** | — | **Always `[]`.** No exchange publishes grey-market data. Returning nothing is the honest answer; inventing one here would put an unsourced figure straight into the sheet |
 
 Before bidding opens every category reads zero or null, which is indistinguishable from
 "nobody has bid yet" — so a row of all-zeros is discarded rather than written over a real
@@ -397,7 +415,7 @@ are omitted, since that is the dataclass default for "not filled in", not a real
 
 Never repaired, on principle: carrying a GMP forward across a day nobody read it,
 guessing a listing range from the current premium, inferring a sector from the name.
-*If two people with the same YAML would write down different numbers, it is not a
+*If two people with the same sheet would write down different numbers, it is not a
 repair.* Those stay findings forever rather than becoming quiet fabrications.
 
 ### 4f. Manual only
@@ -445,7 +463,7 @@ places:
   a `None` inside an array → problem (distinct from a length mismatch, because reporting
   "3 values for 3 years" reads as a contradiction).
 * `cli.cmd_rhp` — the same check on the RHP read.
-* `doctor.inconsistencies` — the standing check on whatever is in the YAML.
+* `doctor.inconsistencies` — the standing check on whatever is in the sheet.
 
 `fetch_financials` sets `needs_review` when **any** problem exists, or confidence is not
 `high`, or nothing was found — because financials feed 45% of the score's weight.
@@ -563,7 +581,7 @@ subscribed is a 7.5" is a judgement you can see and argue with, where a tuned lo
 hides the same judgement inside a constant.
 
 **Fundamentals' seven benchmarks** come from `financial_metrics.marks`, judged against
-`BENCHMARKS` (overridable per IPO via `benchmarks:` in the YAML):
+`BENCHMARKS` (overridable per IPO on the sheet's Benchmarks sheet):
 
 | Metric | Good at | Direction |
 |---|---|---|
@@ -595,7 +613,7 @@ hand-moved slider defaulting to 0.0, so every IPO published a confident "0.0/10"
 meant "nobody has judged this" and read as "this is a terrible IPO". A brand-new IPO with
 nothing but a GMP is now scored *on its GMP*, and says so.
 
-**Manual override.** `analysis.score > 0` in the YAML always wins:
+**Manual override.** `analysis.score > 0` in the sheet always wins:
 `source: "manual"|"auto"`, `effective = manual or value`. The slider is the editor's
 override, and an editor who has read the DRHP knows more than this model does. The
 breakdown (`components`, with `detail` strings like `"3 of 5 benchmarks met (5 of 7
@@ -604,12 +622,12 @@ anyone to trust a number.
 
 ---
 
-## 7. The YAML schema
+## 7. The sheet schema
 
-One file per IPO at `backend/data/ipos/<slug>.yaml`, loaded by `Ipo.from_dict`. Unknown
+One row per IPO on the `IPOs` sheet plus its long-sheet rows, loaded by `Ipo.from_dict`. Unknown
 keys are ignored; every field has a default, so a partial file always loads. Coercion is
 forgiving: `_d()` accepts a date or an ISO string, `_f()` falls back to a default on
-garbage, `_list()` accepts a list *or* a YAML block string split per line.
+garbage, `_list()` accepts a list *or* a newline-separated string.
 
 | Field | Type | Filled by | Notes |
 |---|---|---|---|
@@ -749,7 +767,7 @@ python -m ipopulse.cli build        # recompute + publish frontend/data/  (no ne
 python -m ipopulse.cli serve        # -> http://127.0.0.1:8000  (+ /trigger if a password is set)
 ```
 
-Only `PyYAML` and `openpyxl` are required. `google-genai` is optional (without it,
+Only `openpyxl` is required (`PyYAML` is no longer used by the store). `google-genai` is optional (without it,
 captions stay English) and the two Google API packages are needed only to *write* to a
 Sheet — reading one takes a published-CSV URL and no credentials at all.
 
@@ -795,8 +813,9 @@ through `main()` — so every guard still applies.
 
 ```bash
 python -m ipopulse.cli new zenith-motors
-# edit backend/data/ipos/zenith-motors.yaml — at minimum:
+# fill its row on the IPOs sheet of the Google Sheet — at minimum:
 #   company, board (Mainboard|SME), issue.price_low/high, issue.lot_size, dates.open/close
+# (close Excel before running anything below — a file open in Excel is locked)
 
 # pin the pages before any research — this is the single biggest accuracy win
 python -m ipopulse.cli sources zenith-motors --set gmp=https://www.investorgain.com/gmp/zenith-motors-ipo/1865/
@@ -807,13 +826,13 @@ python -m ipopulse.cli research zenith-motors --what gmp --write
 python -m ipopulse.cli analyse zenith-motors --write        # drafts, then auto-translates
 python -m ipopulse.cli doctor zenith-motors                 # what still blanks a scene
 python -m ipopulse.cli build
-git add backend/data/ipos/zenith-motors.yaml frontend/data && git commit
+git add frontend/data && git commit
 ```
 
 `doctor` is the checklist: it names each missing field, **which scene goes blank because
 of it**, and the one command that fills it (`doctor.FILLERS`). A blank panel in the studio
 looks like a rendering bug; it is almost always a field nobody filled, three layers away
-in a YAML file.
+in the sheet.
 
 ---
 

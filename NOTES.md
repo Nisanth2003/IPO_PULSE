@@ -194,7 +194,7 @@ the ring is the figure printed inside it. Over 100% still caps at full.
 
 - **Financials are the one thing nothing free supplies.** Revenue, EBITDA, PAT,
   net worth, debt, EPS and peer P/E live in the RHP PDF. NSE does not publish
-  them and GMP sites do not carry them, so they must be typed into the YAML.
+  them and GMP sites do not carry them, so they must be typed into the workbook.
   Everything downstream — margins, CAGR, valuation, the Apply-or-Skip score —
   is derived from them, so an unfilled IPO has an empty right half of the
   studio. The **Data gaps** sheet in the Excel report shows exactly which

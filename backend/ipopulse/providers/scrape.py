@@ -210,6 +210,49 @@ def _working_days_after(start: str, days: int) -> str | None:
     return day.isoformat()
 
 
+def _bidding_day(opened: str | None, closed: str | None,
+                 today: date) -> tuple[str, int]:
+    """(date to stamp a subscription reading with, which bidding day it is).
+
+    Two things this has to get right, and the arithmetic it replaces
+    — `(today - open).days + 1` — got both wrong:
+
+    1. **Bidding days are working days.** Across a weekend, calendar counting
+       inflates the number: Leap India opened Fri 07 Aug and closed Tue 11
+       Aug, a three-day window, but the Wednesday reading was filed as day 6.
+
+    2. **The window ends at the close.** NSE keeps serving the final demand
+       figures for days after an issue closes, and every sync then invented
+       another day — 6 of 8 tracked IPOs had a row dated past their own close,
+       one claiming a fourth day of bidding on a three-day issue. A reading
+       taken after the close is not a new day; it is the *final* figure for
+       the last one. Stamping it with the close date makes it overwrite that
+       day (`merge_series` keys on `day`), so the last row settles on the
+       final number instead of whatever the mid-afternoon snapshot said.
+
+    Exchange holidays are not modelled, the same limitation
+    `_working_days_after` carries, and for the same reason: a day number
+    that is occasionally one high beats inventing a day that never existed.
+    """
+    def parse(value: str | None) -> date | None:
+        try:
+            return date.fromisoformat(str(value)[:10])
+        except (TypeError, ValueError):
+            return None
+
+    start, end = parse(opened), parse(closed)
+    reading = min(today, end) if end else today
+    if start is None or reading < start:
+        return reading.isoformat(), 1
+
+    day, cursor = 0, start
+    while cursor <= reading:
+        if cursor.weekday() < 5:                # Mon-Fri
+            day += 1
+        cursor += timedelta(days=1)
+    return reading.isoformat(), max(1, day)
+
+
 def slugify(text: str) -> str:
     """Same shape as the sheet importer's, so both agree on a slug."""
     s = re.sub(r"[^a-z0-9]+", "-", str(text).lower()).strip("-")
@@ -391,7 +434,7 @@ class NseProvider:
     def fetch_gmp(self, slug: str) -> list[dict[str, Any]]:
         """Always []. No exchange publishes grey-market data — see the module
         docstring. Returning nothing is the honest answer; inventing a number
-        here would put an unsourced figure straight into the YAML."""
+        here would put an unsourced figure straight into the sheet."""
         return []
 
     # ── subscription ──────────────────────────────────────────────────────
@@ -451,19 +494,14 @@ class NseProvider:
         if not row or not any(row.values()):
             return []
 
-        opened = None
+        opened = closed = None
         for rec in self.fetch_catalogue():
             if rec["slug"] == slug:
-                opened = (rec.get("dates") or {}).get("open")
+                dates = rec.get("dates") or {}
+                opened, closed = dates.get("open"), dates.get("close")
                 break
-        today = date.today()
-        day = 1
-        if opened:
-            try:
-                day = max(1, (today - date.fromisoformat(opened)).days + 1)
-            except ValueError:
-                day = 1
 
+        stamped, day = _bidding_day(opened, closed, date.today())
         row["day"] = day
-        row["date"] = today.isoformat()
+        row["date"] = stamped
         return [row]

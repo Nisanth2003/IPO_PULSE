@@ -258,7 +258,14 @@ def financial_metrics(ipo: Ipo) -> dict[str, Any]:
     # financials scene of confident zeros — revenue ₹0, margin 0%, "poor" on
     # every mark. Require an actual number somewhere before claiming data.
     if n == 0 or not any(f.revenue or f.ebitda or f.pat or f.net_worth):
-        return {"has_data": False, "rows": []}
+        # `present` belongs here too, all False. The reels read
+        # `financials.present.revenue` before checking `has_data`, so leaving
+        # the key out threw for every IPO with no financials typed in — six
+        # uncaught TypeErrors per render, which is how a card ends up half
+        # drawn. An empty answer still has to answer the question.
+        return {"has_data": False, "rows": [],
+                "present": {"revenue": False, "ebitda": False, "pat": False,
+                            "net_worth": False, "total_debt": False}}
 
     rows = []
     for i, yr in enumerate(f.years):

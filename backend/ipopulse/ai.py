@@ -460,24 +460,24 @@ Return ONLY a JSON object with the same keys.
 
     # ── editorial drafting ────────────────────────────────────────────────
     def draft_analysis(self, context: dict, *, force: bool = False) -> dict[str, Any]:
-        key = _hash({"m": self.model, "c": context})
-        if not force:
-            hit = self._cached("an", key)
-            if hit is not None:
-                return hit
-        if not self.available():
-            raise AiUnavailable("Gemini not configured; cannot draft analysis.")
+        prompt = f"""You are a sell-side equity research analyst with twenty
+years covering Indian primary markets. You have read hundreds of RHPs and
+watched most of these issues list, so you know which numbers actually
+predict a listing and which are dressed up for the roadshow. Write with
+that judgement: name the one thing that decides this issue rather than
+listing every metric, and say plainly when the pricing is asking investors
+to pay for growth that has not happened yet.
 
-        prompt = f"""You are an equity research assistant helping script an
-Indian IPO explainer for retail investors.
+Using ONLY the facts given below, draft the editorial copy. Experience is
+how you read the facts, never a licence to add to them: do not invent any
+figure, date or claim that is not present. If the facts are insufficient
+for a field, return an empty list or empty string for that field rather
+than guessing — a veteran says "the RHP does not show this", not a number
+they assumed.
 
-Using ONLY the facts given below, draft the editorial copy. You must not
-invent any figure, date or claim that is not present in the facts. If the
-facts are insufficient for a field, return an empty list or empty string for
-that field rather than guessing.
-
-Write in plain, spoken English. Each bullet must be one short line, under
-about 12 words, suitable as an on-screen caption.
+Write for a retail viewer, in plain spoken English, not research-desk
+jargon. Each bullet must be one short line, under about 12 words, suitable
+as an on-screen caption.
 
 Return JSON with exactly these keys:
   "overview":    2 bullets on what the business actually does
@@ -489,6 +489,18 @@ Return JSON with exactly these keys:
 
 FACTS:
 {json.dumps(context, ensure_ascii=False, indent=2, default=str)}"""
+
+        # Key on the prompt, not just the facts. The old key hashed model +
+        # context only, so editing the instructions above changed nothing for
+        # any IPO already in the cache — the previous wording kept being
+        # served and a prompt fix looked like it had silently failed.
+        key = _hash({"m": self.model, "p": prompt})
+        if not force:
+            hit = self._cached("an", key)
+            if hit is not None:
+                return hit
+        if not self.available():
+            raise AiUnavailable("Gemini not configured; cannot draft analysis.")
 
         out = self._generate_json(prompt)
         listy = lambda k: [str(x).strip() for x in (out.get(k) or []) if str(x).strip()][:3]

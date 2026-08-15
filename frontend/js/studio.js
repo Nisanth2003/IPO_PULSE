@@ -58,7 +58,7 @@ function studio() {
       { id: 'daily',  label: 'Daily chain',   detail: 'sync → enrich → doctor → build → push' },
       { id: 'grey',   label: 'GMP chain',     detail: 'refresh GMP → push to the GMP tab' },
       { id: 'enrich', label: 'Fill gaps',     detail: 'research + RHP + analyse + translate' },
-      { id: 'build',  label: 'Rebuild JSON',  detail: 'recompute and republish, no network' },
+      { id: 'build',  label: 'Check workbook', detail: 'verify every record still renders, no network' },
     ],
 
     REELS, PRESETS, REGISTRARS, RING,
@@ -164,6 +164,9 @@ function studio() {
 
     async loadCatalogue() {
       this.loading = true; this.loadError = '';
+      // Always re-read the workbook: this runs on load and again after a job
+      // has rewritten the file, and a cached parse would hide the new data.
+      DATA.refresh();
       try {
         const [idx, board] = await Promise.all([DATA.index(), DATA.board()]);
         this.catalogue = idx.ipos || [];
@@ -171,10 +174,10 @@ function studio() {
         const saved = localStorage.getItem('ipoPulse.slug');
         const pick = this.catalogue.find((c) => c.slug === saved) || this.catalogue[0];
         if (pick) await this.select(pick.slug);
-        else this.loadError = 'No IPOs published yet. Run:  ipopulse build';
+        else this.loadError = 'The workbook has no IPOs in it yet. Run:  ipopulse sync';
       } catch (err) {
         this.loadError =
-          `Could not load ${DATA.BASE}/index.json — ${err.message}. ` +
+          `Could not read ${DATA.BASE}/ipo-pulse.xlsx — ${err.message}. ` +
           `Open the site over http (ipopulse serve), not by double-clicking the file.`;
       } finally {
         this.loading = false;
@@ -646,6 +649,60 @@ function studio() {
       const cap = this.P.h >= 700 ? 12 : (this.P.h >= 520 ? 8 : 6);
       return { rows: rows.slice(0, cap), hidden: Math.max(0, rows.length - cap) };
     },
+    /**
+     * Can a viewer act on this IPO today, and how urgently?
+     *
+     * The board already showed GMP and a close date, which asks the viewer to
+     * do the date arithmetic themselves while the reel is playing. This
+     * answers the question they actually have — apply, wait, or too late —
+     * and colours it so the answer survives being seen for two seconds.
+     *
+     * `open` alone is not the whole answer: an issue open until Friday and
+     * one closing tonight are both "open", and only one of them is urgent.
+     * Bids also stop at the close-day cut-off (17:00 by default, see
+     * dates.close_time), so the last day is genuinely the last chance.
+     */
+    applyState(row) {
+      const today = isoDate(new Date(this.now));
+      const opens = row.open, shuts = row.close;
+
+      if (row.status === 'open') {
+        if (shuts && shuts === today) {
+          return { key: 'ap_lastday', cls: 'text-amber-300', dot: '#F59E0B',
+                   sub: this.fmtShort(shuts), urgent: true };
+        }
+        return { key: 'ap_open', cls: 'text-emerald-400', dot: '#22C55E',
+                 sub: shuts ? this.fmtShort(shuts) : '', urgent: false };
+      }
+      if (row.status === 'upcoming') {
+        return { key: 'ap_soon', cls: 'text-sky-300', dot: '#38BDF8',
+                 sub: opens ? this.fmtShort(opens) : '', urgent: false };
+      }
+      // closed, allotment, listed — all mean the same thing to someone
+      // deciding whether to put money in: the window is shut.
+      //
+      // Red rather than grey, deliberately. Grey reads as "inactive" and the
+      // eye skips it; on a reel that plays in seconds the viewer needs a
+      // stop signal as loud as the go signal. Muted rather than alarm-red,
+      // because a closed issue is unavailable, not a loss — the one place a
+      // true warning red belongs is a negative GMP, which the % column
+      // already owns.
+      return { key: 'ap_shut', cls: 'text-rose-400/80', dot: '#FB7185',
+               sub: '', urgent: false };
+    },
+
+    /** How many are open right now — the number the board hook leads with. */
+    get openCount() {
+      return (this.boardRows || []).filter((r) => r.status === 'open').length;
+    },
+
+    /** Open issues whose last day is today. Worth calling out on its own. */
+    get lastDayCount() {
+      const today = isoDate(new Date(this.now));
+      return (this.boardRows || [])
+        .filter((r) => r.status === 'open' && r.close === today).length;
+    },
+
     get countdown() {
       const at = this.d?.dates?.close_at;
       if (!at) return { over: false, txt: '—' };

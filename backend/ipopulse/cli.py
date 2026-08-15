@@ -36,12 +36,14 @@ from pathlib import Path
 from typing import Any
 
 from . import store
+from .sheets import SheetUnavailable
+from .workbook import WorkbookLocked
 from .ai import ALLOTMENT_STEPS, AiUnavailable, Gemini, default_model
 from .compute import derive
 from .models import Ipo
 from .providers import get_provider
 from .providers.base import merge, merge_series
-from .publish import publish
+from .publish import publish, verify
 from .report import write_report
 
 LANGS = ["hi", "te"]
@@ -66,8 +68,30 @@ def load_dotenv() -> None:
 
 def cmd_new(args) -> int:
     path = store.scaffold(args.slug, overwrite=args.force)
-    print(f"Created {path}")
+    print(f"Added {args.slug} to {path.name}")
     print("Fill it in, then run:  ipopulse build")
+    return 0
+
+
+def cmd_remove(args) -> int:
+    """Drop an IPO. Deleting a row is not deleting a file, so it needs saying."""
+    try:
+        ipo = store.load(args.slug)
+    except FileNotFoundError:
+        print(f"No IPO '{args.slug}' in the sheet.")
+        return 1
+
+    if not args.yes:
+        gmp = len(ipo.gmp_history)
+        print(f"About to remove {args.slug} ({ipo.company or 'unnamed'}) — "
+              f"{gmp} GMP day(s), {len(ipo.subscription)} subscription day(s).")
+        print("This rewrites the sheet. Re-run with --yes to confirm.")
+        return 1
+
+    store.backup()
+    store.remove(args.slug)
+    print(f"Removed {args.slug}. Previous workbook kept at "
+          f"{store.OUT_DIR / 'ipo-pulse.prev.xlsx'}")
     return 0
 
 
@@ -345,47 +369,6 @@ def cmd_job(args) -> int:
     return 0
 
 
-def cmd_push(args) -> int:
-    """Write IPOs (or GMP rows) up into the Google Sheet."""
-    from .providers import sheet_push
-
-    if args.slug:
-        ipos = [store.load(args.slug)]
-    else:
-        ipos = store.load_all()
-    if not ipos:
-        print("No IPOs to push.")
-        return 1
-
-    try:
-        s = sheet_push.push(ipos, kind=args.kind, tab=args.tab,
-                            sheet_id=args.sheet_id, dry_run=args.dry_run)
-    except sheet_push.SheetsUnavailable as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
-
-    n = len(s["records"])
-    print(f"{n} row(s) from {len(ipos)} IPO(s) -> tab '{s['tab']}'"
-          f" as {s.get('service_account', '?')}")
-    if s["header_written"]:
-        print("  wrote a header row (the sheet was empty)")
-    if s["extra_columns"]:
-        print(f"  left alone: {', '.join(s['extra_columns'][:12])}")
-    if s["dropped_fields"]:
-        print(f"  no column for: {', '.join(s['dropped_fields'])}"
-              "  (add one and it fills next push)")
-
-    if args.dry_run:
-        for rec in s["records"][:8]:
-            print("   ", rec)
-        print(f"\n(dry run — {s['updated']} would update, "
-              f"{s['appended']} would append)")
-        return 0
-
-    print(f"  updated {s['updated']}, appended {s['appended']}")
-    return 0
-
-
 def cmd_research(args) -> int:
     """Ask Gemini to look up a GMP or the issue details, with citations."""
     from .providers.research import ResearchProvider
@@ -547,7 +530,7 @@ def cmd_research(args) -> int:
             print(f"    source: {u}")
         if not rows:
             print("  Nothing usable found. The RHP PDF is the fallback — type it in:")
-            print(f"    backend/data/ipos/{args.slug}.yaml  (financials: block)")
+            print(f"    the Financials tab of the sheet, rows for {args.slug}")
         else:
             print(f"  years: {', '.join(fin['years'])}")
             for key, vals in rows.items():
@@ -945,10 +928,11 @@ def cmd_analyse(args) -> int:
             if val:
                 raw["analysis"][key] = val
         store.save(Ipo.from_dict(raw))
-        print(f"\nWritten into {store.ipo_path(args.slug)} — edit before publishing.")
+        print(f"\nWritten into the sheet (Lists tab, {args.slug}) "
+              f"— read it before publishing.")
         maybe_translate(args.slug, args)      # new prose -> translate now, once
     else:
-        print("\n(Not saved. Re-run with --write to put it in the YAML.)")
+        print("\n(Not saved. Re-run with --write to put it in the sheet.)")
     return 0
 
 
@@ -1282,11 +1266,17 @@ def cmd_build(args) -> int:
     if getattr(args, "prune_cache", False):
         removed, kept = Gemini(cache_days=args.days).prune_cache(args.days)
         print(f"Cache: pruned {removed}, kept {kept}")
-    written = publish(ipos)
-    print(f"Published {len(ipos)} IPO(s) -> {store.FRONTEND_DATA}")
-    for path in written[-2:]:
-        print(f"  {path.name}")
-    print("\nCommit frontend/data/ and GitHub Pages serves the update.")
+    broken = verify(ipos)
+    print(f"Checked {len(ipos)} IPO(s) in {store.where()}")
+    if broken:
+        print(f"\n{len(broken)} record(s) the site cannot render:")
+        for line in broken:
+            print(f"  ! {line}")
+        return 1
+    print("Every record derives cleanly — the site can read this sheet.")
+    # Nothing to commit any more: the site reads the sheet directly, so a
+    # write is live the moment it lands. No deploy sits between them.
+    print("\nThe site reads this sheet directly — the change is already live.")
     return 0
 
 
@@ -1303,12 +1293,50 @@ def cmd_report(args) -> int:
     return 0
 
 
+def write_frontend_config() -> Path:
+    """Generate frontend/js/config.js from GOOGLE_SHEETS_ID.
+
+    The browser fetches the sheet itself, so it has to know the id — but the
+    id is not committed. It lives in .env locally and in GitHub secrets for
+    CI, and this writes the one-line file the page reads. Gitignored, so a
+    fork points at its own sheet without touching a tracked file.
+    """
+    from . import sheets
+    sid = sheets.sheet_id()
+    dest = store.BACKEND_ROOT.parent / "frontend" / "js" / "config.js"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(
+        "/* GENERATED — do not edit, do not commit.\n"
+        " * Written from GOOGLE_SHEETS_ID by `ipopulse serve` and by the\n"
+        " * publish workflow. The sheet must be shared as \"Anyone with the\n"
+        " * link can view\" or the site cannot read it.\n"
+        " */\n"
+        f"const SHEET_ID = {sid!r};\n".replace("'", '"'),
+        encoding="utf-8")
+    return dest
+
+
+def cmd_config(args) -> int:
+    from . import sheets
+    dest = write_frontend_config()
+    if not sheets.configured():
+        print("warning: GOOGLE_SHEETS_ID is empty — the site will load with "
+              "no data.", file=sys.stderr)
+        print(f"Wrote {dest} (empty id)")
+        return 1
+    print(f"Wrote {dest}")
+    return 0
+
+
 def cmd_serve(args) -> int:
     import functools
     import http.server
     import socketserver
 
     root = store.BACKEND_ROOT.parent / "frontend"
+    # The page needs the sheet id and the file is gitignored, so a fresh
+    # clone would otherwise serve a site that loads nothing.
+    write_frontend_config()
 
     from . import control
 
@@ -1366,10 +1394,15 @@ def build_parser() -> argparse.ArgumentParser:
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
 
-    sp = sub.add_parser("new", help="scaffold a new IPO YAML")
+    sp = sub.add_parser("new", help="add a blank IPO row to the workbook")
     sp.add_argument("slug")
     sp.add_argument("--force", action="store_true")
     sp.set_defaults(func=cmd_new)
+
+    sp = sub.add_parser("remove", help="drop an IPO from the workbook")
+    sp.add_argument("slug")
+    sp.add_argument("--yes", action="store_true", help="skip the confirmation")
+    sp.set_defaults(func=cmd_remove)
 
     sp = sub.add_parser("list", help="show tracked IPOs")
     sp.set_defaults(func=cmd_list)
@@ -1440,14 +1473,12 @@ def build_parser() -> argparse.ArgumentParser:
                          "Omit to list every job and its schedule.")
     sp.set_defaults(func=cmd_job)
 
-    sp = sub.add_parser("push", help="write IPOs or GMP rows up into a Google Sheet")
-    sp.add_argument("slug", nargs="?", help="just this one; default is every IPO")
-    sp.add_argument("--kind", default="ipos", choices=["ipos", "gmp"],
-                    help="one row per IPO, or one row per GMP day")
-    sp.add_argument("--tab", help="worksheet name; default GOOGLE_SHEETS_TAB, else the first")
-    sp.add_argument("--sheet-id", help="override GOOGLE_SHEETS_ID")
-    sp.add_argument("--dry-run", action="store_true", help="show what would be written")
-    sp.set_defaults(func=cmd_push)
+    # No `push` command. It wrote the local store up into the Google Sheet,
+    # via a flat 22-column layout that predates the tab structure the store
+    # now uses. With the sheet as the store, running it would overwrite live
+    # tabs with a different schema — a data-loss bug wearing the name of a
+    # sync step. `import` covers the remaining real case: pulling an OUTSIDE
+    # spreadsheet in.
 
     sp = sub.add_parser("research", help="Gemini web lookup for GMP / subscription / issue")
     sp.add_argument("slug")
@@ -1532,6 +1563,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("-o", "--output")
     sp.set_defaults(func=cmd_report)
 
+    sp = sub.add_parser("config", help="write frontend/js/config.js from "
+                                       "GOOGLE_SHEETS_ID (the deploy does "
+                                       "this too)")
+    sp.set_defaults(func=cmd_config)
+
     sp = sub.add_parser("serve", help="serve the frontend locally")
     sp.add_argument("--port", type=int, default=8000)
     sp.add_argument("--host", help="bind address; 0.0.0.0 inside Docker")
@@ -1559,6 +1595,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except FileExistsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except SheetUnavailable as exc:
+        # The store is online now, so "cannot reach it" is the most likely
+        # failure of all. Say which of the three causes it is, not a traceback.
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except WorkbookLocked as exc:
+        # Only snapshots are files now, but they still land in Excel.
         print(f"error: {exc}", file=sys.stderr)
         return 1
 

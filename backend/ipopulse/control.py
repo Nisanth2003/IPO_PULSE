@@ -92,23 +92,17 @@ JOBS: dict[str, dict[str, Any]] = {
         "schedule": "part of daily",
     },
     "build": {
-        "label": "Build site JSON",
-        "detail": "Recompute and publish frontend/data/. No network, no key.",
+        "label": "Check the sheet",
+        "detail": "Verify every record in the sheet still derives cleanly, so "
+                  "a broken row surfaces here and not as a blank card.",
         "argv": ["build"],
         "schedule": "part of daily",
     },
-    "push": {
-        "label": "Push to Google Sheet",
-        "detail": "Upsert every IPO into Sheet1. Your own columns are preserved.",
-        "argv": ["push"],
-        "schedule": "part of daily",
-    },
-    "push-gmp": {
-        "label": "Push GMP history",
-        "detail": "One row per GMP day, onto the GMP tab.",
-        "argv": ["push", "--kind", "gmp", "--tab", "GMP"],
-        "schedule": "part of grey",
-    },
+    # There is no `push` job any more. It existed to copy a local store up
+    # into the Google Sheet; the sheet IS the store now, so pushing it to
+    # itself is a no-op that could only ever lose data by rewriting rows the
+    # run had not read. `import` still exists for pulling an OUTSIDE
+    # spreadsheet in — that is a different direction and still useful.
     "report": {
         "label": "Excel report",
         "detail": "Formatted workbook into backend/out/.",
@@ -117,23 +111,22 @@ JOBS: dict[str, dict[str, Any]] = {
     },
     "daily": {
         "label": "Daily chain",
-        "detail": "sync → enrich → doctor → build → push. The scheduled one; "
+        "detail": "sync → enrich → doctor → build. The scheduled one; "
                   "run this if you run one.",
         "argv": None,                       # composite; see CHAINS
         "schedule": "13:00 & 16:30 Mon-Fri, 18:00 daily",
     },
     "grey": {
         "label": "GMP chain",
-        "detail": "refresh GMP → push it to the GMP tab.",
+        "detail": "free keyless GMP, then the model fills what it missed.",
         "argv": None,
         "schedule": "21:00 IST daily",
     },
 }
 
-# Chained rather than scheduled separately, and that is the point: a push
-# timed 15 minutes after a sync is a race, because a slow NSE day makes the
-# sheet publish yesterday's numbers. Inside a chain, step N+1 cannot start
-# until step N has exited 0.
+# Chained rather than scheduled separately, and that is the point: steps
+# that read what the previous one wrote cannot be timed apart and hoped for.
+# Inside a chain, step N+1 cannot start until step N has exited 0.
 # `doctor` sits between sync and build so the T+3 calendar and the registrar
 # URL are filled from whatever NSE just supplied, before the JSON is written.
 # It never exits non-zero without --strict, so it cannot break the chain — a
@@ -146,11 +139,11 @@ JOBS: dict[str, dict[str, Any]] = {
 # Its budget is small (6 calls) precisely because the chain runs three times a
 # day: the work spreads across runs instead of exhausting the free tier in one.
 CHAINS = {
-    "daily": ["sync", "enrich", "doctor", "build", "push"],
+    "daily": ["sync", "enrich", "doctor", "build"],
     # gmp-sync runs BEFORE the model-based refresh: it is free, keyless and
     # deterministic, so anything it can supply should not cost a Gemini call
     # or need vetting. `gmp` then fills only what ipoji did not cover.
-    "grey": ["gmp-sync", "gmp", "push-gmp"],
+    "grey": ["gmp-sync", "gmp"],
 }
 
 

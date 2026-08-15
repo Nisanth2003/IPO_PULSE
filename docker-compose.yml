@@ -3,8 +3,9 @@
 # docker compose run --rm cli gmp vertex-aerospace 46
 # docker compose run --rm cli import /data/ipos.xlsx
 #
-# Data lives on the host, not in the image: edit YAML in your editor and the
-# container sees it immediately.
+# Data lives on the host, not in the image: open frontend/data/ipo-pulse.xlsx
+# in Excel and the container sees your edits immediately. Close it before
+# running a command that writes — an open workbook is a locked one.
 #
 # On Docker Desktop (Windows/Mac) the bind mounts just work. On a Linux host
 # whose user isn't UID 1000, the container can't write to them — either
@@ -19,9 +20,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data:/app/backend/data      # your IPO YAML + AI cache
-      - ./backend/out:/app/backend/out        # generated Excel reports
-      - ./frontend/data:/app/frontend/data    # published JSON (this is the deploy)
+      - ./backend/data:/app/backend/data      # Gemini response cache only
+      - ./backend/out:/app/backend/out        # formatted Excel reports + prev backup
+      - ./frontend/data:/app/frontend/data    # ipo-pulse.xlsx — THE DATABASE
     env_file:
       # GEMINI_API_KEY etc. Never baked into the image. Optional: the studio
       # runs fine without a key, captions just stay in English.

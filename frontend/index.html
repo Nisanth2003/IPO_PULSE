@@ -40,6 +40,11 @@
 
 <script src="js/i18n.js"></script>
 <script src="js/compute.js"></script>
+<!-- The store is a live Google Sheet. config.js carries its id (generated,
+     never committed); sheet.js reads the tabs as CSV with no key. Both must
+     load before data.js, which uses SHEET_ID and SHEET. -->
+<script src="js/config.js"></script>
+<script src="js/sheet.js"></script>
 <script src="js/data.js"></script>
 <script src="js/reels.js"></script>
 <script src="js/output.js"></script>
@@ -212,8 +217,8 @@
     <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">
       Edits here update the card instantly for this session. They are
       <b class="text-slate-400">not written back</b> — put the final numbers in
-      <code class="text-slate-400">backend/data/ipos/<span x-text="slug"></span>.yaml</code>
-      and run <code class="text-slate-400">ipopulse build</code>.
+      the Google Sheet (row <code class="text-slate-400" x-text="slug"></code>
+      on the <code class="text-slate-400">IPOs</code> tab), then reload.
     </p>
 
     <template x-if="ipo">
@@ -696,6 +701,23 @@
               <div class="font-black text-4xl leading-tight" x-text="t('todayBoard')"></div>
               <div class="font-black text-6xl tnum" :style="`color:${acc}`" x-text="boardRows.length"></div>
               <div class="lbl" x-text="t('allIpos')"></div>
+              <!-- The tracked count is the channel's number; the open count is
+                   the viewer's. Lead with theirs, and only when it is not
+                   zero — "0 open" is a reason to keep scrolling. -->
+              <div class="flex items-center gap-3 self-center mt-1" x-show="openCount">
+                <div class="rounded-xl px-4 py-2 glass glass-g text-center">
+                  <div class="font-black text-3xl tnum text-emerald-400 leading-none"
+                       x-text="openCount"></div>
+                  <div class="text-2xs font-black text-emerald-300/80 mt-1"
+                       x-text="t('openNowCount')"></div>
+                </div>
+                <div class="rounded-xl px-4 py-2 glass glass-a text-center" x-show="lastDayCount">
+                  <div class="font-black text-3xl tnum text-amber-300 leading-none"
+                       x-text="lastDayCount"></div>
+                  <div class="text-2xs font-black text-amber-200/80 mt-1"
+                       x-text="t('ap_lastday')"></div>
+                </div>
+              </div>
             </div>
 
             <div x-show="at(2,'board')" class="scene tight">
@@ -703,7 +725,7 @@
               <div class="glass p-2 overflow-hidden">
                 <table class="dtable">
                   <thead><tr>
-                    <th>IPO</th><th>GMP</th><th>%</th><th x-text="t('closes')"></th>
+                    <th>IPO</th><th>GMP</th><th>%</th><th x-text="t('canApply')"></th>
                   </tr></thead>
                   <tbody>
                     <template x-for="r in boardTable.rows" :key="r.slug">
@@ -711,12 +733,25 @@
                         <!-- has_gmp false means nobody has read one, which is
                              not the same as a zero premium — several of these
                              genuinely quote ₹0. Publish the difference. -->
-                        <td class="truncate" style="max-width:calc(var(--fs)*10)" x-text="r.company"></td>
+                        <td class="truncate" style="max-width:calc(var(--fs)*9)">
+                          <span class="inline-block rounded-full align-middle mr-1"
+                                style="width:.45em;height:.45em"
+                                :style="`background:${applyState(r).dot}`"></span>
+                          <span x-text="r.company"></span>
+                        </td>
                         <td class="tnum" x-text="r.has_gmp ? '₹'+r.gmp : '—'"></td>
                         <td class="tnum font-black"
                             :class="!r.has_gmp ? 'text-slate-500' : (r.gmp_pct>=0?'text-emerald-400':'text-red-400')"
                             x-text="r.has_gmp ? signed(r.gmp_pct,0)+'%' : '—'"></td>
-                        <td class="tnum" x-text="fmtShort(r.close)"></td>
+                        <!-- The column that answers the viewer's actual
+                             question. Colour carries it at a glance; the date
+                             underneath says by when. -->
+                        <td :class="applyState(r).cls">
+                          <span class="font-black" :class="applyState(r).urgent ? 'animate-pulse' : ''"
+                                x-text="t(applyState(r).key)"></span>
+                          <span class="tnum opacity-70 ml-1" x-show="applyState(r).sub"
+                                x-text="applyState(r).sub"></span>
+                        </td>
                       </tr>
                     </template>
                   </tbody>
@@ -907,7 +942,7 @@
                 </div>
               </div>
               <div class="glass p-3 text-center" x-show="!d.financials.has_data">
-                <span class="text-sm text-slate-400">No financials entered yet — add them to the YAML.</span>
+                <span class="text-sm text-slate-400">No financials entered yet — add them to the sheet's Financials tab.</span>
               </div>
             </div>
 
@@ -927,7 +962,8 @@
                 <div class="font-black text-lg text-amber-300" x-text="t('noFinancials')"></div>
                 <div class="text-2xs text-amber-200/70 font-semibold mt-2 leading-snug">
                   Revenue, EBITDA, PAT, net worth, EPS and peer P/E come from the
-                  RHP. Add them to the YAML, then <span class="font-black">ipopulse build</span>.
+                  RHP. Run <span class="font-black">ipopulse rhp &lt;slug&gt; --write</span>,
+                  or add them to the sheet's Financials tab.
                 </div>
                 <div class="text-3xs text-amber-200/50 font-bold mt-2">
                   ipopulse doctor — lists exactly what is missing
