@@ -46,14 +46,13 @@ $Backend = Join-Path $Repo 'backend'
 # fixed 15 minutes apart is a race on a slow NSE day.
 $Jobs = @(
     @{ Name = 'daily'
-       Why  = 'sync,enrich,doctor,build,push. 13:00 mid-window, 16:30 pre-close surge, 18:00 final.'
+       Why  = 'sync,enrich,doctor,build. 10:00 as bidding opens, 18:35 once it has closed.'
        Triggers = @(
-           @{ Kind = 'Weekdays'; At = '13:00' },
-           @{ Kind = 'Weekdays'; At = '16:30' },
-           @{ Kind = 'Daily';    At = '18:00' }
+           @{ Kind = 'Daily'; At = '10:00' },
+           @{ Kind = 'Daily'; At = '18:35' }
        ) },
     @{ Name = 'grey'
-       Why  = 'refresh GMP, then push it. 21:00 - grey market settles later than the exchange.'
+       Why  = 'free keyless GMP, then the model fills gaps. 21:00 - the grey market settles later than the exchange.'
        Triggers = @( @{ Kind = 'Daily'; At = '21:00' } ) },
     @{ Name = 'translate'
        Why  = 'Cached 30 days; only changes when the prose does.'

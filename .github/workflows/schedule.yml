@@ -11,14 +11,14 @@ name: Scheduled data refresh
 #
 # Cron is UTC and has no timezone option, so every time below is IST minus
 # 5:30, with the IST time in the comment. Actions cron is also best-effort:
-# under load a run can start 5-20 minutes late, which is fine for a 13:00
-# read and is why the important one is 18:00, an hour clear of the close.
+# under load a run can start 5-20 minutes late, so nothing here is timed to
+# land on a deadline — 10:00 is after bidding opens rather than at it, and
+# 18:35 is clear of the 17:00 cut-off with room to drift.
 
 on:
   schedule:
-    - cron: '30 7 * * 1-5'    # 13:00 IST Mon-Fri — mid bidding window
-    - cron: '0 11 * * 1-5'    # 16:30 IST Mon-Fri — 30 min before close
-    - cron: '30 12 * * *'     # 18:00 IST daily   — day's final figures
+    - cron: '30 4 * * *'      # 10:00 IST daily   — bidding opens; the day's first read
+    - cron: '5 13 * * *'      # 18:35 IST daily   — after close; the settled figures
     - cron: '30 15 * * *'     # 21:00 IST daily   — GMP, after the grey market settles
     - cron: '30 21 * * 6'     # 03:00 IST Sunday  — translate
     - cron: '30 22 * * 6'     # 04:00 IST Sunday  — Excel report
