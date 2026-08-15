@@ -109,11 +109,11 @@
          which is the point: /trigger runs commands and must not be reachable
          from a static host. See backend/ipopulse/control.py. -->
     <a x-show="hasBackend" x-cloak class="btn btn-acc" href="/trigger"
-       title="Run sync / build / push (local only)">⚡ Trigger</a>
-    <!-- Published-site equivalent. There is no backend here to call, so this
-         dispatches the GitHub Actions workflow instead — the same jobs, run
-         on GitHub's runners. See remoteTrigger() in studio.js for why the
-         token is safe to keep in this browser. -->
+       title="Run sync / enrich / build against the sheet (local server only)">⚡ Trigger</a>
+    <!-- Published-site equivalent. Pages serves files, so there is no local
+         server to POST to; this dispatches the GitHub Actions workflow
+         instead — the same jobs, run on GitHub's runners. See remoteTrigger()
+         in studio.js for why the token is safe to keep in this browser. -->
     <button x-show="!hasBackend" x-cloak class="btn btn-acc" @click="gh.open=true"
             title="Run a job on GitHub Actions">⚡ Run job</button>
   </div>
@@ -137,8 +137,10 @@
         <div>
           <div class="font-black text-lg">Run a job on GitHub Actions</div>
           <div class="text-2xs text-slate-400 mt-0.5">
-            This page is static — it has no backend. These buttons ask GitHub to
-            run the same jobs your schedule already runs.
+            GitHub Pages serves files, so there is no process running behind
+            this address to run a job. These buttons ask GitHub Actions to run
+            it instead — the same jobs, on the same schedule's runner. Results
+            land in the sheet, and this page picks them up on the next reload.
           </div>
         </div>
         <button class="btn" @click="gh.open=false">✕</button>

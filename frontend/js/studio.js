@@ -87,9 +87,12 @@ function studio() {
     },
 
     /* Is a local ipopulse server behind this page, or is this the published
-       static site? Only the former can run jobs, so the Trigger button is
-       hidden unless /api/health answers. Deliberately not awaited — a missing
-       backend is the normal case on Pages and must not delay first paint. */
+       static site? The backend exists either way — it just is not reachable
+       at a Pages URL, which serves files and runs nothing. Only the local
+       server can be POSTed to, so the Trigger button is hidden unless
+       /api/health answers and the Run job button takes its place. Deliberately
+       not awaited: no answer is the normal case on Pages and must not delay
+       first paint. */
     probeBackend() {
       fetch('/api/health', { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
