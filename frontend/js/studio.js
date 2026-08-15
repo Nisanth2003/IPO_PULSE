@@ -34,6 +34,16 @@ function studio() {
     handle: '@IPOPulse',
     hasH2C: typeof html2canvas !== 'undefined',
     hasBackend: false,          // set by probeBackend(); gates the Trigger button
+    /* Where the trigger API is. '' means same-origin (a local `ipopulse
+       serve`); a URL means the hosted one from config.js. `api` is whichever
+       actually answered — set by probeBackend, and what every /api/* call
+       below is prefixed with. */
+    apiBase: (typeof API_BASE !== 'undefined' && API_BASE) || '',
+    api: '',
+    /* The hosted API is password-protected the same way the local panel is,
+       and the token it returns lives only in this tab. */
+    run: { open: false, pw: '', token: '', busy: false, msg: '',
+           ok: true, lines: [], jobs: [], timer: null },
 
     /* Remote trigger, for the published site.
      *
@@ -94,10 +104,92 @@ function studio() {
        not awaited: no answer is the normal case on Pages and must not delay
        first paint. */
     probeBackend() {
-      fetch('/api/health', { cache: 'no-store' })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { this.hasBackend = !!(d && d.ok && d.auth); })
-        .catch(() => { this.hasBackend = false; });
+      // Same-origin first (a local `ipopulse serve`), then the hosted API if
+      // one is configured. Local wins: if you are running the server you are
+      // working on this machine, and a round trip to a sleeping free-tier
+      // instance would be a slower answer to the same question.
+      const bases = ['', this.apiBase].filter((b, i, a) => a.indexOf(b) === i);
+      const tryNext = (i) => {
+        if (i >= bases.length) { this.hasBackend = false; return; }
+        fetch(`${bases[i]}/api/health`, { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            if (d && d.ok && d.auth) { this.hasBackend = true; this.api = bases[i]; }
+            else tryNext(i + 1);
+          })
+          .catch(() => tryNext(i + 1));
+      };
+      tryNext(0);
+    },
+
+    /* ── running jobs against the trigger API ──────────────────────────
+     *
+     * Same endpoints the local /trigger page uses, called from here so the
+     * published site can drive a hosted backend. Password in, short-lived
+     * token back, then poll /api/status for the log while it runs.
+     *
+     * The token is kept in memory only, not localStorage: this one unlocks a
+     * job runner, and unlike the GitHub PAT there is no per-repo scoping to
+     * fall back on if the browser is someone else's. Closing the tab ends it.
+     */
+    async _apiCall(path, opts = {}) {
+      const r = await fetch(`${this.api}${path}`, {
+        ...opts,
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json',
+                   ...(this.run.token ? { 'X-Token': this.run.token } : {}),
+                   ...(opts.headers || {}) },
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+      return body;
+    },
+    async runLogin() {
+      this.run.msg = 'Signing in…'; this.run.ok = true;
+      try {
+        const d = await this._apiCall('/api/login', {
+          method: 'POST', body: JSON.stringify({ password: this.run.pw }) });
+        this.run.token = d.token; this.run.pw = '';
+        this.run.msg = '';
+        const j = await this._apiCall('/api/jobs');
+        this.run.jobs = j.jobs || [];
+        this.runPoll();
+      } catch (e) { this.run.ok = false; this.run.msg = e.message; }
+    },
+    async runJob(id) {
+      this.run.msg = `Starting ${id}…`; this.run.ok = true;
+      try {
+        await this._apiCall('/api/run', {
+          method: 'POST', body: JSON.stringify({ job: id }) });
+        this.run.msg = '';
+        this.runPoll();
+      } catch (e) { this.run.ok = false; this.run.msg = e.message; }
+    },
+    runPoll() {
+      clearInterval(this.run.timer);
+      const tick = async () => {
+        try {
+          const s = await this._apiCall('/api/status');
+          this.run.busy = !!s.running;
+          this.run.lines = s.lines || [];
+          if (!s.running) {
+            clearInterval(this.run.timer); this.run.timer = null;
+            // The jobs write to the sheet, and this page reads the sheet —
+            // so the numbers on screen are stale the moment a run finishes.
+            if (s.rc === 0) this.loadCatalogue();
+          }
+        } catch (e) {
+          clearInterval(this.run.timer); this.run.timer = null;
+          this.run.ok = false; this.run.msg = e.message;
+        }
+      };
+      this.run.timer = setInterval(tick, 1500);
+      tick();
+    },
+    get runLog() { return (this.run.lines || []).join('\n'); },
+    runClose() {
+      clearInterval(this.run.timer); this.run.timer = null;
+      this.run.open = false;
     },
 
     /* owner/repo from the Pages URL, so nothing is hardcoded and a fork just

@@ -40,4 +40,8 @@ ENV IPOPULSE_HOST=0.0.0.0
 EXPOSE 8000
 
 # A container with no port bound is a container you can't reach — bind 0.0.0.0
-CMD ["python", "-m", "ipopulse.cli", "serve", "--host", "0.0.0.0", "--port", "8000"]
+# No --port: a cloud host assigns one at boot through $PORT, and cmd_serve
+# reads it. Hard-coding 8000 here made the container listen on a port the
+# platform was not routing to, which presents as a deploy that never
+# becomes healthy. Locally $PORT is unset and it falls back to 8000.
+CMD ["python", "-m", "ipopulse.cli", "serve", "--host", "0.0.0.0"]

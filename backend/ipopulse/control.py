@@ -72,7 +72,7 @@ JOBS: dict[str, dict[str, Any]] = {
     },
     "translate": {
         "label": "Translate",
-        "detail": "Gemini → Hindi and Telugu, written into the YAML. Cached 30 days.",
+        "detail": "Gemini → Hindi and Telugu, written onto the sheet's I18n tab. Cached 30 days.",
         "argv": ["translate"],
         "schedule": "Sun 03:00 IST",
     },
@@ -105,7 +105,7 @@ JOBS: dict[str, dict[str, Any]] = {
     # spreadsheet in — that is a different direction and still useful.
     "report": {
         "label": "Excel report",
-        "detail": "Formatted workbook into backend/out/.",
+        "detail": "Formatted, human-readable .xlsx into backend/out/ — a printout, not the store.",
         "argv": ["report"],
         "schedule": "Sun 04:00 IST",
     },
@@ -340,7 +340,17 @@ def handle(handler, method: str) -> bool:
     if not path.startswith("/api/"):
         return False
 
-    who = handler.client_address[0]
+    # Preflight. A cross-origin POST carrying X-Token is never "simple", so
+    # the browser asks permission first and will not send the real request
+    # until this answers. Nothing is executed here.
+    if method == "OPTIONS":
+        handler.send_response(204)
+        handler.send_header("Content-Length", "0")
+        _cors(handler)
+        handler.end_headers()
+        return True
+
+    who = _client_ip(handler)
 
     if path == "/api/health":
         _json(handler, 200, {"ok": True, "auth": AUTH.configured()})
@@ -416,12 +426,60 @@ def _body(handler) -> dict:
         return {}
 
 
+def _client_ip(handler) -> str:
+    """Who is calling, for the failed-login lockout.
+
+    Behind a hosted proxy every request arrives from the proxy, so
+    `client_address` is one shared value and five wrong guesses would lock
+    out everyone at once. X-Forwarded-For carries the real caller; take the
+    left-most entry, which is the client the edge saw.
+
+    Only trusted when IPOPULSE_TRUST_PROXY is set, because the header is
+    caller-supplied: on a directly-exposed server anyone could send a fresh
+    one per attempt and walk straight through the lockout.
+    """
+    if os.getenv("IPOPULSE_TRUST_PROXY"):
+        fwd = handler.headers.get("X-Forwarded-For") or ""
+        first = fwd.split(",")[0].strip()
+        if first:
+            return first
+    return handler.client_address[0]
+
+
+def allowed_origins() -> list[str]:
+    """Origins permitted to call /api/*, from IPOPULSE_ALLOWED_ORIGINS.
+
+    Deliberately a list and never `*`. These endpoints start jobs, and a
+    wildcard would let any page on the internet put a run request in front
+    of a browser that already holds a valid token.
+    """
+    raw = os.getenv("IPOPULSE_ALLOWED_ORIGINS") or ""
+    return [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+
+
+def _cors(handler) -> None:
+    """Echo the caller's origin when it is on the allow-list.
+
+    Echoing rather than sending the whole list is what the spec requires:
+    Access-Control-Allow-Origin takes exactly one origin, and `Vary: Origin`
+    stops a cache handing one site's response to another.
+    """
+    origin = (handler.headers.get("Origin") or "").rstrip("/")
+    if origin and origin in allowed_origins():
+        handler.send_header("Access-Control-Allow-Origin", origin)
+        handler.send_header("Vary", "Origin")
+        handler.send_header("Access-Control-Allow-Headers", "Content-Type, X-Token")
+        handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        handler.send_header("Access-Control-Max-Age", "600")
+
+
 def _send(handler, code: int, text: str, ctype: str) -> None:
     raw = text.encode("utf-8")
     handler.send_response(code)
     handler.send_header("Content-Type", ctype)
     handler.send_header("Content-Length", str(len(raw)))
     handler.send_header("Cache-Control", "no-store")
+    _cors(handler)
     handler.end_headers()
     handler.wfile.write(raw)
 

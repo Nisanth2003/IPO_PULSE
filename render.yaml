@@ -1,0 +1,60 @@
+# Host the trigger API so the published site can run jobs from anywhere.
+#
+# The site on GitHub Pages is files only — nothing there can run a job, and a
+# browser will not let an HTTPS page call http://localhost. So the backend
+# needs a public HTTPS address of its own. This is that.
+#
+# Deploy:
+#   1. render.com -> New -> Blueprint -> point it at this repo
+#   2. Fill the four secrets below (Render will prompt; they are not in git)
+#   3. Copy the service URL, e.g. https://ipo-pulse-api.onrender.com
+#   4. Set IPOPULSE_TRIGGER_API to that URL in .env and as a GitHub secret,
+#      so the site knows where to call. Then push.
+#
+# Free tier caveat, worth knowing before you rely on it: the instance sleeps
+# after ~15 minutes idle and takes 30-60s to wake. The first click after a
+# quiet spell will sit there before anything happens. The scheduled runs in
+# .github/workflows/schedule.yml do NOT depend on this service — they run on
+# GitHub's own runners and keep working while it sleeps.
+
+services:
+  - type: web
+    name: ipo-pulse-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore          # nearest to the data and to you
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Which browser origins may call /api/*. Never a wildcard: these
+      # endpoints start jobs. Add your Pages origin, nothing else.
+      - key: IPOPULSE_ALLOWED_ORIGINS
+        value: https://nisanth2003.github.io
+
+      # Render terminates TLS at its edge and forwards, so every request
+      # arrives from the same proxy address. Without this the failed-login
+      # lockout would count all users as one and lock out everybody at once.
+      - key: IPOPULSE_TRUST_PROXY
+        value: "1"
+
+      - key: PYTHONIOENCODING
+        value: utf-8
+
+      # ── secrets: set these in the Render dashboard, not here ──────────
+      # The password for the trigger panel. This one becomes reachable from
+      # the internet the moment the service is live — use a long random value,
+      # not the one from your local .env.
+      - key: IPOPULSE_TRIGGER_PASSWORD
+        sync: false
+
+      # The whole service-account JSON, exactly as in the GitHub secret.
+      - key: GOOGLE_SHEETS_KEY
+        sync: false
+      - key: GOOGLE_SHEETS_ID
+        sync: false
+
+      # Optional. Without it the jobs still run; analysis and translation are
+      # the parts that need it.
+      - key: GEMINI_API_KEY
+        sync: false

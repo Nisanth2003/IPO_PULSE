@@ -108,12 +108,19 @@
          Pages nothing answers, so this never appears on the public site —
          which is the point: /trigger runs commands and must not be reachable
          from a static host. See backend/ipopulse/control.py. -->
-    <a x-show="hasBackend" x-cloak class="btn btn-acc" href="/trigger"
-       title="Run sync / enrich / build against the sheet (local server only)">⚡ Trigger</a>
-    <!-- Published-site equivalent. Pages serves files, so there is no local
-         server to POST to; this dispatches the GitHub Actions workflow
-         instead — the same jobs, run on GitHub's runners. See remoteTrigger()
-         in studio.js for why the token is safe to keep in this browser. -->
+    <!-- Three ways to run a job, and exactly one is possible at a time.
+         probeBackend decides by asking /api/health, same-origin first and
+         then the hosted API from config.js.
+
+         local server   -> link to /trigger, the page control.py serves
+         hosted API     -> the panel below, since /trigger lives on another
+                           origin and cannot be linked to usefully
+         neither        -> dispatch GitHub Actions -->
+    <a x-show="hasBackend && !api" x-cloak class="btn btn-acc" href="/trigger"
+       title="Run sync / enrich / build against the sheet (local server)">⚡ Trigger</a>
+    <button x-show="hasBackend && api" x-cloak class="btn btn-acc"
+            @click="run.open=true"
+            title="Run a job on the hosted backend">⚡ Run job</button>
     <button x-show="!hasBackend" x-cloak class="btn btn-acc" @click="gh.open=true"
             title="Run a job on GitHub Actions">⚡ Run job</button>
   </div>
@@ -127,6 +134,78 @@
      of the screen. The title and the close button were simply off-screen,
      which read as "the Run job button does nothing". It must stay a child of
      the x-data root: outside the header for layout, inside it for state. -->
+  <!-- ══════════ HOSTED BACKEND RUN PANEL ══════════
+       Shown when a hosted trigger API answered /api/health. Same endpoints
+       the local /trigger page uses — password in, short-lived token back,
+       then poll for the log. Outside <header> on purpose: the header has
+       backdrop-blur, which would make it the containing block for this
+       fixed overlay and clip it to the header's height. -->
+  <div x-show="run.open" x-cloak @keydown.escape.window="runClose()"
+       class="fixed inset-0 z-50 grid place-items-center p-4"
+       style="background:rgba(2,6,23,.72);backdrop-filter:blur(3px)">
+    <div class="w-full max-w-lg rounded-2xl p-5 max-h-[90vh] overflow-y-auto"
+         style="background:#0F172A;border:1px solid rgba(255,255,255,.14)" @click.stop>
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div class="font-black text-lg">Run a job</div>
+          <div class="text-2xs text-slate-400 mt-0.5">
+            On the hosted backend at <span class="font-mono" x-text="api"></span>.
+            Results are written straight into the sheet.
+          </div>
+        </div>
+        <button class="btn" @click="runClose()">✕</button>
+      </div>
+
+      <!-- Sign in -->
+      <div x-show="!run.token" class="space-y-2">
+        <div class="text-2xs text-slate-400">
+          Password is <span class="font-mono">IPOPULSE_TRIGGER_PASSWORD</span>
+          as set on the host — not your GitHub token.
+        </div>
+        <div class="flex gap-2">
+          <input type="password" x-model="run.pw" @keydown.enter="runLogin()"
+                 placeholder="Trigger password" autocomplete="current-password"
+                 class="flex-1 rounded-xl px-3 py-2 text-sm bg-[#0B1220] border border-white/10">
+          <button class="btn btn-acc" @click="runLogin()">Unlock</button>
+        </div>
+      </div>
+
+      <!-- Jobs.
+           `min-w-0` on the grid children and `whitespace-normal` on the
+           button: .btn sets white-space:nowrap for the toolbar, and these
+           details are full sentences — without both, every description ran
+           on one line, overlapped its neighbour and pushed a horizontal
+           scrollbar across the panel. -->
+      <div x-show="run.token" class="grid grid-cols-2 gap-2">
+        <template x-for="j in run.jobs" :key="j.id">
+          <button class="btn text-left !justify-start !px-3 !py-2 min-w-0 !whitespace-normal
+                         disabled:opacity-40 disabled:cursor-not-allowed"
+                  :disabled="run.busy" @click="runJob(j.id)">
+            <div class="min-w-0">
+              <div class="font-black text-xs" x-text="j.label"></div>
+              <div class="text-3xs text-slate-400 leading-snug mt-0.5"
+                   x-text="j.detail"></div>
+            </div>
+          </button>
+        </template>
+      </div>
+
+      <div class="text-2xs mt-2 min-h-[1rem]"
+           :class="run.ok ? 'text-slate-400' : 'text-red-400'" x-text="run.msg"></div>
+
+      <!-- Live log, exactly what the local panel shows.
+           Joined in studio.js rather than here: an escaped newline inside an
+           HTML attribute is one editing slip away from becoming a real line
+           break, which turns the expression into an unterminated string and
+           renders nothing at all — silently, since Alpine swallows it. -->
+      <pre x-show="run.lines.length"
+           class="mt-2 rounded-xl p-3 text-3xs leading-relaxed overflow-auto max-h-64 whitespace-pre-wrap"
+           style="background:#070C16;border:1px solid rgba(255,255,255,.10)"
+           x-text="runLog"></pre>
+      <div x-show="run.busy" class="text-2xs text-amber-300 font-bold mt-2">running…</div>
+    </div>
+  </div>
+
   <!-- ══════════ REMOTE TRIGGER (published site) ══════════ -->
   <div x-show="gh.open" x-cloak @keydown.escape.window="gh.open=false"
        class="fixed inset-0 z-50 grid place-items-center p-4"

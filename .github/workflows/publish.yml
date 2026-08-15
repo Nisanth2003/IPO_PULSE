@@ -66,6 +66,10 @@ jobs:
       - name: Write frontend config
         env:
           GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          # Optional. Set it (repo variable, not a secret — it ends up in the
+          # published JS anyway) once the backend is hosted, and the site's
+          # run button drives that API instead of GitHub Actions.
+          IPOPULSE_TRIGGER_API: ${{ vars.IPOPULSE_TRIGGER_API }}
         run: |
           if [ -z "$GOOGLE_SHEETS_ID" ]; then
             echo "::error::GOOGLE_SHEETS_ID is not set - the site would load with no data."

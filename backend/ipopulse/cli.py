@@ -48,6 +48,9 @@ from .report import write_report
 
 LANGS = ["hi", "te"]
 
+# The local default. A cloud host overrides it through $PORT.
+DEFAULT_PORT = 8000
+
 
 # ── .env ───────────────────────────────────────────────────────────────────
 
@@ -1294,24 +1297,39 @@ def cmd_report(args) -> int:
 
 
 def write_frontend_config() -> Path:
-    """Generate frontend/js/config.js from GOOGLE_SHEETS_ID.
+    """Generate frontend/js/config.js — the two addresses the page needs.
 
-    The browser fetches the sheet itself, so it has to know the id — but the
-    id is not committed. It lives in .env locally and in GitHub secrets for
-    CI, and this writes the one-line file the page reads. Gitignored, so a
-    fork points at its own sheet without touching a tracked file.
+    Neither is committed. Both live in .env locally and in GitHub secrets for
+    CI, and this writes the file the page reads, which is gitignored — so a
+    fork points at its own sheet and its own API without editing a tracked
+    file.
+
+        SHEET_ID   which spreadsheet to read
+        API_BASE   where the hosted trigger API is, if there is one
+
+    API_BASE empty is the normal case: no hosted backend, and the run panel
+    falls back to dispatching GitHub Actions.
+
+    Read from IPOPULSE_TRIGGER_API, deliberately NOT IPOPULSE_API_BASE —
+    that one already names the future IPO *data source* in providers/api.py,
+    and pointing it at a trigger endpoint would quietly break that provider.
     """
     from . import sheets
     sid = sheets.sheet_id()
+    api = (os.getenv("IPOPULSE_TRIGGER_API") or "").strip().rstrip("/")
     dest = store.BACKEND_ROOT.parent / "frontend" / "js" / "config.js"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(
-        "/* GENERATED — do not edit, do not commit.\n"
-        " * Written from GOOGLE_SHEETS_ID by `ipopulse serve` and by the\n"
-        " * publish workflow. The sheet must be shared as \"Anyone with the\n"
-        " * link can view\" or the site cannot read it.\n"
-        " */\n"
-        f"const SHEET_ID = {sid!r};\n".replace("'", '"'),
+        '/* GENERATED — do not edit, do not commit.\n'
+        ' * Written from GOOGLE_SHEETS_ID and IPOPULSE_API_BASE by\n'
+        ' * `ipopulse serve` / `ipopulse config`, and by the publish workflow.\n'
+        ' *\n'
+        ' * The sheet must be shared as "Anyone with the link can view" or the\n'
+        ' * site cannot read it. API_BASE, when set, must be an https:// origin\n'
+        ' * that lists this site in IPOPULSE_ALLOWED_ORIGINS.\n'
+        ' */\n'
+        f'const SHEET_ID = "{sid}";\n'
+        f'const API_BASE = "{api}";\n',
         encoding="utf-8")
     return dest
 
@@ -1355,11 +1373,28 @@ def cmd_serve(args) -> int:
             if not control.handle(self, "POST"):
                 self.send_error(405)
 
+        def do_OPTIONS(self):
+            # CORS preflight. SimpleHTTPRequestHandler has no OPTIONS at all,
+            # so without this a cross-origin POST fails before it is sent.
+            if not control.handle(self, "OPTIONS"):
+                self.send_error(405)
+
         def log_message(self, fmt, *a):      # quieter console
             pass
 
+    # Threaded: a job run holds its request open while it streams, and the
+    # single-threaded server would block every other call — including the
+    # status polling that draws the log — until it finished.
+    class Server(socketserver.ThreadingMixIn, socketserver.TCPServer):
+        daemon_threads = True
+        allow_reuse_address = True
+
     handler = functools.partial(Handler, directory=str(root))
-    socketserver.TCPServer.allow_reuse_address = True
+    # $PORT is how every cloud host tells a container where to listen, and it
+    # is assigned at boot rather than chosen — so it has to win over the
+    # default. An explicit --port still beats it.
+    port = args.port if args.port != DEFAULT_PORT else int(
+        os.getenv("PORT") or os.getenv("IPOPULSE_PORT") or DEFAULT_PORT)
     host = args.host or os.getenv("IPOPULSE_HOST") or "127.0.0.1"
 
     # Binding beyond loopback exposes /trigger to the network. Without a
@@ -1372,13 +1407,16 @@ def cmd_serve(args) -> int:
         print("Set one in .env, or serve on 127.0.0.1.", file=sys.stderr)
         return 1
 
-    with socketserver.TCPServer((host, args.port), handler) as httpd:
+    with Server((host, port), handler) as httpd:
         shown = "127.0.0.1" if host in ("0.0.0.0", "") else host
-        print(f"IPO Pulse Studio -> http://{shown}:{args.port}/")
+        print(f"IPO Pulse Studio -> http://{shown}:{port}/")
         if control.AUTH.configured():
-            print(f"Trigger panel    -> http://{shown}:{args.port}/trigger")
+            print(f"Trigger panel    -> http://{shown}:{port}/trigger")
         else:
             print("Trigger panel    -> disabled (no IPOPULSE_TRIGGER_PASSWORD in .env)")
+        origins = control.allowed_origins()
+        print(f"Browser origins  -> {', '.join(origins) if origins else 'same-origin only'
+              } (IPOPULSE_ALLOWED_ORIGINS)")
         print("Ctrl+C to stop.")
         try:
             httpd.serve_forever()
@@ -1569,7 +1607,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(func=cmd_config)
 
     sp = sub.add_parser("serve", help="serve the frontend locally")
-    sp.add_argument("--port", type=int, default=8000)
+    sp.add_argument("--port", type=int, default=DEFAULT_PORT)
     sp.add_argument("--host", help="bind address; 0.0.0.0 inside Docker")
     sp.set_defaults(func=cmd_serve)
 
