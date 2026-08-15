@@ -65,25 +65,20 @@ jobs:
       # store, so without the key nothing can be read or written and there is
       # no useful subset of the run left to attempt. Fail here, once and
       # clearly, instead of letting every job fail in turn below.
-      - name: Write service-account key
+      - name: Check the service-account secret
         shell: bash
         env:
-          # The repository secret holds the service-account JSON itself. The
-          # env var of the same name holds a PATH to it — that is what the
-          # code expects, and why this is written to a file first.
-          SA_JSON: ${{ secrets.GOOGLE_SHEETS_KEY }}
+          SA: ${{ secrets.GOOGLE_SHEETS_KEY }}
         run: |
-          if [ -z "$SA_JSON" ]; then
+          if [ -z "$SA" ]; then
             echo "::error::GOOGLE_SHEETS_KEY is not set. The store is a Google Sheet, so every job needs it."
             exit 1
           fi
-          case "$SA_JSON" in
-            '{'*) ;;
-            *) echo "::error::GOOGLE_SHEETS_KEY does not look like service-account JSON. Paste the whole file contents as the secret value, not a path."
+          case "$SA" in
+            '{'*) echo "Secret looks like service-account JSON." ;;
+            *) echo "::error::GOOGLE_SHEETS_KEY is not JSON. It must be the CONTENTS of the key file (starting with '{'), not a path - a path from your machine does not exist on the runner."
                exit 1 ;;
           esac
-          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
-          echo "GOOGLE_SHEETS_KEY=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
 
       # Which job? A dispatch says so explicitly; a cron is identified by the
       # schedule string that fired it.
@@ -112,13 +107,11 @@ jobs:
           GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL:     ${{ vars.GEMINI_MODEL }}
           GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          # The JSON itself; sheets.py accepts contents or a path.
+          GOOGLE_SHEETS_KEY: ${{ secrets.GOOGLE_SHEETS_KEY }}
           GOOGLE_SHEETS_TAB: ${{ vars.GOOGLE_SHEETS_TAB }}
           PYTHONIOENCODING: utf-8
         run: python -m ipopulse.cli job ${{ steps.pick.outputs.jobs }}
-
-      - name: Remove the key
-        if: always()
-        run: rm -f "$RUNNER_TEMP/sa.json"
 
       # No commit step any more, and that is the point.
       #

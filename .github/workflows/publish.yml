@@ -85,16 +85,16 @@ jobs:
         if: github.event_name != 'workflow_dispatch' || inputs.rebuild
         env:
           GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
-          SA_JSON: ${{ secrets.GOOGLE_SHEETS_KEY }}
+          # Passed straight through: the code takes the JSON itself or a path
+          # to it. Writing it to a file first is what turned a mis-set secret
+          # into an unreadable JSONDecodeError instead of a clear message.
+          GOOGLE_SHEETS_KEY: ${{ secrets.GOOGLE_SHEETS_KEY }}
         run: |
-          if [ -z "$SA_JSON" ]; then
+          if [ -z "$GOOGLE_SHEETS_KEY" ]; then
             echo "::notice::No service-account secret - skipping the render check."
             exit 0
           fi
-          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
-          export GOOGLE_SHEETS_KEY="$RUNNER_TEMP/sa.json"
           cd backend && python -m ipopulse.cli build
-          rm -f "$RUNNER_TEMP/sa.json"
 
       # THE GATE. The repo is public and so is the site; this is the last thing
       # standing between a key and the open internet, so it runs before the

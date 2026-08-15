@@ -31,6 +31,7 @@ Three things worth knowing before changing it:
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -92,15 +93,13 @@ def _connect():
     if _service is not None:
         return _service
 
-    key_path = (os.getenv("GOOGLE_SHEETS_KEY") or "").strip()
-    if not key_path:
+    key = (os.getenv("GOOGLE_SHEETS_KEY") or "").strip()
+    if not key:
         raise SheetUnavailable(
             "GOOGLE_SHEETS_KEY is not set — the store is a Google Sheet and "
-            "writing to it needs the service-account JSON.")
-    if not os.path.exists(key_path):
-        raise SheetUnavailable(f"No service-account key at {key_path}")
+            "reaching it needs the service-account credentials.")
     if not sheet_id():
-        raise SheetUnavailable("GOOGLE_SHEETS_ID is not set in .env")
+        raise SheetUnavailable("GOOGLE_SHEETS_ID is not set")
 
     try:
         from google.oauth2 import service_account
@@ -110,8 +109,34 @@ def _connect():
             "google-api-python-client is not installed. "
             "pip install -r requirements.txt") from exc
 
-    creds = service_account.Credentials.from_service_account_file(
-        key_path, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+
+    # The variable holds EITHER the JSON itself or a path to it, because the
+    # two places it comes from disagree by nature: a .env line points at a
+    # file on your disk, and a CI secret can only carry the contents. Making
+    # the caller normalise that is how a Windows path ended up written into a
+    # file on a Linux runner and handed to a JSON parser, which then failed
+    # at "line 1 column 1" — technically accurate and useless to read.
+    try:
+        if key.startswith("{"):
+            creds = service_account.Credentials.from_service_account_info(
+                json.loads(key), scopes=scopes)
+        elif os.path.exists(key):
+            creds = service_account.Credentials.from_service_account_file(
+                key, scopes=scopes)
+        else:
+            raise SheetUnavailable(
+                f"GOOGLE_SHEETS_KEY is neither service-account JSON nor a file "
+                f"that exists ({key[:60]}...). In .env give it the path to the "
+                f"key file; in GitHub secrets paste the file's CONTENTS.")
+    except SheetUnavailable:
+        raise
+    except (ValueError, KeyError) as exc:
+        # Covers malformed JSON and JSON that parses but is not a key.
+        raise SheetUnavailable(
+            "GOOGLE_SHEETS_KEY does not contain a usable service-account key. "
+            "Paste the whole JSON file, including the outer braces.") from exc
+
     _service = build("sheets", "v4", credentials=creds, cache_discovery=False)
     return _service
 
