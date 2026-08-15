@@ -110,8 +110,8 @@ FILLERS = {
     "research": "ipopulse refresh            (or: ipopulse research <slug> --write)",
     "analyse":  "ipopulse analyse <slug> --write",
     "derived":  "ipopulse doctor <slug> --fix",
-    "rhp":      "type it into the Financials sheet of the workbook — it is in the RHP PDF",
-    "you":      "type it into the workbook (frontend/data/ipo-pulse.xlsx)",
+    "rhp":      "type it onto the sheet's Financials tab — it is in the RHP PDF",
+    "you":      "type it into the Google Sheet, on the IPOs tab",
 }
 
 

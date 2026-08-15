@@ -60,8 +60,16 @@ JOBS: dict[str, dict[str, Any]] = {
     "gmp-sync": {
         "label": "GMP from ipoji",
         "detail": "Free, keyless, no AI. Today's board plus any missing days "
-                  "from each IPO's dated page. Fills gaps, never overwrites.",
-        "argv": ["gmp-sync", "--history", "--write"],
+                  "from each IPO's dated page, and any mainboard IPO on that "
+                  "board we do not track yet. Fills gaps, never overwrites.",
+        # --discover because NSE, the other catalogue, lists an issue only
+        # once it is about to open. Three mainboard IPOs sat on ipoji's board
+        # untracked — one already quoting a premium — because nothing here
+        # looked at that list for names rather than numbers.
+        # --mainboard-only: the same board carries SME issues the channel
+        # does not cover, and each scaffolded row costs enrich budget.
+        "argv": ["gmp-sync", "--history", "--write",
+                 "--discover", "--mainboard-only"],
         "schedule": "part of grey",
     },
     "gmp": {

@@ -970,9 +970,52 @@ def cmd_gmp_sync(args) -> int:
         slug = ipoji.match_slug(row["name"], row.get("url") or "", slugs, companies)
         if slug:
             matched[slug] = row
+    seen = {matched[s]["name"] for s in matched}
+    unmatched = [r for r in rows if r["name"] not in seen]
     print(f"matched {len(matched)} of ours; "
           f"unmatched on ipoji: "
-          f"{', '.join(r['name'] for r in rows if r['name'] not in {matched[s]['name'] for s in matched})[:90] or 'none'}")
+          f"{', '.join(r['name'] for r in unmatched)[:90] or 'none'}")
+
+    # Discovery from ipoji, not just NSE.
+    #
+    # `sync --discover` reads NSE's catalogue, and NSE lists an issue only
+    # once it is at or near opening — so a mainboard IPO announced days
+    # earlier was invisible to the pipeline until it was almost too late to
+    # cover. ipoji carries them while they are still upcoming: nine were on
+    # its board and untracked here, three of them mainboard, one already
+    # quoting a premium.
+    #
+    # Opt-in because this board also carries SME issues the channel may not
+    # want, and a scaffolded row costs an enrich budget to fill.
+    if getattr(args, "discover", False) and not args.slug:
+        from .providers.scrape import slugify
+        wanted = [r for r in unmatched
+                  if not args.mainboard_only or r.get("board") == "mainboard"]
+        for row in wanted:
+            slug = slugify(row["name"].replace("&amp;", "&"))
+            if not slug or slug in set(store.list_slugs()):
+                continue
+            if args.write:
+                store.scaffold(slug, overwrite=True)
+                ipo = store.load(slug)
+                ipo.company = row["name"].replace("&amp;", "&")
+                ipo.board = "SME" if row.get("board") == "sme" else "Mainboard"
+                store.save(ipo)
+                print(f"  + discovered {slug} ({ipo.company}) [{ipo.board}]")
+            else:
+                print(f"  · would discover {slug} ({row['name']})")
+        if wanted and not args.write:
+            print(f"  ({len(wanted)} discoverable — re-run with --write)")
+        if args.write and wanted:
+            # Reload so the new rows take part in the GMP pass below.
+            ipos = store.load_all()
+            slugs = [i.slug for i in ipos]
+            companies = {i.slug: (i.company or "") for i in ipos}
+            by_slug = {i.slug: i for i in ipos}
+            for row in rows:
+                s = ipoji.match_slug(row["name"], row.get("url") or "", slugs, companies)
+                if s:
+                    matched[s] = row
 
     today = date.today().isoformat()
     wrote = filled = clashed = 0
@@ -1566,6 +1609,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--history", action="store_true",
                     help="also walk each IPO's dated page and backfill missing days")
     sp.add_argument("--write", action="store_true", help="save what was found")
+    sp.add_argument("--discover", action="store_true",
+                    help="also add IPOs on ipoji's board that we do not track "
+                         "yet — NSE only lists them once they are about to open")
+    sp.add_argument("--mainboard-only", action="store_true",
+                    help="with --discover, skip SME issues")
     sp.set_defaults(func=cmd_gmp_sync)
 
     sp = sub.add_parser("enrich", help="fill whatever each IPO is still missing "

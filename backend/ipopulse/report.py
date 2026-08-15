@@ -369,7 +369,7 @@ def _sheet_gaps(wb: Workbook, ipos: list[Ipo]) -> None:
     note = ws.cell(row=len(CHECKS) + 6, column=1,
                    value="Financials are not published as data anywhere free — "
                          "they are in the RHP PDF. Type them into "
-                         "frontend/data/ipo-pulse.xlsx, then run: ipopulse build")
+                         "the Google Sheet, then run: ipopulse build")
     note.alignment = Alignment(vertical="center")
     ws.freeze_panes = "D4"
     _autosize(ws)
