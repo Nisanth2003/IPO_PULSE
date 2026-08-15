@@ -54,11 +54,14 @@ function studio() {
      * the same jobs the cron already runs. */
     gh: { open: false, token: '', draft: '', owner: '', repo: '',
           msg: '', ok: false, runs: [] },
+    /* Must match control.CHAINS. The `push` steps these used to name were
+       removed with the local store — the sheet IS the store now, so there is
+       nothing left to push it to. */
     GH_JOBS: [
-      { id: 'daily',  label: 'Daily chain',   detail: 'sync → enrich → doctor → build → push' },
-      { id: 'grey',   label: 'GMP chain',     detail: 'refresh GMP → push to the GMP tab' },
-      { id: 'enrich', label: 'Fill gaps',     detail: 'research + RHP + analyse + translate' },
-      { id: 'build',  label: 'Check workbook', detail: 'verify every record still renders, no network' },
+      { id: 'daily',  label: 'Daily chain',  detail: 'sync → enrich → doctor → build' },
+      { id: 'grey',   label: 'GMP chain',    detail: 'free keyless GMP, then the model fills gaps' },
+      { id: 'enrich', label: 'Fill gaps',    detail: 'research + RHP + analyse + translate' },
+      { id: 'build',  label: 'Check sheet',  detail: 'verify every record still renders' },
     ],
 
     REELS, PRESETS, REGISTRARS, RING,

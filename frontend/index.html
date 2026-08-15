@@ -118,6 +118,15 @@
             title="Run a job on GitHub Actions">⚡ Run job</button>
   </div>
 
+</header>
+
+<!-- Deliberately OUTSIDE <header>. The header carries `backdrop-blur`, and a
+     backdrop-filter makes an element the containing block for its
+     position:fixed descendants — so this overlay sized itself to the 141px
+     header instead of the viewport, and centred its panel 91px ABOVE the top
+     of the screen. The title and the close button were simply off-screen,
+     which read as "the Run job button does nothing". It must stay a child of
+     the x-data root: outside the header for layout, inside it for state. -->
   <!-- ══════════ REMOTE TRIGGER (published site) ══════════ -->
   <div x-show="gh.open" x-cloak @keydown.escape.window="gh.open=false"
        class="fixed inset-0 z-50 grid place-items-center p-4"
@@ -206,7 +215,6 @@
       </button>
     </template>
   </div>
-</header>
 
 <div class="flex-1 flex min-h-0">
 
