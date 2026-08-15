@@ -884,7 +884,7 @@ def cmd_refresh(args) -> int:
               f"{', '.join(sorted(set(flagged)))}")
         print("  Check the source pages and enter those by hand.")
     publish(store.load_all())
-    print(f"Published -> {store.FRONTEND_DATA}")
+    print("Saved to the sheet — the site shows it on the next reload.")
     return 0
 
 
@@ -1025,7 +1025,7 @@ def cmd_gmp_sync(args) -> int:
               f"on file; left alone.")
     if args.write and wrote:
         publish(store.load_all())
-        print(f"Published -> {store.FRONTEND_DATA}")
+        print("Saved to the sheet — the site shows it on the next reload.")
     return 0
 
 
@@ -1169,7 +1169,7 @@ def cmd_enrich(args) -> int:
         # shares from PAT/EPS, a total from its parts — then republish.
         main(["doctor", "--fix"])
         publish(store.load_all())
-        print(f"Published -> {store.FRONTEND_DATA}")
+        print("Saved to the sheet — the site shows it on the next reload.")
     return 0
 
 
@@ -1246,7 +1246,7 @@ def cmd_doctor(args) -> int:
         print(f"Repaired {fixed_total} field(s) across {len(ipos)} IPO(s).")
         if fixed_total:
             publish(store.load_all())
-            print(f"Republished -> {store.FRONTEND_DATA}")
+            print("Saved to the sheet — the site shows it on the next reload.")
     else:
         print(f"{total_blank} field(s) would render a scene blank or as a "
               f"confident zero.")

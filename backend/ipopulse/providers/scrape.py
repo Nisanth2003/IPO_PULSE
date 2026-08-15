@@ -491,8 +491,22 @@ class NseProvider:
         # Before bidding opens, every category reads zero or null — which is
         # indistinguishable from "nobody has bid yet". Report nothing rather
         # than writing a row of zeros over a real figure.
+        when = None
         if not row or not any(row.values()):
-            return []
+            # ...but "no categories" does not always mean "no bids". SME
+            # issues leave activeCat and bidDetails empty for the whole
+            # window and publish the figure in demandGraph instead, so two
+            # open SME issues sat at "no subscription data" for days while
+            # NSE was reporting 11.23x and 0.42x for them.
+            #
+            # Only the total is available here — the category split genuinely
+            # is not — so qib/nii/retail stay absent rather than zeroed, and
+            # the subscription scene drops those bars instead of drawing them
+            # at zero.
+            total, when = self._demand_total(detail)
+            if total is None:
+                return []
+            row = {"total": total}
 
         opened = closed = None
         for rec in self.fetch_catalogue():
@@ -501,7 +515,40 @@ class NseProvider:
                 opened, closed = dates.get("open"), dates.get("close")
                 break
 
-        stamped, day = _bidding_day(opened, closed, date.today())
+        # Prefer NSE's own timestamp over today's date. The demandGraph
+        # figure can be Friday's close read on a Saturday, and filing it
+        # under Saturday would invent a bidding day that never happened.
+        stamped, day = _bidding_day(opened, closed, when or date.today())
         row["day"] = day
         row["date"] = stamped
         return [row]
+
+    @staticmethod
+    def _demand_total(detail: dict) -> tuple[float | None, date | None]:
+        """(times subscribed, as-of date) from the demand graph, or (None, None).
+
+        Cross-checked against TOTAL_BIDS / totalIssueSize where both are
+        present: NSE states the multiple and the two counts it comes from, so
+        a disagreement means the field was misread and the value is dropped
+        rather than published.
+        """
+        graph = detail.get("demandGraph") or detail.get("demandGraphALL") or {}
+        raw = str(graph.get("noOfTimesIssueSubscribed") or "").strip()
+        if not re.match(r"^\d+(\.\d+)?$", raw):
+            return None, None
+        total = float(raw)
+
+        bids, size = _int(str(graph.get("TOTAL_BIDS") or "")), \
+                     _int(str(graph.get("totalIssueSize") or ""))
+        if bids and size and abs(bids / size - total) > 0.05:
+            return None, None
+
+        when = None
+        for row in (_rows(detail.get("demandDataNSE"))
+                    or _rows(detail.get("demandDataBSE"))):
+            stamp = str(row.get("timestamp") or "")[:11]
+            when = _date(stamp)
+            if when:
+                when = date.fromisoformat(when)
+                break
+        return total, when
