@@ -19,7 +19,7 @@ on:
   schedule:
     - cron: '30 4 * * *'      # 10:00 IST daily   — bidding opens; the day's first read
     - cron: '5 13 * * *'      # 18:35 IST daily   — after close; the settled figures
-    - cron: '30 15 * * *'     # 21:00 IST daily   — GMP, after the grey market settles
+    - cron: '30 15 * * *'     # 21:00 IST daily   — GMP once the grey market settles, then the full chain
     - cron: '30 21 * * 6'     # 03:00 IST Sunday  — translate
     - cron: '30 22 * * 6'     # 04:00 IST Sunday  — Excel report
   workflow_dispatch:
@@ -32,9 +32,10 @@ on:
 permissions:
   contents: read              # nothing is committed any more — see the end
 
-# Never let a 16:30 run overlap a slow 13:00 one. It matters more than it did:
-# a whole-tab rewrite has no lock behind it, so two runs would be last-write-
-# wins over the entire sheet.
+# Never let the 21:00 run overlap a slow 18:35 one — it is the longest of the
+# three, since it does GMP and then the full chain. This matters more than it
+# did: a whole-tab rewrite has no lock behind it, so two runs would be
+# last-write-wins over the entire sheet.
 concurrency:
   group: ipopulse-data
   cancel-in-progress: false
@@ -86,11 +87,13 @@ jobs:
         shell: bash
         run: |
           case "${{ github.event.schedule }}" in
-            '30 15 * * *')  JOBS=grey ;;
+            # GMP first, then the full chain — so `build` runs last and
+            # verifies everything the night's run wrote, GMP included.
+            '30 15 * * *')  JOBS='grey daily' ;;
             '30 21 * * 6')  JOBS=translate ;;
             '30 22 * * 6')  JOBS=report ;;
             '')             JOBS='${{ inputs.jobs }}' ;;   # manual dispatch
-            *)              JOBS=daily ;;                  # the three data pulls
+            *)              JOBS=daily ;;                  # 10:00 and 18:35
           esac
           JOBS="${JOBS:-daily}"
 

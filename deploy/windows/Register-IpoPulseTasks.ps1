@@ -41,7 +41,7 @@ $Backend = Join-Path $Repo 'backend'
 # Indian IPO bidding runs 10:00-17:00 IST. Subscription is a running total
 # that only moves inside that window, so a single evening pull would miss the
 # whole intraday story - hence three triggers on the daily chain rather than
-# one. Chained jobs (daily = sync,enrich,doctor,build,push) run as ONE task so a
+# one. Chained jobs (daily = sync,enrich,doctor,build) run as ONE task so a
 # later step cannot start before the earlier one has exited 0; two tasks a
 # fixed 15 minutes apart is a race on a slow NSE day.
 $Jobs = @(
@@ -52,7 +52,12 @@ $Jobs = @(
            @{ Kind = 'Daily'; At = '18:35' }
        ) },
     @{ Name = 'grey'
-       Why  = 'free keyless GMP, then the model fills gaps. 21:00 - the grey market settles later than the exchange.'
+       # `Run` overrides the command when it should differ from the task name.
+       # The 21:00 slot does GMP and THEN the full chain, so `build` runs last
+       # and verifies everything the night wrote, GMP included. Renaming the
+       # task to match would orphan the one already registered on this machine.
+       Run  = 'grey daily'
+       Why  = 'GMP once the grey market settles, then the full chain. 21:00.'
        Triggers = @( @{ Kind = 'Daily'; At = '21:00' } ) },
     @{ Name = 'translate'
        Why  = 'Cached 30 days; only changes when the prose does.'
@@ -63,6 +68,7 @@ $Jobs = @(
 )
 
 function Get-TaskName($job) { "IPO Pulse - $($job.Name)" }
+function Get-JobArgs($job) { if ($job.Run) { $job.Run } else { $job.Name } }
 
 # Sweep the whole folder rather than only the names in $Jobs. Renaming or
 # regrouping a job would otherwise orphan its old task, which keeps firing
@@ -137,7 +143,7 @@ foreach ($job in $Jobs) {
     $name = Get-TaskName $job
 
     $action = New-ScheduledTaskAction -Execute $Runner `
-        -Argument "-m ipopulse.cli job $($job.Name)" -WorkingDirectory $Backend
+        -Argument "-m ipopulse.cli job $(Get-JobArgs $job)" -WorkingDirectory $Backend
 
     # A task may carry several triggers; that is how the daily chain gets its
     # three runs without registering three separate tasks that could overlap.
@@ -166,7 +172,7 @@ foreach ($job in $Jobs) {
 
     Register-ScheduledTask -TaskName $name -TaskPath "$FolderName\" `
         -Action $action -Trigger $triggers -Principal $principal -Settings $settings `
-        -Description "$($job.Why)  [ipopulse job $($job.Name)]" | Out-Null
+        -Description "$($job.Why)  [ipopulse job $(Get-JobArgs $job)]" | Out-Null
 
     Write-Host ("registered  {0,-26} {1}" -f $name, ($labels -join ' | '))
 }
