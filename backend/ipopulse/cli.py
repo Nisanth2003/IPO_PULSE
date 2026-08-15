@@ -1096,13 +1096,23 @@ def enrich_plan(ipo: Ipo) -> list[tuple[str, list[str], int]]:
         steps.append(("financials from the RHP",
                       ["rhp", ipo.slug, "--write"], 1))
 
-    if not a.overview or not (a.green_flags or a.red_flags):
+    # An IPO can be known by name and nothing else: ipoji carries mainboard
+    # issues days before NSE or Groww publish any terms, so discovery adds a
+    # row whose price band, dates and financials are all still empty.
+    #
+    # `analyse` on that returns an empty draft — correctly, since it may not
+    # invent facts — but it costs a call to find out, then marks the step
+    # attempted and blocks a retry for a week. On a free tier metered by
+    # requests per day, spending one to learn there is nothing to say is the
+    # wrong trade. Wait until the issue has terms.
+    has_facts = bool(ipo.issue.price_high or f.revenue or ipo.dates.open)
+    if has_facts and (not a.overview or not (a.green_flags or a.red_flags)):
         steps.append(("analysis draft",
                       ["analyse", ipo.slug, "--write", "--no-translate"], 1))
 
     # Translation is two calls (hi + te) and only makes sense once there is
     # prose to translate — which the step above may have just created.
-    if not ipo.i18n.get("hi") or not ipo.i18n.get("te"):
+    if a.overview and (not ipo.i18n.get("hi") or not ipo.i18n.get("te")):
         steps.append(("hi / te translation", ["translate", ipo.slug], 2))
 
     return steps
