@@ -156,10 +156,19 @@
               create a <b>fine-grained</b> token.</li>
             <li>Repository access: <b>only</b> <span class="font-mono" x-text="gh.repo"></span>.</li>
             <li>Permissions: <b>Actions → Read and write</b>. Nothing else.</li>
-            <li>Paste it below. It is stored only in this browser
+            <li>Paste it below — it starts <span class="font-mono">github_pat_</span>.
+              It is stored only in this browser
               (<span class="font-mono">localStorage</span>), is never sent anywhere
               except api.github.com, and is never committed to the repo.</li>
           </ol>
+          <!-- The two credentials in this project are easy to mix up: both are
+               "the password that runs jobs". GitHub answers the wrong one with
+               a bare 401 that names neither. -->
+          <div class="text-2xs text-amber-100/70 mt-2 pt-2 border-t border-amber-300/20">
+            Not your <span class="font-mono">IPOPULSE_TRIGGER_PASSWORD</span> —
+            that one unlocks the local <span class="font-mono">/trigger</span>
+            page and means nothing to GitHub.
+          </div>
         </div>
       </template>
 

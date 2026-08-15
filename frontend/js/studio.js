@@ -109,9 +109,26 @@ function studio() {
       this.gh.repo = seg || host || '';
       try { this.gh.token = localStorage.getItem('ipoPulse.ghToken') || ''; } catch (e) {}
     },
+    /* Every GitHub token prefix. Checked because the field sits next to a
+       panel about running jobs, and the other credential in this project —
+       IPOPULSE_TRIGGER_PASSWORD — is also "the password that runs jobs".
+       Pasting that gets a bare "401 Bad credentials" from GitHub, which does
+       not hint that the wrong secret was used at all. Rejected before it is
+       stored, rather than saved and failing later on every click. */
+    _looksLikeGhToken(t) {
+      return /^(github_pat_|ghp_|gho_|ghu_|ghs_|ghr_)/.test(t);
+    },
     saveToken() {
       const t = (this.gh.draft || '').trim();
       if (!t) return;
+      if (!this._looksLikeGhToken(t)) {
+        this.gh.ok = false;
+        this.gh.msg = 'That is not a GitHub token. It must start with '
+          + '"github_pat_". This is NOT your IPOPULSE_TRIGGER_PASSWORD — that '
+          + 'one only unlocks the local /trigger page. Create a token at '
+          + 'github.com/settings/personal-access-tokens.';
+        return;
+      }
       this.gh.token = t; this.gh.draft = '';
       try { localStorage.setItem('ipoPulse.ghToken', t); } catch (e) {}
       this.gh.ok = true; this.gh.msg = 'Token saved in this browser.';
@@ -144,7 +161,19 @@ function studio() {
           // 401 means the token, 404 usually means the workflow file name.
           const body = await r.json().catch(() => ({}));
           this.gh.ok = false;
-          this.gh.msg = `GitHub said ${r.status}: ${body.message || 'request refused'}`;
+          const hint = r.status === 401
+            ? ' — the saved token is wrong or expired. It must be a GitHub '
+              + 'token starting "github_pat_", not IPOPULSE_TRIGGER_PASSWORD. '
+              + 'Press Forget and paste a new one.'
+            : r.status === 403
+              ? ' — the token is valid but lacks Actions → Read and write on '
+                + 'this repository.'
+              : r.status === 404
+                ? ' — check the token can see this repo, and that '
+                  + 'schedule.yml still exists on main.'
+                : '';
+          this.gh.msg = `GitHub said ${r.status}: `
+            + `${body.message || 'request refused'}${hint}`;
         }
       } catch (err) {
         this.gh.ok = false;
