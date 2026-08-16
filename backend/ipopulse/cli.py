@@ -969,6 +969,23 @@ def cmd_analyse(args) -> int:
 SUPERSEDABLE = {"ipoji", "gemini", "investorgain", "research", ""}
 
 
+def _reachable(url: str) -> bool:
+    """Does this page answer? Used before replacing a link a viewer clicks.
+
+    A dead registrar link is worse than a stale one, and the incoming URL is
+    not always better: InvestorGain lists Purva Sharegistry's allotment page
+    at an address that 404s. Anything other than a clean answer keeps what we
+    already have.
+    """
+    try:
+        import requests
+        return requests.get(
+            url, timeout=10, allow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0"}).status_code == 200
+    except Exception:
+        return False
+
+
 def _gmp_source(preferred: str = "auto"):
     """The GMP desk to read, and the module that reads it.
 
@@ -1195,62 +1212,143 @@ def cmd_gmp_sync(args) -> int:
     # of NSE and false of this source — day 1 is still readable on day 3 — so
     # the gaps it calls permanent are only permanent against the old feed.
     # Gap-fill on `day`, same rule as the premium: a figure already on file
-    # was taken live and stays.
-    subs_filled = 0
+    # was taken live and stays — unless --reconcile, which also corrects the
+    # days already there.
+    #
+    # Correcting them matters more than it looks. NSE reports a running total
+    # *during* the day and the job reads it at whatever hour it happened to
+    # run, so the stored figure is a mid-afternoon snapshot rather than the
+    # close: Behari Lal's final day was filed at 108.44x against a settled
+    # 118.07x, and Shiprocket at 99.38x against 102.28x. The headline number
+    # on reel 3 was wrong on almost every closed issue.
+    subs_filled = subs_fixed = 0
     if hasattr(src, "subscription"):
         for slug, row in sorted(matched.items()):
             rows_in = src.subscription(row["url"])
             if not rows_in:
                 continue
-            have = {s.day for s in by_slug[slug].subscription}
+            have = {s.day: s for s in by_slug[slug].subscription}
             new = [r for r in rows_in if r["day"] not in have]
-            if not new:
+            fixed = []
+            if getattr(args, "reconcile", False):
+                for r in rows_in:
+                    old = have.get(r["day"])
+                    if old and abs((old.total or 0) - r["total"]) > 0.005:
+                        fixed.append(r)
+            if not new and not fixed:
                 continue
             subs_filled += len(new)
-            days = ", ".join(f"day {r['day']}={r['total']:g}x" for r in new)
-            print(f"  {'+' if args.write else '·'} {slug:<32}   {days}")
+            subs_fixed += len(fixed)
+            shown = [f"day {r['day']}={r['total']:g}x" for r in new]
+            shown += [f"day {r['day']} {have[r['day']].total:g}→{r['total']:g}x"
+                      for r in fixed]
+            print(f"  {'+' if args.write else '·'} {slug:<32}   "
+                  f"{', '.join(shown)}")
             if args.write:
                 raw = store.load(slug).to_dict()
                 raw["subscription"] = merge_series(
-                    raw.get("subscription", []), new, key="day")
+                    raw.get("subscription", []), new + fixed, key="day")
                 store.save(Ipo.from_dict(raw))
 
-    # Registrar and the T+3 calendar, from the allotment endpoint on the same
-    # board. `doctor` can derive these dates from the close date, but derived
-    # is a guess and this is the registrar's own published timetable — and
-    # filling them here is a Gemini call `enrich` no longer has to spend.
-    terms_filled = 0
+    # The issue itself: band, size, calendar, registrar, board, sector.
+    #
+    # `doctor` can derive the T+3 dates from the close date, but derived is a
+    # guess and this is the registrar's own published timetable. Filling them
+    # here is also a Gemini call `enrich` no longer has to spend.
+    #
+    # Under --reconcile this corrects what is already there, which is how a
+    # revised issue gets picked up at all: Fascinate Textiles was
+    # undersubscribed, had its window extended to 19 Aug and its band cut to
+    # ₹151, and the sheet still said closed on the 13th at ₹156 — so the card
+    # was showing "allotment" for an issue still taking bids.
+    terms_filled = terms_fixed = 0
+    redo_terms = getattr(args, "reconcile", False)
     if hasattr(src, "allotment"):
         for slug, row in sorted(matched.items()):
             ipo = by_slug[slug]
             info = src.allotment(row["url"])
-            if not info:
+            want: dict[str, Any] = {}
+            dates: dict[str, Any] = {}
+            fixed: list[str] = []
+
+            def offer(bucket: dict, key: str, new: Any, current: Any) -> None:
+                """Take `new` when the field is blank, or when reconciling."""
+                if new in (None, "", [], 0):
+                    return
+                blank = current in (None, "", [], 0, 0.0)
+                if blank:
+                    bucket[key] = new
+                elif redo_terms and str(current) != str(new):
+                    bucket[key] = new
+                    fixed.append(key)
+
+            offer(want, "registrar", info.get("registrar"), ipo.issue.registrar)
+            offer(want, "price_high", src.band_high(row), ipo.issue.price_high)
+            offer(want, "total_cr", info.get("total_cr") or row.get("issue_size_cr"),
+                  ipo.issue.total_cr)
+            for key in ("allotment", "listing"):
+                offer(dates, key, info.get(key), getattr(ipo.dates, key, None))
+            for key in ("open", "close"):
+                offer(dates, key, row.get(key), getattr(ipo.dates, key, None))
+
+            # The registrar's allotment page is a link a viewer clicks, so a
+            # replacement has to be reachable before it is worth having.
+            # InvestorGain lists Purva Sharegistry's as a URL that 404s, and
+            # both KFin variants are live — so ours is only displaced by one
+            # that actually answers.
+            new_url = info.get("registrar_url")
+            if new_url and new_url != ipo.issue.registrar_url:
+                if not ipo.issue.registrar_url or (redo_terms and _reachable(new_url)):
+                    offer(want, "registrar_url", new_url, ipo.issue.registrar_url)
+
+            # Board only from the live board. A catalogue row carries no
+            # category at all, and treating that absence as "Mainboard" would
+            # have relabelled Optimystix, an SME issue.
+            board_new = None
+            if row.get("board"):
+                theirs = "SME" if row["board"] == "sme" else "Mainboard"
+                if redo_terms and ipo.board != theirs:
+                    board_new = theirs
+                    fixed.append("board")
+
+            # Sector is filled, never overwritten. Theirs is a taxonomy label
+            # and ours is a description: "Other Consumer Services" is what
+            # they call a maker of temperature sensors, and "Other Food
+            # Products" a dairy. As reel 1's subtitle the description wins.
+            sector_new = (row.get("sector")
+                          if row.get("sector") and not ipo.sector else None)
+
+            n = len(want) + len(dates) + bool(board_new) + bool(sector_new)
+            if not n:
                 continue
-            want = {}
-            if info.get("registrar") and not ipo.issue.registrar:
-                want["registrar"] = info["registrar"]
-            if info.get("registrar_url") and not ipo.issue.registrar_url:
-                want["registrar_url"] = info["registrar_url"]
-            dates = {k: info[k] for k in ("allotment", "listing")
-                     if info.get(k) and not getattr(ipo.dates, k, None)}
-            if not want and not dates:
-                continue
-            terms_filled += len(want) + len(dates)
-            shown = ", ".join(list(want) + list(dates))
+            terms_filled += n - len(fixed)
+            terms_fixed += len(fixed)
+            shown = ", ".join(
+                [f"{k}→{v}" if k in fixed else k for k, v in
+                 list(want.items()) + list(dates.items())]
+                + ([f"board→{board_new}"] if board_new else [])
+                + (["sector"] if sector_new else []))
             print(f"  {'+' if args.write else '·'} {slug:<32}   {shown}")
             if args.write:
                 raw = store.load(slug).to_dict()
                 raw.setdefault("issue", {}).update(want)
                 raw.setdefault("dates", {}).update(dates)
+                if board_new:
+                    raw["board"] = board_new
+                if sector_new:
+                    raw["sector"] = sector_new
                 store.save(Ipo.from_dict(raw))
 
     print()
     if subs_filled:
         print(f"{subs_filled} bidding day(s) "
               f"{'written' if args.write else 'found'}.")
+    if subs_fixed:
+        print(f"{subs_fixed} bidding day(s) corrected to the settled figure.")
     if terms_filled:
-        print(f"{terms_filled} registrar/date field(s) "
-              f"{'written' if args.write else 'found'}.")
+        print(f"{terms_filled} issue field(s) filled.")
+    if terms_fixed:
+        print(f"{terms_fixed} issue field(s) corrected.")
     if redone:
         print(f"{redone} day(s) rewritten to {src_name}'s figure "
               f"{'' if args.write else '(dry run) '}— hand-typed days untouched.")
