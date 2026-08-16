@@ -58,23 +58,32 @@ JOBS: dict[str, dict[str, Any]] = {
         "schedule": "part of daily",
     },
     "gmp-sync": {
-        "label": "GMP from ipoji",
-        "detail": "Free, keyless, no AI. Today's board plus any missing days "
-                  "from each IPO's dated page, and any mainboard IPO on that "
-                  "board we do not track yet. Fills gaps, never overwrites.",
+        "label": "GMP from InvestorGain",
+        "detail": "Free, keyless, no AI. The dated GMP table for every IPO on "
+                  "InvestorGain's board — the desk this channel quotes — plus "
+                  "any mainboard IPO there we do not track yet. ipoji answers "
+                  "only if InvestorGain's board is unreachable. Fills gaps, "
+                  "never overwrites.",
         # --discover because NSE, the other catalogue, lists an issue only
         # once it is about to open. Three mainboard IPOs sat on ipoji's board
         # untracked — one already quoting a premium — because nothing here
         # looked at that list for names rather than numbers.
         # --mainboard-only: the same board carries SME issues the channel
         # does not cover, and each scaffolded row costs enrich budget.
-        "argv": ["gmp-sync", "--history", "--write",
+        # --reconcile keeps the trail one desk's quote for good. Without it
+        # the chart drifts back into a blend the moment any other source
+        # writes a day, and a change of source reads as a change of price.
+        # Hand-typed days are exempt, so a correction still sticks.
+        "argv": ["gmp-sync", "--history", "--write", "--reconcile",
                  "--discover", "--mainboard-only"],
         "schedule": "part of grey",
     },
     "gmp": {
-        "label": "Refresh GMP",
-        "detail": "Grey-market premium via Gemini grounded search. Needs billing enabled.",
+        "label": "Refresh GMP (model)",
+        "detail": "Grey-market premium via Gemini grounded search, for the "
+                  "few IPOs InvestorGain does not carry. Skips anything a "
+                  "free source already priced today, so it costs nothing on "
+                  "a normal night.",
         "argv": ["refresh"],
         "schedule": "part of grey",
     },
@@ -150,7 +159,7 @@ CHAINS = {
     "daily": ["sync", "enrich", "doctor", "build"],
     # gmp-sync runs BEFORE the model-based refresh: it is free, keyless and
     # deterministic, so anything it can supply should not cost a Gemini call
-    # or need vetting. `gmp` then fills only what ipoji did not cover.
+    # or need vetting. `gmp` then fills only what InvestorGain did not cover.
     "grey": ["gmp-sync", "gmp"],
 }
 

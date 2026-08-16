@@ -438,7 +438,7 @@ backend/
     tables.py       the tab layout, shared with the browser's reader
     workbook.py     local .xlsx snapshots, for backups only
     store.py        load/save on top of it
-    providers/      NSE, ipoji, RHP, sheets
+    providers/      NSE, InvestorGain, ipoji, RHP, sheets
     ai.py           Gemini + on-disk cache
     report.py       the formatted, human-readable Excel report
     publish.py      verifies every record still renders

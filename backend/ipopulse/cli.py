@@ -6,7 +6,8 @@
     ipopulse push [slug]             write IPOs / GMP rows into a Google Sheet
     ipopulse sources <slug>          pin the exact pages to read for this IPO
     ipopulse research <slug>         Gemini web lookup, with citations
-    ipopulse refresh                 daily: re-read GMP for every live IPO, publish
+    ipopulse gmp-sync                GMP + subscription from InvestorGain, keyless
+    ipopulse refresh                 model fallback for what InvestorGain lacks
     ipopulse gmp <slug> 46           log today's GMP (defaults to today)
     ipopulse sub <slug> 2 --qib 12.4 --nii 24.9 --retail 9.2 --total 14.6
     ipopulse translate [slug]        Gemini -> hi/te, cached, written to YAML
@@ -832,12 +833,32 @@ def cmd_refresh(args) -> int:
         return 1
 
     slugs = [args.slug] if args.slug else store.list_slugs()
+    today = date.today().isoformat()
     flagged: list[str] = []
+    covered = 0
     for slug in slugs:
         ipo = store.load(slug)
         status = derive(ipo)["dates"]["status"]
         if status in ("listed",) and not args.all:
             continue                       # nothing left to track
+
+        # The free desk already answered for today — don't pay for the same
+        # number twice, and don't let a model's reading overwrite it.
+        #
+        # This is what the `grey` chain always claimed to do ("gmp then fills
+        # only what the free source did not cover") and never did: this loop
+        # had no such check, and `merge_series` is last-writer-wins per date,
+        # so every night the model re-read pages InvestorGain had already
+        # priced and replaced its figures with its own. Molbio on 16 Aug was
+        # written 128 by the free source and then overwritten 130.
+        if not args.all and any(
+            p.date and p.date.isoformat() == today
+            and (p.source or "manual") in SUPERSEDABLE
+            for p in ipo.gmp_history
+        ):
+            covered += 1
+            continue
+
         print(f"\n── {ipo.company or slug} ({status})")
         try:
             points = provider.fetch_gmp(slug, company=ipo.company,
@@ -882,6 +903,9 @@ def cmd_refresh(args) -> int:
                     store.save(Ipo.from_dict(raw))
 
     print()
+    if covered:
+        print(f"{covered} IPO(s) skipped — already priced today by a free "
+              f"source. Use --all to re-read them anyway.")
     if flagged:
         print(f"⚠ {len(set(flagged))} IPO(s) flagged and NOT written: "
               f"{', '.join(sorted(set(flagged)))}")
@@ -939,26 +963,75 @@ def cmd_analyse(args) -> int:
     return 0
 
 
+# Which `source` labels on a stored GMP row may be superseded by a better
+# desk. Everything absent from this set — "manual" above all — is somebody's
+# deliberate correction and is never rewritten by a machine.
+SUPERSEDABLE = {"ipoji", "gemini", "investorgain", "research", ""}
+
+
+def _gmp_source(preferred: str = "auto"):
+    """The GMP desk to read, and the module that reads it.
+
+    InvestorGain is the desk this channel actually quotes, so it answers
+    first; ipoji stays wired in behind it for the one case InvestorGain
+    cannot cover, which is being unreachable. The fallback is on the *board*
+    being empty rather than on any single IPO missing, because a desk that
+    answers at all is a desk whose silence about one issue is information.
+
+    Returns (module, name). Falls through to ipoji only from "auto".
+    """
+    from .providers import investorgain, ipoji
+
+    if preferred == "ipoji":
+        return ipoji, "ipoji"
+    rows = investorgain.board()
+    if rows:
+        return investorgain, "investorgain"
+    if preferred == "investorgain":
+        return investorgain, "investorgain"      # asked for it; report its silence
+    print("  ! investorgain returned no rows — falling back to ipoji.")
+    return ipoji, "ipoji"
+
+
 def cmd_gmp_sync(args) -> int:
-    """Pull GMP from ipoji.com — free, keyless, no model, no vetting needed.
+    """Pull GMP from InvestorGain, with ipoji behind it. Free, keyless, no model.
 
-    This is the source that was missing. Every previous GMP came from a model
-    reading a page, which cost quota, needed vetting, and returned nothing at
-    all once the site started blocking. ipoji serves it server-side with the
-    figures in `data-*` attributes, so the numbers arrive as numbers.
+    Every previous GMP came from a model reading a page, which cost quota,
+    needed vetting, and returned nothing at all once the site started
+    blocking. Both of these serve the figures as numbers over plain HTTP.
 
-    `--history` additionally walks each IPO's dated page, which is what makes
+    The two are not interchangeable and the order is the point. InvestorGain
+    is the desk the channel checks by hand; ipoji is a different dealer
+    network that quotes consistently lower — it had Skyways at 24 on 16 Aug
+    where InvestorGain had 28. Publishing whichever answered first would make
+    the trail on reel 2 a blend of two markets.
+
+    `--history` additionally walks each IPO's dated table, which is what makes
     a missed day recoverable: the days lost to the CI bug in early August were
     written off as gone forever because the old source published only today.
+    InvestorGain carries no premium on its board at all, only the issue, so
+    against that source the history walk is not optional and is turned on for
+    you rather than silently returning nothing.
     """
-    from .providers import ipoji
+    src, src_name = _gmp_source(getattr(args, "source", "auto"))
 
-    rows = ipoji.board()
+    # Rewriting stored readings is the one thing in this command that can lose
+    # something. Take the snapshot before the first write, not after.
+    if getattr(args, "reconcile", False) and args.write:
+        snap = store.backup()
+        print(f"snapshot: {snap}" if snap else "snapshot: nothing to back up")
+
+    rows = src.board()
     if not rows:
-        print("ipoji returned no rows — the board markup may have changed, "
-              "or the site is unreachable.")
+        print(f"{src_name} returned no rows — the site may be unreachable, "
+              "or the markup may have changed.")
         return 1
-    print(f"ipoji board: {len(rows)} IPO(s)")
+    print(f"{src_name} board: {len(rows)} IPO(s)")
+
+    # InvestorGain's board carries no GMP, only the issue. Walking the dated
+    # table is the only way to get a number out of it, so asking for the board
+    # alone would look like a working run that found nothing.
+    walk_history = getattr(args, "history", False) or src_name == "investorgain"
 
     ipos = [store.load(args.slug)] if args.slug else store.load_all()
     slugs = [i.slug for i in ipos]
@@ -967,23 +1040,23 @@ def cmd_gmp_sync(args) -> int:
 
     matched: dict[str, dict] = {}
     for row in rows:
-        slug = ipoji.match_slug(row["name"], row.get("url") or "", slugs, companies)
+        slug = src.match_slug(row["name"], row.get("url") or "", slugs, companies)
         if slug:
             matched[slug] = row
     seen = {matched[s]["name"] for s in matched}
     unmatched = [r for r in rows if r["name"] not in seen]
     print(f"matched {len(matched)} of ours; "
-          f"unmatched on ipoji: "
+          f"unmatched on {src_name}: "
           f"{', '.join(r['name'] for r in unmatched)[:90] or 'none'}")
 
-    # Discovery from ipoji, not just NSE.
+    # Discovery from the GMP board, not just NSE.
     #
     # `sync --discover` reads NSE's catalogue, and NSE lists an issue only
     # once it is at or near opening — so a mainboard IPO announced days
     # earlier was invisible to the pipeline until it was almost too late to
-    # cover. ipoji carries them while they are still upcoming: nine were on
-    # its board and untracked here, three of them mainboard, one already
-    # quoting a premium.
+    # cover. These boards carry them while they are still upcoming: nine were
+    # on ipoji's board and untracked here, three of them mainboard, one
+    # already quoting a premium.
     #
     # Opt-in because this board also carries SME issues the channel may not
     # want, and a scaffolded row costs an enrich budget to fill.
@@ -1013,21 +1086,39 @@ def cmd_gmp_sync(args) -> int:
             companies = {i.slug: (i.company or "") for i in ipos}
             by_slug = {i.slug: i for i in ipos}
             for row in rows:
-                s = ipoji.match_slug(row["name"], row.get("url") or "", slugs, companies)
+                s = src.match_slug(row["name"], row.get("url") or "", slugs, companies)
                 if s:
                     matched[s] = row
 
+    # The board only carries what is live, and an issue drops off it the day
+    # it lists — which is exactly when its trail is most worth completing.
+    # The catalogue keeps every IPO the site has ever listed addressable by
+    # id, so anything of ours the board missed gets one lookup here.
+    if hasattr(src, "resolve"):
+        for slug in slugs:
+            if slug in matched:
+                continue
+            found = src.resolve(slug, companies.get(slug, ""))
+            if found:
+                matched[slug] = found
+                print(f"  · {slug}: off the board, resolved to "
+                      f"{src_name} id {found['id']}")
+
     today = date.today().isoformat()
-    wrote = filled = clashed = 0
+    wrote = filled = clashed = redone = 0
     for slug, row in sorted(matched.items()):
         ipo = by_slug[slug]
         have = {p.date.isoformat(): p.gmp for p in ipo.gmp_history if p.date}
+        source_of = {p.date.isoformat(): (p.source or "manual")
+                     for p in ipo.gmp_history if p.date}
         incoming: list[dict] = []
 
-        if row["gmp"] is not None and row.get("has_gmp"):
-            incoming.append({"date": today, "gmp": row["gmp"], "source": "ipoji"})
-        if args.history and row.get("url"):
-            incoming.extend(ipoji.history(row["url"]))
+        # ipoji publishes today's premium on the board itself; InvestorGain
+        # does not, and leaves both keys absent rather than zero.
+        if row.get("gmp") is not None and row.get("has_gmp"):
+            incoming.append({"date": today, "gmp": row["gmp"], "source": src_name})
+        if walk_history and row.get("url"):
+            incoming.extend(src.history(row["url"]))
 
         # Gap-fill only. A reading already on file was taken live on its own
         # day, from whichever desk was quoting then; this page is a different
@@ -1036,13 +1127,48 @@ def cmd_gmp_sync(args) -> int:
         fresh = [p for p in incoming if p["date"] not in have]
         clash = [p for p in incoming
                  if p["date"] in have and abs(have[p["date"]] - p["gmp"]) > 0.01]
-        if clash:
+
+        # --reconcile turns the standing rule off for the days another
+        # *machine* filed. The trail is billed as one desk's quote, and it was
+        # not: ipoji reads consistently lower than InvestorGain, so a chart
+        # mixing them shows movement that is a change of source rather than a
+        # change of price. Hand-typed days are never touched — a human who
+        # typed a figure was correcting this pipeline, not feeding it.
+        if getattr(args, "reconcile", False) and clash:
+            redo = [p for p in clash
+                    if source_of.get(p["date"]) in SUPERSEDABLE]
+            if redo:
+                redone += len(redo)
+                fresh = fresh + redo
+                shown = ", ".join(
+                    f"{p['date'][5:]} {have[p['date']]:g}→{p['gmp']:g}"
+                    for p in sorted(redo, key=lambda x: x["date"])[:5])
+                print(f"  {'~' if args.write else '·'} {slug:<32}"
+                      f"{len(redo):>2} rewritten: {shown}")
+            held = len(clash) - len(redo)
+            if held:
+                print(f"    ({held} hand-typed day(s) left alone)")
+            clashed += held
+        elif clash:
             clashed += len(clash)
 
         if not fresh:
             continue
-        # Same implausibility bound the model-sourced path uses.
+
+        # The upper band rides along in the same GMP response, and without it
+        # the implausibility check below is a no-op — an issue whose band we
+        # do not know is one where every figure looks equally plausible. So
+        # fill it from the source before judging the source's own numbers.
         band = ipo.issue.price_high
+        if not band and hasattr(src, "band_high"):
+            band = src.band_high(row["url"]) or 0.0
+            if band and args.write:
+                raw = store.load(slug).to_dict()
+                raw.setdefault("issue", {})["price_high"] = band
+                store.save(Ipo.from_dict(raw))
+                print(f"  · {slug}: price band high ₹{band:g} from {src_name}")
+
+        # Same implausibility bound the model-sourced path uses.
         sane, wild = [], []
         for p in fresh:
             pct = (p["gmp"] / band * 100) if band else 0
@@ -1062,13 +1188,78 @@ def cmd_gmp_sync(args) -> int:
         days = ", ".join(f"{p['date'][5:]}=₹{p['gmp']:g}" for p in sane[:6])
         print(f"  {'+' if args.write else '·'} {slug:<32}{len(sane):>2} day(s): {days}")
 
+    # Subscription, from the same board, for the same reason.
+    #
+    # `doctor` tells you a missing bidding day "cannot be backfilled: the
+    # exchange publishes today's running total, not an archive". That is true
+    # of NSE and false of this source — day 1 is still readable on day 3 — so
+    # the gaps it calls permanent are only permanent against the old feed.
+    # Gap-fill on `day`, same rule as the premium: a figure already on file
+    # was taken live and stays.
+    subs_filled = 0
+    if hasattr(src, "subscription"):
+        for slug, row in sorted(matched.items()):
+            rows_in = src.subscription(row["url"])
+            if not rows_in:
+                continue
+            have = {s.day for s in by_slug[slug].subscription}
+            new = [r for r in rows_in if r["day"] not in have]
+            if not new:
+                continue
+            subs_filled += len(new)
+            days = ", ".join(f"day {r['day']}={r['total']:g}x" for r in new)
+            print(f"  {'+' if args.write else '·'} {slug:<32}   {days}")
+            if args.write:
+                raw = store.load(slug).to_dict()
+                raw["subscription"] = merge_series(
+                    raw.get("subscription", []), new, key="day")
+                store.save(Ipo.from_dict(raw))
+
+    # Registrar and the T+3 calendar, from the allotment endpoint on the same
+    # board. `doctor` can derive these dates from the close date, but derived
+    # is a guess and this is the registrar's own published timetable — and
+    # filling them here is a Gemini call `enrich` no longer has to spend.
+    terms_filled = 0
+    if hasattr(src, "allotment"):
+        for slug, row in sorted(matched.items()):
+            ipo = by_slug[slug]
+            info = src.allotment(row["url"])
+            if not info:
+                continue
+            want = {}
+            if info.get("registrar") and not ipo.issue.registrar:
+                want["registrar"] = info["registrar"]
+            if info.get("registrar_url") and not ipo.issue.registrar_url:
+                want["registrar_url"] = info["registrar_url"]
+            dates = {k: info[k] for k in ("allotment", "listing")
+                     if info.get(k) and not getattr(ipo.dates, k, None)}
+            if not want and not dates:
+                continue
+            terms_filled += len(want) + len(dates)
+            shown = ", ".join(list(want) + list(dates))
+            print(f"  {'+' if args.write else '·'} {slug:<32}   {shown}")
+            if args.write:
+                raw = store.load(slug).to_dict()
+                raw.setdefault("issue", {}).update(want)
+                raw.setdefault("dates", {}).update(dates)
+                store.save(Ipo.from_dict(raw))
+
     print()
+    if subs_filled:
+        print(f"{subs_filled} bidding day(s) "
+              f"{'written' if args.write else 'found'}.")
+    if terms_filled:
+        print(f"{terms_filled} registrar/date field(s) "
+              f"{'written' if args.write else 'found'}.")
+    if redone:
+        print(f"{redone} day(s) rewritten to {src_name}'s figure "
+              f"{'' if args.write else '(dry run) '}— hand-typed days untouched.")
     print(f"{filled} reading(s) across {wrote} IPO(s) "
           f"{'written' if args.write else 'found (re-run with --write)'}.")
     if clashed:
         # Reported, never silently reconciled — see the module docstring.
-        print(f"{clashed} day(s) where ipoji disagrees with a reading already "
-              f"on file; left alone.")
+        print(f"{clashed} day(s) where {src_name} disagrees with a reading "
+              f"already on file; left alone.")
     if args.write and wrote:
         publish(store.load_all())
         print("Saved to the sheet — the site shows it on the next reload.")
@@ -1614,10 +1805,23 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--clear", action="store_true", help="delete everything")
     sp.set_defaults(func=cmd_cache)
 
-    sp = sub.add_parser("gmp-sync", help="GMP from ipoji.com — free, keyless, no AI")
+    sp = sub.add_parser("gmp-sync",
+                        help="GMP from investorgain.com (ipoji as fallback) — "
+                             "free, keyless, no AI")
     sp.add_argument("slug", nargs="?", help="just this one; default is every IPO")
+    sp.add_argument("--source", choices=("auto", "investorgain", "ipoji"),
+                    default="auto",
+                    help="which desk to read. auto = investorgain, falling back "
+                         "to ipoji only if its board is unreachable")
     sp.add_argument("--history", action="store_true",
-                    help="also walk each IPO's dated page and backfill missing days")
+                    help="also walk each IPO's dated page and backfill missing "
+                         "days (always on for investorgain — its board carries "
+                         "no premium)")
+    sp.add_argument("--reconcile", action="store_true",
+                    help="rewrite days another machine filed (ipoji, gemini) "
+                         "with this desk's figure, so the trail is one source. "
+                         "Hand-typed days are never touched. Snapshots the "
+                         "sheet first.")
     sp.add_argument("--write", action="store_true", help="save what was found")
     sp.add_argument("--discover", action="store_true",
                     help="also add IPOs on ipoji's board that we do not track "
