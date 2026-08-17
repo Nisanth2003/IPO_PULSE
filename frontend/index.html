@@ -68,10 +68,19 @@
 
     <div class="h-6 w-px bg-white/10 mx-1"></div>
 
-    <!-- company selector, straight from the published catalogue -->
-    <select class="inp !w-auto !py-1.5 font-bold" :value="slug" @change="select($event.target.value)">
+    <!-- Company selector, straight from the published catalogue.
+         Coloured by status so the live issues are findable without opening a
+         card: green is bidding now, amber upcoming, red closed and awaiting
+         allotment, blue allotment, grey already listed. The status word is in
+         the label too — colour alone would leave the ordering meaningless to
+         anyone who cannot separate the greens from the ambers. `catalogue` is
+         already sorted liveliest-first (see data.js _rows), so the actionable
+         ones are at the top regardless. -->
+    <select class="inp !w-auto !py-1.5 font-bold" :value="slug" :style="selectStyle"
+            @change="select($event.target.value)">
       <template x-for="c in catalogue" :key="c.slug">
-        <option :value="c.slug" x-text="c.company + '  ·  ' + c.board"></option>
+        <option :value="c.slug" :style="optionStyle(c)"
+                x-text="c.company + '  ·  ' + c.board + '  ·  ' + (c.status || '')"></option>
       </template>
     </select>
 

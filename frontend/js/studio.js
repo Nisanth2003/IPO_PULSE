@@ -879,6 +879,50 @@ function studio() {
       }).filter((f) => f.value);
     },
 
+    /**
+     * Inline style for one row of the IPO dropdown, coloured by status.
+     *
+     * Reads `c.status`, which `DATA.index()` already fills from
+     * `derive(ipo).dates.status` — the same derivation the card uses. Deriving
+     * it again here would be a second opinion that could disagree with the
+     * badge on screen, which is the one thing this must not do.
+     *
+     * A native <select> is what it is: Chrome honours `background` and `color`
+     * on an <option> and essentially nothing else, so this is colour only — no
+     * dots, no badges, no bold. That was the deliberate trade for keeping the
+     * element (and its keyboard behaviour) rather than hand-rolling a listbox.
+     *
+     * The background stays near-black on every row instead of tinting: options
+     * render on the OS popup surface, not the page, so a light tint that looks
+     * right in the closed control can turn unreadable when the list opens.
+     * Colouring the text alone is the version that survives both.
+     */
+    statusInk(status) {
+      const INK = {
+        open:      '#4ADE80',   // bidding now — the only one you can act on
+        upcoming:  '#FBBF24',   // announced, not open
+        closed:    '#F87171',   // bidding done, awaiting allotment
+        allotment: '#60A5FA',   // allotment out / imminent
+        listed:    '#94A3B8',   // history; muted so it recedes
+      };
+      return INK[status] || '#E2E8F0';
+    },
+    optionStyle(c) {
+      return `background:#0B1120;color:${this.statusInk(c && c.status)}`;
+    },
+
+    /* The closed control's own colour.
+     *
+     * A native <select> does not inherit the selected <option>'s colour — the
+     * button face is styled entirely separately — so without this the list was
+     * colour-coded and the thing you look at 99% of the time was not. Reads the
+     * catalogue entry rather than `d.dates.status` so it cannot flicker to a
+     * default while a newly picked IPO is still loading. */
+    get selectStyle() {
+      const c = this.catalogue.find((x) => x.slug === this.slug);
+      return `color:${this.statusInk(c && c.status)}`;
+    },
+
     /* Is the lot size published? Gates the trail's profit column and the rupee
        figure on reel 6 — both are `premium × lot`, and without a lot they are
        zero, which on screen reads as "no profit" rather than "not known yet".

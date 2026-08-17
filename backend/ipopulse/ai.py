@@ -336,9 +336,23 @@ class Gemini:
         # Classified as its own kind rather than folded into "quota" so the
         # message at the end can say which happened: a run that timed out is
         # worth retrying now, a run out of quota is worth retrying tomorrow.
+        #
+        # DEADLINE_EXCEEDED / 504 belongs here too, and matching it is not
+        # optional: it is the SERVER giving up rather than our client, so none of
+        # the words above appear in it and it fell through to `return None` —
+        # which makes `_call` re-raise, so a plain slow response killed the whole
+        # command with a google.genai traceback. Observed on leap-india twice.
         name = type(exc).__name__
-        if "Timeout" in name or "timed out" in text.lower() or "timeout" in text.lower():
+        low = text.lower()
+        if ("Timeout" in name or "timed out" in low or "timeout" in low
+                or "DEADLINE_EXCEEDED" in text or "504" in text):
             return "timeout"
+        # 503 / UNAVAILABLE is different in the one way that matters: it means
+        # *this* model is overloaded, so the next candidate is genuinely worth a
+        # try. Given its own kind so it walks the list like a quota error rather
+        # than stopping like a timeout.
+        if "UNAVAILABLE" in text or "503" in text or "overloaded" in low:
+            return "busy"
         return None
 
     def _candidates(self) -> list[str]:

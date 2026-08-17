@@ -35,6 +35,12 @@ no cutting.
 Every scene renders in 9:16, 4:5, 1:1 and 16:9. Text auto-shrinks to fit, so a
 long company name never spills out of frame.
 
+The **IPO picker is colour-coded by status** — green bidding now, amber upcoming,
+red closed and awaiting allotment, blue allotment, grey already listed — on both
+the list and the closed control, with the status word in the label so the colour
+is never the only signal. The status comes from the same `derive()` call the card
+uses, so the two cannot disagree.
+
 **Four card themes** — Midnight, Carbon, Royal, Ember — switchable per video so
 a run of uploads doesn't look like one long take. A theme changes the card
 palette and nothing else: no number, label or layout moves, which is what makes
