@@ -14,12 +14,19 @@ name: Scheduled data refresh
 # under load a run can start 5-20 minutes late, so nothing here is timed to
 # land on a deadline — 10:00 is after bidding opens rather than at it, and
 # 18:35 is clear of the 17:00 cut-off with room to drift.
+#
+# The GMP slot is 23:45 for a measured reason: InvestorGain opens a row for
+# the day at 05:55 and revises it in place until 23:28-23:37 (checked across
+# its whole board). Reading it at 21:00, as this used to, could only ever
+# capture a mid-session quote — 16 Aug 2026 was stored as Skytech 10 /
+# Tempsens 85 when the settled figures were 7 and 65. Drift only helps here:
+# late is further past the settle, never before it.
 
 on:
   schedule:
     - cron: '30 4 * * *'      # 10:00 IST daily   — bidding opens; the day's first read
     - cron: '5 13 * * *'      # 18:35 IST daily   — after close; the settled figures
-    - cron: '30 15 * * *'     # 21:00 IST daily   — GMP once the grey market settles, then the full chain
+    - cron: '15 18 * * *'     # 23:45 IST daily   — GMP once InvestorGain has settled the day
     - cron: '30 21 * * 6'     # 03:00 IST Sunday  — translate
     - cron: '30 22 * * 6'     # 04:00 IST Sunday  — Excel report
   workflow_dispatch:
@@ -32,10 +39,13 @@ on:
 permissions:
   contents: read              # nothing is committed any more — see the end
 
-# Never let the 21:00 run overlap a slow 18:35 one — it is the longest of the
-# three, since it does GMP and then the full chain. This matters more than it
-# did: a whole-tab rewrite has no lock behind it, so two runs would be
-# last-write-wins over the entire sheet.
+# Never let the 23:45 GMP run overlap a slow 18:35 one. This matters more than
+# it looks: a whole-tab rewrite has no lock behind it, so two concurrent runs
+# are last-write-wins over the entire sheet. It is not hypothetical — on
+# 17 Aug 2026 the Windows `daily` and `grey` tasks fired in the same second as
+# sleep-missed catch-ups and `daily` died with 0x8007042B, having written
+# nothing. This group only guards Actions against itself; it cannot see runs
+# on another machine.
 concurrency:
   group: ipopulse-data
   cancel-in-progress: false
@@ -87,9 +97,12 @@ jobs:
         shell: bash
         run: |
           case "${{ github.event.schedule }}" in
-            # GMP first, then the full chain — so `build` runs last and
-            # verifies everything the night's run wrote, GMP included.
-            '30 15 * * *')  JOBS='grey daily' ;;
+            # The 23:45 slot is `grey` alone, and `grey` now ends in `build`
+            # (control.CHAINS) so the night's GMP is still verified. It is NOT
+            # `grey daily`: `sync` fifteen minutes before midnight files a
+            # bidding day under tomorrow the moment the run drifts, and Actions
+            # cron drifts late by design. `daily` already ran at 18:35.
+            '15 18 * * *')  JOBS='grey' ;;
             '30 21 * * 6')  JOBS=translate ;;
             '30 22 * * 6')  JOBS=report ;;
             '')             JOBS='${{ inputs.jobs }}' ;;   # manual dispatch

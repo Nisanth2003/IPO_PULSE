@@ -2,23 +2,25 @@
 Description=IPO Pulse timer: daily
 
 [Timer]
-# sync -> build -> push, chained so push cannot start before sync exits 0.
+# sync -> enrich -> doctor -> build, chained so a step cannot start before
+# the one it reads from has exited 0.
 #
 # Bidding is 10:00-17:00 IST, and subscription is a running total that only
-# moves while the window is open, so one evening pull would miss the whole
-# intraday story:
-#   13:00  mid-window read, three hours of demand in
-#   16:30  30 minutes before close, where the last-day surge actually happens
-#   18:00  an hour after close: the day's final, settled figure
-# The first two are Mon-Fri because there is no bidding at the weekend. The
-# 18:00 run is every day so a weekend catalogue change still lands.
+# moves while the window is open:
+#   10:00  as bidding opens, so a new issue's day 1 is on file from the start
+#   18:35  well after close: the day's final, settled figure
+# Both run every day, not Mon-Fri, so a weekend catalogue change still lands
+# and a Saturday allotment is not missed. NSE's own timestamp is what stamps
+# a bidding day (see providers/scrape.py), so a weekend run cannot invent one.
+#
+# GMP is deliberately NOT here — InvestorGain revises the day's figure until
+# ~23:37, so it has its own timer at 23:45. See ipopulse-grey.timer.
 #
 # Asia/Kolkata is pinned so the schedule cannot drift with the host's
 # timezone. Needs systemd 251+; on older versions drop the suffix and run
 # timedatectl set-timezone Asia/Kolkata
-OnCalendar=Mon..Fri *-*-* 13:00:00 Asia/Kolkata
-OnCalendar=Mon..Fri *-*-* 16:30:00 Asia/Kolkata
-OnCalendar=*-*-* 18:00:00 Asia/Kolkata
+OnCalendar=*-*-* 10:00:00 Asia/Kolkata
+OnCalendar=*-*-* 18:35:00 Asia/Kolkata
 
 # A host that was asleep at the trigger still runs the job on waking, rather
 # than losing a day of data.

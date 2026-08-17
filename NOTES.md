@@ -51,8 +51,20 @@ scheduled tasks became four.
 **One evening data pull misses the entire story.**
 Bidding is 10:00–17:00 IST and subscription is a running total that only moves
 inside that window. A single 18:30 run captured one number a day and missed
-the last-day surge, which is the thing worth making a video about. Now 13:00
-and 16:30 on weekdays plus 18:00 daily.
+the last-day surge, which is the thing worth making a video about. Now 10:00
+and 18:35, every day.
+
+**A source that revises yesterday needs reading after it stops.**
+InvestorGain opens a row for the day at 05:55 and then edits it in place all
+day — `last_updated` for a finished day lands at 23:28–23:37 across its whole
+board. Reading GMP at 21:00 therefore captured a mid-session quote and stored
+it as the day's figure: 16 Aug 2026 went in as Skytech 10 and Tempsens 85 when
+the settled numbers were 7 and 65. Two fixes, and both were needed. The GMP
+run moved to 23:45, after the settle. And `gmp-sync --reconcile` re-walks the
+dated table every night and rewrites any day the desk has since revised, so a
+correction filed later still lands rather than being wrong forever. Hand-typed
+days stay exempt — a human who typed a figure was correcting this pipeline,
+not feeding it.
 
 **NSE's `series` is not always `EQ`.**
 `EQ` is the mainboard, `SME` is NSE Emerge. Querying an SME issue with

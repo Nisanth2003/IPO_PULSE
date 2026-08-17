@@ -52,13 +52,22 @@ $Jobs = @(
            @{ Kind = 'Daily'; At = '18:35' }
        ) },
     @{ Name = 'grey'
-       # `Run` overrides the command when it should differ from the task name.
-       # The 21:00 slot does GMP and THEN the full chain, so `build` runs last
-       # and verifies everything the night wrote, GMP included. Renaming the
-       # task to match would orphan the one already registered on this machine.
-       Run  = 'grey daily'
-       Why  = 'GMP once the grey market settles, then the full chain. 21:00.'
-       Triggers = @( @{ Kind = 'Daily'; At = '21:00' } ) },
+       # 23:45, not 21:00, and the time is measured rather than guessed.
+       #
+       # InvestorGain opens a row for the day at 05:55 and then REVISES it in
+       # place all day: on 17 Aug 2026 Tempsens read 65 at 11:00 and 100 by
+       # the afternoon. Its `last_updated` for a finished day lands at
+       # 23:28-23:37 across every IPO on the board, so 21:00 could only ever
+       # capture a mid-session quote that the desk had not settled yet. That
+       # is exactly how 16 Aug was stored as Skytech 10 / Tempsens 85 when the
+       # settled figures were 7 and 65.
+       #
+       # `gmp-sync --reconcile` re-walks the dated table each night and
+       # rewrites any day the desk has since revised, so a late correction
+       # still lands. Running after the settle just means it is right the
+       # first time instead of being wrong for a day.
+       Why  = 'GMP once InvestorGain has settled the day (it revises until ~23:37), then build. 23:45.'
+       Triggers = @( @{ Kind = 'Daily'; At = '23:45' } ) },
     @{ Name = 'translate'
        Why  = 'Cached 30 days; only changes when the prose does.'
        Triggers = @( @{ Kind = 'Weekly'; At = '03:00'; Day = 'Sunday' } ) },

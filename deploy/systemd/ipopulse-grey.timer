@@ -2,17 +2,27 @@
 Description=IPO Pulse timer: grey
 
 [Timer]
-# refresh GMP -> push it to the GMP tab, chained.
+# gmp-sync -> gmp -> build, chained.
 #
-# 21:00 rather than the earlier 20:00: grey-market quotes are still moving in
-# the early evening and the community sites that carry them settle later than
-# the exchange does. Every day, because GMP for an upcoming IPO moves on days
-# when nothing is bidding.
+# 23:45, and the time is measured rather than guessed. InvestorGain opens a
+# row for the day at 05:55 and then REVISES it in place all day: on
+# 17 Aug 2026 Tempsens read 65 at 11:00 and 100 by the afternoon. Its
+# `last_updated` for a finished day lands at 23:28-23:37 across every IPO on
+# the board, so the earlier 21:00 slot could only ever capture a mid-session
+# quote the desk had not settled yet — which is how 16 Aug came to be stored
+# as Skytech 10 / Tempsens 85 when the settled figures were 7 and 65.
+#
+# `gmp-sync --reconcile` re-walks the dated table every night and rewrites any
+# day the desk has since revised, so a late correction still lands. Running
+# after the settle just means it is right the first time.
+#
+# Every day, because GMP for an upcoming IPO moves on days when nothing is
+# bidding.
 #
 # Asia/Kolkata is pinned so the schedule cannot drift with the host's
 # timezone. Needs systemd 251+; on older versions drop the suffix and run
 # timedatectl set-timezone Asia/Kolkata
-OnCalendar=*-*-* 21:00:00 Asia/Kolkata
+OnCalendar=*-*-* 23:45:00 Asia/Kolkata
 
 # A host that was asleep at the trigger still runs the job on waking, rather
 # than losing a day of data.

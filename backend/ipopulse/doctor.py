@@ -26,6 +26,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Callable
 
+from .ai import OVERVIEW_BULLETS
 from .models import Ipo
 
 # Registrar -> the page where an applicant checks allotment. Mirrors REGISTRARS
@@ -97,7 +98,11 @@ CHECKS: list[Check] = [
     ("Sector",          lambda i: 1 if i.sector else 0,              "you",      "note",  "reel 1 hook + company subtitle"),
     ("Registrar",       lambda i: 1 if i.issue.registrar else 0,     "nse",      "blank", "reel 6 status"),
     ("Registrar URL",   lambda i: 1 if i.issue.registrar_url else 0, "derived",  "note",  "reel 6 allotment link"),
-    ("Overview bullets", lambda i: len(i.analysis.overview),         "analyse",  "blank", "reel 1 company"),
+    # Not a presence check: an IPO drafted before OVERVIEW_BULLETS went to 4
+    # has two bullets, which is present but leaves reel 1's company scene half
+    # empty. Report short-of-target as missing so it is queued for a re-draft.
+    ("Overview bullets", lambda i: 1 if len(i.analysis.overview) >= OVERVIEW_BULLETS else 0,
+                                                                     "analyse",  "blank", "reel 1 company"),
     ("Green / red flags", lambda i: len(i.analysis.green_flags) + len(i.analysis.red_flags), "analyse", "blank", "reel 4 flags"),
     ("Valuation line",  lambda i: 1 if i.analysis.valuation else 0,  "analyse",  "note",  "reel 4 valuation caption"),
     ("Key risk",        lambda i: 1 if i.analysis.risk else 0,       "analyse",  "note",  "reel 4 flags footer"),

@@ -239,9 +239,13 @@ Follow for the allotment alert.`,
     push('Movement', d.gmp.movement); push('Peak', d.gmp.peak); push('Low', d.gmp.trough);
     push('Days tracked', d.gmp.days_tracked);
 
+    // `Profit / lot` and `Sauda` are here because the trail scene shows both,
+    // and a report that omits a column the card displays reads as a
+    // disagreement between them rather than as a shorter report.
     section('GMP HISTORY (announcement to listing)');
-    push('Date', 'GMP', 'GMP %', 'Est. listing', 'Kostak', 'Source');
-    d.gmp.series.forEach((p) => push(p.date, p.gmp, p.pct, p.est, p.kostak, p.source));
+    push('Date', 'GMP', 'GMP %', 'Est. listing', 'Profit / lot', 'Kostak', 'Sauda', 'Source');
+    d.gmp.series.forEach((p) =>
+      push(p.date, p.gmp, p.pct, p.est, p.per_lot, p.kostak, p.sauda, p.source));
 
     section('SUBSCRIPTION');
     push('Day', 'Date', 'QIB', 'NII/HNI', 'Retail', 'Employee', 'Total');
@@ -318,6 +322,37 @@ Follow for the allotment alert.`,
     return () => undo.forEach(([el, n, v]) => el.setAttribute(n, v));
   },
 
+  /**
+   * Would drawing this URL onto a canvas taint it?
+   *
+   * A cross-origin image the host does not grant CORS to poisons the canvas,
+   * and `toDataURL` then throws SecurityError — so one pinned sticker from a
+   * host without `Access-Control-Allow-Origin` would take down every export
+   * with an error naming neither the sticker nor the host. Asked here instead,
+   * by loading the same URL with crossOrigin set: if that succeeds the host
+   * allows it and html2canvas is safe; if it fails the sticker is dropped from
+   * the capture and the PNG still comes out.
+   *
+   * Cached per URL — this runs on every export and the answer cannot change
+   * for a given URL within a session.
+   */
+  async gifWouldTaint(url) {
+    if (!url) return false;
+    this._taintCache = this._taintCache || {};
+    if (url in this._taintCache) return this._taintCache[url];
+    const ok = await new Promise((resolve) => {
+      const probe = new Image();
+      probe.crossOrigin = 'anonymous';
+      probe.onload = () => resolve(true);
+      probe.onerror = () => resolve(false);
+      probe.src = url;
+      // Never let a dead host hold the export open.
+      setTimeout(() => resolve(false), 4000);
+    });
+    this._taintCache[url] = !ok;
+    return !ok;
+  },
+
   async shoot() {
     if (typeof html2canvas === 'undefined') {
       alert('html2canvas did not load (offline?).\nUse Win+Shift+S to screenshot instead.');
@@ -325,6 +360,7 @@ Follow for the allotment alert.`,
     }
     const node = document.getElementById('capture');
     const keepScale = this.scale, keepSafe = this.showSafe;
+    this.gifTaints = await this.gifWouldTaint(this.brandGif);
     this.scale = 1; this.showSafe = false;
     this.settle();                       // never capture a half-counted number
     node.classList.add('capturing');     // freeze transitions mid-flight
@@ -333,7 +369,10 @@ Follow for the allotment alert.`,
     let canvas = null;
     try {
       canvas = await html2canvas(node, {
-        scale: this.P.exp, backgroundColor: '#0B1120',
+        // Follows the theme. Hardcoding the Midnight navy here drew a dark
+        // ring inside the rounded corners of every other theme, because this
+        // colour is what shows through wherever the card's own radius clips.
+        scale: this.P.exp, backgroundColor: this.th.bg,
         useCORS: true, logging: false, width: this.P.w, height: this.P.h,
       });
     } catch (err) {
@@ -342,6 +381,7 @@ Follow for the allotment alert.`,
       restore();
       node.classList.remove('capturing');
       this.scale = keepScale; this.showSafe = keepSafe;
+      this.gifTaints = false;         // preview shows it again
     }
     return canvas;
   },

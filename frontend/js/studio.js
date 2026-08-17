@@ -25,6 +25,10 @@ function studio() {
     ratio: 'reel', scale: 1, autoFit: true,
     densityBase: 1, density: 1, autoShrink: true,
     bg: 'gradient', focus: false,
+    theme: 'midnight',          // card palette; see THEMES in reels.js
+    showLogo: true,             // company artwork in the card header
+    showGif: true,              // pinned sticker, corner of every scene
+    gifSize: 4.6,               // in --fs units, so it tracks the frame
     showSafe: false, showFooter: true, showProgress: true, rounded: true,
     leftOpen: true, rightOpen: true,
     playing: false, speed: 1, sceneProg: 0,
@@ -85,9 +89,19 @@ function studio() {
       });
       ['leftOpen', 'rightOpen', 'focus'].forEach((k) =>
         this.$watch(k, () => requestAnimationFrame(() => this.autoFit && this.fit())));
-      ['ratio', 'lang', 'densityBase', 'autoShrink', 'showFooter', 'showProgress', 'gmpMode']
+      // Two lists, and which one a key belongs in is decided by one question:
+      // can changing it alter how much room the scene has? `showLogo` can —
+      // the plate sits in the header, and a taller header is a shorter scene —
+      // so it has to re-measure. `theme` and the sticker keys cannot: the theme
+      // only repaints, and the sticker is absolutely positioned precisely so it
+      // takes part in no layout. Anything in neither list is not persisted at
+      // all, which is the trap: `savePrefs` runs from these watchers only, so a
+      // key added to its payload and to no list here silently never saves.
+      ['ratio', 'lang', 'densityBase', 'autoShrink', 'showFooter', 'showProgress',
+       'gmpMode', 'showLogo']
         .forEach((k) => this.$watch(k, () => { this.savePrefs(); this.check(); }));
-      ['scale', 'autoFit', 'bg', 'rounded', 'speed', 'handle']
+      ['scale', 'autoFit', 'bg', 'rounded', 'speed', 'handle',
+       'theme', 'showGif', 'gifSize']
         .forEach((k) => this.$watch(k, () => this.savePrefs()));
 
       this.probeBackend();
@@ -342,7 +356,8 @@ function studio() {
           autoShrink: this.autoShrink, scale: this.scale, autoFit: this.autoFit,
           bg: this.bg, showFooter: this.showFooter, showProgress: this.showProgress,
           rounded: this.rounded, speed: this.speed, handle: this.handle,
-          gmpMode: this.gmpMode,
+          gmpMode: this.gmpMode, theme: this.theme, showLogo: this.showLogo,
+          showGif: this.showGif, gifSize: this.gifSize,
         }));
       } catch (e) { /* private mode */ }
     },
@@ -363,7 +378,62 @@ function studio() {
     get scenes() { return scenesFor(this.reel, this.gmpMode); },
     get sceneId() { return (this.scenes[this.scene] || this.scenes[0]).id; },
     get sceneCount() { return this.scenes.length; },
-    get acc() { return this.reel.acc; },
+    // ── theme ──────────────────────────────────────────────────────────
+    /* Always a theme object, never undefined: a stale `theme` key in
+       localStorage from a renamed or removed theme would otherwise take the
+       accent, the card and the export background down with it. */
+    get th() { return THEME_BY_KEY[this.theme] || THEMES[0]; },
+
+    /* Accent for the reel on screen, picked from the active theme.
+       Falls back to the reel's own `acc` if a theme is short a hue, so adding
+       a seventh reel cannot render it colourless. */
+    get acc() { return this.th.hues[this.reel.n - 1] || this.reel.acc; },
+
+    /* The card's own background. Applied inline rather than by swapping a
+       class, because .stage-card sets `background` in the stylesheet and an
+       inline style is the only thing that reliably wins without !important. */
+    get cardBg() { return this.th.card; },
+
+    /* The company logo URL, or '' when there is nothing usable to show.
+     *
+     * Written by `gmp-sync` into the Sources tab as role `logo`, so it arrives
+     * as ordinary IPO data with no new column anywhere. Suppressed once the
+     * <img> has reported an error for this exact URL: a broken image in the
+     * header is worse than no image, and the initials tile on reel 1's company
+     * scene is still there as the readable fallback. Keyed on the URL rather
+     * than a boolean so switching IPO re-tries rather than staying suppressed. */
+    logoBroken: '',
+    get brandLogo() {
+      const url = (this.ipo && this.ipo.sources && this.ipo.sources.logo) || '';
+      return url && url !== this.logoBroken ? url : '';
+    },
+
+    /* An optional animated sticker, shown in the corner of every scene.
+     *
+     * Nothing populates this automatically and nothing can: no IPO data source
+     * publishes a company GIF, and a model asked for one returns a URL that
+     * 404s. So it is a pin — put any GIF or image URL on the Sources tab under
+     * role `gif` and it appears. Same mechanism as `logo`, deliberately: one
+     * free-form role -> url tab already round-trips to the browser, so this
+     * needed no schema change either.
+     *
+     * It animates in a screen recording, which is the point. It will NOT
+     * animate in an exported PNG — html2canvas draws whatever frame the browser
+     * is showing — so a still export gets one frame of it, not a broken image.
+     *
+     * Cross-origin note: an <img> marked crossorigin that the host does not
+     * grant CORS to fails to load at all, so unlike the logo (whose host sends
+     * `*`) this one is left un-marked. That means it can taint the canvas and
+     * cost you the PNG — hence `gifTaints`, which drops it for the capture
+     * only, so a pinned GIF can never break the export path. */
+    gifBroken: '',
+    gifTaints: false,
+    get brandGif() {
+      const url = (this.ipo && this.ipo.sources && this.ipo.sources.gif) || '';
+      if (!url || url === this.gifBroken) return '';
+      return this.showGif ? url : '';
+    },
+
     get P() { return PRESETS[this.ratio]; },
 
     /** True when reel r's scene s is the one on screen. */
@@ -700,6 +770,26 @@ function studio() {
       return { low, high, low_pct: pc(low), high_pct: pc(high), implied: true, has: true };
     },
 
+    /**
+     * The expected listing range restated as rupees on one lot.
+     *
+     * Reel 6 gave the answer only as a percentage range, which asks the viewer
+     * to do two sums while the scene is on screen: percent of the band, times
+     * the lot. This is the same range they already trust, in the unit they
+     * actually apply in — and it deliberately reuses `listingRange` rather than
+     * recomputing from GMP, so the rupees can never disagree with the percent
+     * printed directly above them.
+     */
+    get listingGain() {
+      const r = this.listingRange;
+      const band = Number(this.ipo?.issue?.price_high) || 0;
+      const lot = Number(this.ipo?.issue?.lot_size) || 0;
+      if (!r.has || !band || !lot) return { has: false };
+      const low = Math.round((r.low - band) * lot);
+      const high = Math.round((r.high - band) * lot);
+      return { has: true, low, high, lot, same: low === high };
+    },
+
     /* The ring is drawn against the number printed inside it, so it has to be
        that number. It used to divide by 50 — a 0-50% scale, which is a
        defensible choice for making typical GMPs look substantial, except
@@ -755,6 +845,30 @@ function studio() {
       const cap = limit ?? (this.P.h >= 700 ? 7 : 4);
       return (this.d?.gmp?.series || []).slice(-cap).reverse();
     },
+    /* Is the lot size published? Gates the trail's profit column and the rupee
+       figure on reel 6 — both are `premium × lot`, and without a lot they are
+       zero, which on screen reads as "no profit" rather than "not known yet".
+       NSE publishes the lot only once an issue is near opening, so an upcoming
+       IPO genuinely hits this. */
+    get hasLot() { return Number(this.ipo?.issue?.lot_size) > 0; },
+
+    /**
+     * The application-level grey-market prices that actually have a figure.
+     *
+     * Returned as a list so the scene can size its grid to the count instead of
+     * assuming two. Kostak is absent from InvestorGain by design (see
+     * providers/investorgain.py — the field that looks like it is a pair, and
+     * guessing which half is the Kostak is the misread ai.vet_gmp exists to
+     * catch), so in practice this is usually one entry, not two.
+     */
+    get greyDeals() {
+      const g = this.d?.gmp || {};
+      return [
+        { key: 'kostak', value: g.kostak },
+        { key: 'sauda', value: g.sauda },
+      ].filter((x) => x.value > 0);
+    },
+
     /** Trail rows plus how many older days were dropped to fit the frame. */
     get trailTable() {
       const all = this.d?.gmp?.series || [];

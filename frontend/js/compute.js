@@ -99,9 +99,17 @@ function gmpMetrics(ipo, now = new Date()) {
     else if (gmp < prevGmp * 0.95) movement = 'drop';
   }
 
+  // `per_lot` is what one application was worth on that day: the premium times
+  // the lot size. It is the figure a viewer actually acts on — nobody buys one
+  // share of an IPO, the lot is the unit — and reading it per day turns the
+  // trail from a price chart into "what this trade was worth, daily". Zero when
+  // the lot size is not published yet, which the scene checks before adding the
+  // column rather than printing a row of ₹0.
+  const lot = num(ipo.issue?.lot_size);
   const series = hist.map((p) => ({
     date: p.date, gmp: num(p.gmp), pct: round(pct(num(p.gmp), band), 2),
     est: round(band + num(p.gmp), 2),
+    per_lot: Math.round(num(p.gmp) * lot),
     kostak: num(p.kostak), sauda: num(p.sauda), source: p.source || 'manual',
   }));
   const values = series.map((p) => p.gmp);

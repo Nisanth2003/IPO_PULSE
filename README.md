@@ -25,7 +25,7 @@ no cutting.
 | Reel | Scenes |
 |---|---|
 | 1 · About IPO | hook → company → fresh vs OFS → price/lot/minimum → key dates |
-| 2 · Daily GMP | hook → gauge → estimated listing → **announcement-to-listing trail** |
+| 2 · Daily GMP | hook → gauge → estimated listing → **announcement-to-listing trail, with profit per lot for every day** |
 | 2 · Daily GMP *(board mode)* | hook → **every live IPO in one table** |
 | 3 · Subscription | hook → QIB/NII/Retail bars → day-wise build-up |
 | 4 · Apply or Skip | hook → **financials** → **valuation** → green vs red flags |
@@ -34,6 +34,16 @@ no cutting.
 
 Every scene renders in 9:16, 4:5, 1:1 and 16:9. Text auto-shrinks to fit, so a
 long company name never spills out of frame.
+
+**Four card themes** — Midnight, Carbon, Royal, Ember — switchable per video so
+a run of uploads doesn't look like one long take. A theme changes the card
+palette and nothing else: no number, label or layout moves, which is what makes
+it safe to change mid-series. Each carries its own six accents, one per reel, so
+"which topic is this" still reads inside every theme.
+
+The **company logo** rides in the card header, so it appears on every scene of
+every reel. `gmp-sync` stores it as the `logo` role on the Sources tab; pin your
+own there to override one you don't like, and it will never be overwritten.
 
 ---
 

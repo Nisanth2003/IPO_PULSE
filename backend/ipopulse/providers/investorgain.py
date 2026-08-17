@@ -161,9 +161,35 @@ def board() -> list[dict[str, Any]]:
             "close": _iso(r.get("issue_end_dt") or ""),
             "exchanges": [e.strip() for e in
                           (r.get("ipo_listing_at") or "").split(",") if e.strip()],
+            "logo": logo_url(r.get("logo_url")),
         })
         out[-1]["url"] = page_url(out[-1])
     return out
+
+
+# Where `logo_url` actually lives. The API returns a bare filename
+# ('skyways-air-logo.png'), and the host is not investorgain.com at all —
+# InvestorGain is Chittorgarh's property and serves the artwork from there.
+# Confirmed against the rendered page rather than guessed.
+LOGO_BASE = "https://www.chittorgarh.net/images/ipo/"
+
+
+def logo_url(filename: Any) -> str:
+    """Absolute URL for a board row's logo, or '' if there isn't one.
+
+    Worth having at all because the studio puts this in the card header on
+    every scene, and every alternative was worse: the initials tile is a
+    placeholder, and asking a model for a logo URL invents one that 404s.
+    All 21 rows on the board carried a filename when this was added, and the
+    host sends `Access-Control-Allow-Origin: *` — which is the part that
+    matters, because html2canvas runs with `useCORS: true` and silently drops
+    any image it cannot read, so a logo without that header would look fine on
+    screen and vanish from every exported PNG.
+    """
+    name = str(filename or "").strip()
+    if not name or "/" in name or "\\" in name:
+        return ""                     # a path, not the bare filename expected
+    return LOGO_BASE + name
 
 
 def catalogue() -> list[dict[str, Any]]:
@@ -188,6 +214,10 @@ def catalogue() -> list[dict[str, Any]]:
             "slug_ig": r.get("urlrewrite_folder_name") or "",
             "open": _iso(r.get("issue_open_dt") or ""),
             "close": _iso(r.get("issue_end_dt") or ""),
+            # The catalogue carries the logo filename too, which is what lets a
+            # listed IPO — already dropped off the board — still get its header
+            # artwork on reels 2 and 6.
+            "logo": logo_url(r.get("logo_url")),
         })
     return out
 

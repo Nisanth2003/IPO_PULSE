@@ -450,7 +450,7 @@
         <!-- ══════════ THE CARD ══════════ -->
         <div id="capture" class="stage-card flex flex-col overflow-hidden"
              :class="{ 'rounded-[26px]': rounded }"
-             :style="`width:${P.w}px;height:${P.h}px;--fs:${P.fs*density}px;--acc:${acc}`">
+             :style="`width:${P.w}px;height:${P.h}px;--fs:${P.fs*density}px;--acc:${acc};background:${cardBg}`">
 
           <div class="absolute inset-0 pointer-events-none" :style="accGlow"></div>
 
@@ -480,6 +480,20 @@
               </div>
             </div>
             <div class="flex items-center gap-2 mt-1.5">
+              <!-- Company artwork, in the header so it lands on every scene of
+                   every reel from one place. White plate behind it on purpose:
+                   these logos are print assets with dark lettering and no
+                   transparency, so on a dark card an unplated logo reads as a
+                   black rectangle. `object-contain` because they are every
+                   aspect ratio going, from square marks to wide wordmarks. -->
+              <template x-if="showLogo && brandLogo">
+                <div class="shrink-0 rounded-md bg-white grid place-items-center overflow-hidden"
+                     :style="`width:calc(var(--fs)*2.05);height:calc(var(--fs)*2.05);padding:calc(var(--fs)*0.12)`">
+                  <img :src="brandLogo" alt="" crossorigin="anonymous"
+                       class="w-full h-full object-contain"
+                       @error="logoBroken = brandLogo">
+                </div>
+              </template>
               <div class="rounded-md px-1.5 py-[2px] text-2xs font-black tracking-[.1em]"
                    :style="`background:${acc}26;color:${acc};border:1px solid ${acc}55`"
                    x-text="'0'+reel.n+' / 06'"></div>
@@ -706,15 +720,24 @@
                 <div class="text-2xs text-slate-500 font-bold tnum"
                      x-text="ipo.issue.lot_size+' '+t('shares')+' · ₹'+fmt(d.issue.min_investment)"></div>
               </div>
-              <div class="grid grid-cols-2 gap-2" x-show="d.gmp.kostak>0 || d.gmp.sauda>0">
-                <div class="glass p-2.5" x-show="d.gmp.kostak>0">
-                  <div class="lbl" x-text="t('kostak')"></div>
-                  <div class="font-black text-lg tnum" x-text="'₹'+fmt(d.gmp.kostak)"></div>
-                </div>
-                <div class="glass p-2.5" x-show="d.gmp.sauda>0">
-                  <div class="lbl" x-text="t('sauda')"></div>
-                  <div class="font-black text-lg tnum" x-text="'₹'+fmt(d.gmp.sauda)"></div>
-                </div>
+              <!-- Kostak and Subject-to-Sauda. Both are real grey-market
+                   prices for your APPLICATION rather than the shares, which is
+                   why they are rupee totals and not a per-share premium.
+                   Columns are counted rather than fixed at two: InvestorGain
+                   publishes sauda for nearly every issue and kostak for almost
+                   none (1 reading in the whole store, hand-typed), so the lone
+                   tile is the normal case — and in a grid-cols-2 it sat at half
+                   width with a hole beside it. -->
+              <div class="grid gap-2" x-show="greyDeals.length"
+                   :style="`grid-template-columns:repeat(${greyDeals.length},minmax(0,1fr))`">
+                <template x-for="g in greyDeals" :key="g.key">
+                  <div class="glass p-2.5">
+                    <div class="lbl" x-text="t(g.key)"></div>
+                    <div class="font-black text-lg tnum" x-text="'₹'+fmt(g.value)"></div>
+                    <div class="text-3xs text-slate-500 font-semibold leading-tight mt-0.5"
+                         x-text="t(g.key+'Note')"></div>
+                  </div>
+                </template>
               </div>
               <!-- the reason to act today, on the reel people watch daily -->
               <div class="rounded-2xl px-3 py-2.5 flex items-center justify-between alertpulse"
@@ -744,11 +767,16 @@
                        studio.js are the matching constants. -->
                   <svg viewBox="0 0 300 70" width="300" height="70"
                        preserveAspectRatio="none" class="w-full" style="height:calc(var(--fs)*3.4)">
-                    <path :d="spark.area" :fill="gmpPositive ? 'rgba(34,197,94,.18)' : 'rgba(239,68,68,.18)'"/>
-                    <path :d="spark.line" fill="none" :stroke="gmpPositive ? '#22C55E' : '#EF4444'"
+                    <!-- Positive follows the theme accent, negative stays red.
+                         Red is semantic — a falling premium must look wrong in
+                         every theme — but a hardcoded green "up" left the hero
+                         line of this scene the one element that ignored the
+                         theme, next to a PROFIT column that followed it. -->
+                    <path :d="spark.area" :fill="gmpPositive ? rgba(acc,.18) : 'rgba(239,68,68,.18)'"/>
+                    <path :d="spark.line" fill="none" :stroke="gmpPositive ? acc : '#EF4444'"
                           stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
                     <circle :cx="spark.lastX" :cy="spark.lastY" r="5"
-                            :fill="gmpPositive ? '#22C55E' : '#EF4444'"/>
+                            :fill="gmpPositive ? acc : '#EF4444'"/>
                   </svg>
                 </div>
               </template>
@@ -766,11 +794,21 @@
                   <div class="font-black text-lg tnum" x-text="d.gmp.days_tracked"></div>
                 </div>
               </div>
+              <!-- Profit per lot, day by day.
+                   The GMP column is a per-share premium, which nobody can act
+                   on: the lot is the unit you buy, so this is the column that
+                   answers "what would this have made me". Accent-coloured and
+                   last, so the eye lands on it — it is the point of the table.
+                   Only added when the lot size is known (`hasLot`); a column of
+                   ₹0 on an issue with no published lot would read as a loss
+                   rather than as missing data, and it costs the other four
+                   columns width they need on a 9:16 frame. -->
               <div class="glass p-2 overflow-hidden">
                 <table class="dtable">
                   <thead><tr>
                     <th x-text="t('closes').slice(0,4)==='Clos' ? 'Date' : t('closes')"></th>
                     <th>GMP</th><th>%</th><th x-text="t('estListing').split(' ').pop()"></th>
+                    <template x-if="hasLot"><th x-text="t('profitLot')"></th></template>
                   </tr></thead>
                   <tbody>
                     <template x-for="(p,i) in trailTable.rows" :key="p.date">
@@ -780,10 +818,18 @@
                         <td class="tnum" :class="p.gmp>=0?'text-emerald-400':'text-red-400'"
                             x-text="p.pct+'%'"></td>
                         <td class="tnum" x-text="'₹'+p.est"></td>
+                        <template x-if="hasLot">
+                          <td class="tnum font-black"
+                              :style="p.per_lot>=0 ? `color:${acc}` : 'color:#F87171'"
+                              x-text="(p.per_lot>=0?'+₹':'-₹')+fmt(Math.abs(p.per_lot))"></td>
+                        </template>
                       </tr>
                     </template>
                   </tbody>
                 </table>
+                <div class="text-3xs text-slate-500 font-semibold text-center mt-1.5"
+                     x-show="hasLot"
+                     x-text="t('profitLotNote').replace('{n}', ipo.issue.lot_size)"></div>
               </div>
               <!-- Same rule as the board: a dropped day is stated, never
                    silently cut. The shorter frames only fit four rows. -->
@@ -1322,6 +1368,22 @@
                 <div class="text-2xs text-slate-500 font-bold tnum"
                      x-text="'vs ₹'+ipo.issue.price_high+' issue price'"></div>
               </div>
+              <!-- The same range in rupees on one lot. A percentage is the
+                   honest way to state the expectation, but it is not the unit
+                   anyone applies in — this is the figure a viewer checks against
+                   what they actually put in. -->
+              <div class="glass p-3 text-center" x-show="listingGain.has">
+                <div class="lbl" x-text="t('profitLot')"></div>
+                <div class="font-black text-3xl tnum"
+                     :class="listingGain.low>=0 ? 'text-pulse' : 'text-danger'"
+                     x-text="listingGain.same
+                       ? (listingGain.low>=0?'+₹':'-₹')+fmt(Math.abs(listingGain.low))
+                       : (listingGain.low>=0?'+₹':'-₹')+fmt(Math.abs(listingGain.low))
+                         +' to '+(listingGain.high>=0?'+₹':'-₹')+fmt(Math.abs(listingGain.high))"></div>
+                <div class="text-2xs text-slate-500 font-bold tnum"
+                     x-text="t('profitLotOn').replace('{n}', listingGain.lot)
+                             + (listingRange.implied ? ' · '+t('fromGmp') : '')"></div>
+              </div>
               <div class="rounded-xl px-3 py-3 text-center"
                    :style="`background:${acc}1A;border:1px dashed ${acc}66`">
                 <span class="text-base font-black" :style="`color:${acc}`" x-text="'🔔 '+t('follow')"></span>
@@ -1331,6 +1393,25 @@
           </div>
           </template>
           </div>
+
+          <!-- Pinned sticker (Sources role `gif`). Absolutely positioned so it
+               cannot take part in the scene's flex layout — a sticker that
+               pushed the content up would change how every scene fits, and the
+               auto-shrink would start fighting it. `pointer-events-none` keeps
+               it out of the way of the scene nav underneath. Above the footer
+               rather than over it, so it never covers the handle or the
+               disclaimer. Excluded from the capture when it would taint the
+               canvas; see `gifTaints` in studio.js. -->
+          <template x-if="brandGif">
+            <div class="absolute right-3 pointer-events-none z-20"
+                 :data-html2canvas-ignore="gifTaints ? 'true' : null"
+                 :style="`bottom:calc(var(--fs)*${showFooter ? 2.6 : 0.8});
+                          width:calc(var(--fs)*${gifSize});height:calc(var(--fs)*${gifSize})`">
+              <img :src="brandGif" alt="" class="w-full h-full object-contain"
+                   style="filter:drop-shadow(0 4px 14px rgba(0,0,0,.55))"
+                   @error="gifBroken = brandGif">
+            </div>
+          </template>
 
           <!-- footer -->
           <footer x-show="showFooter" class="shrink-0 px-4 py-2 border-t border-white/10 flex items-center gap-2"
@@ -1420,6 +1501,31 @@
         <button class="btn w-full" :class="autoShrink?'btn-on':''" @click="autoShrink=!autoShrink"
                 x-text="autoShrink ? '✓ Auto-shrink to fit' : 'Auto-shrink: off'"></button>
       </div>
+      <div class="row"><label class="fld">Card theme</label>
+        <div class="grid grid-cols-4 gap-1.5">
+          <!-- `opt`, not `th`: the component already has a `th` getter for the
+               ACTIVE theme, and naming the loop variable the same shadowed it
+               inside this template while the caption below still meant the
+               getter — two different values behind one name. -->
+          <template x-for="opt in THEMES" :key="opt.key">
+            <button class="h-9 rounded-lg border border-white/20 grid place-items-center"
+                    :class="theme===opt.key ? 'ring-2 ring-pulse' : ''"
+                    :style="`background:${opt.card}`"
+                    @click="theme=opt.key" :title="opt.name">
+              <span class="flex gap-[3px]">
+                <template x-for="h in opt.hues.slice(0,4)" :key="h">
+                  <span class="w-[5px] h-[5px] rounded-full" :style="`background:${h}`"></span>
+                </template>
+              </span>
+            </button>
+          </template>
+        </div>
+        <div class="text-[9.5px] text-slate-500 mt-1">
+          <span class="text-slate-300 font-bold" x-text="th.name"></span> —
+          colour only, never a number or a layout. Switch it per video so a
+          series doesn't look like one long upload.
+        </div>
+      </div>
       <div class="row"><label class="fld">Stage background</label>
         <div class="grid grid-cols-5 gap-1.5">
           <template x-for="b in ['gradient','black','green','blue','checker']" :key="b">
@@ -1428,6 +1534,30 @@
           </template>
         </div>
         <div class="text-[9.5px] text-slate-500 mt-1">Green/blue = chroma key backdrops.</div>
+      </div>
+      <div class="row">
+        <button class="btn w-full" :class="showLogo?'btn-on':''" @click="showLogo=!showLogo"
+                x-text="showLogo ? '✓ Company logo in header' : 'Company logo: off'"></button>
+        <div class="text-[9.5px] text-slate-500 mt-1" x-show="showLogo && !brandLogo">
+          No logo stored for this IPO — run <b class="text-slate-300">gmp-sync</b>,
+          or pin one on the Sources tab with role <b class="text-slate-300">logo</b>.
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn w-full" :class="showGif?'btn-on':''" @click="showGif=!showGif"
+                x-text="showGif ? '✓ Sticker / GIF in corner' : 'Sticker / GIF: off'"></button>
+        <div class="text-[9.5px] text-slate-500 mt-1"
+             x-show="showGif && !(ipo && ipo.sources && ipo.sources.gif)">
+          Nothing pinned. No IPO source publishes a company GIF, so this one is
+          yours to set: put any GIF or image URL on the Sources tab with role
+          <b class="text-slate-300">gif</b>. It animates while you record;
+          a PNG export freezes it to one frame.
+        </div>
+        <div x-show="showGif && brandGif" class="mt-1.5">
+          <label class="fld">Sticker size — <span x-text="gifSize.toFixed(1)+'×'"></span></label>
+          <input type="range" min="2.5" max="9" step="0.1" class="w-full accent-emerald-500"
+                 x-model.number="gifSize">
+        </div>
       </div>
       <div class="row grid grid-cols-2 gap-1.5">
         <button class="btn" :class="rounded?'btn-on':''" @click="rounded=!rounded">Rounded</button>

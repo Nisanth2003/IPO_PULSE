@@ -39,7 +39,8 @@ from typing import Any
 from . import store
 from .sheets import SheetUnavailable
 from .workbook import WorkbookLocked
-from .ai import ALLOTMENT_STEPS, AiUnavailable, Gemini, default_model
+from .ai import (ALLOTMENT_STEPS, OVERVIEW_BULLETS, AiUnavailable, Gemini,
+                 default_model)
 from .compute import derive
 from .models import Ipo
 from .providers import get_provider
@@ -1122,9 +1123,28 @@ def cmd_gmp_sync(args) -> int:
                       f"{src_name} id {found['id']}")
 
     today = date.today().isoformat()
-    wrote = filled = clashed = redone = 0
+    wrote = filled = clashed = redone = logos = 0
     for slug, row in sorted(matched.items()):
         ipo = by_slug[slug]
+
+        # The company logo, stored as a Sources role rather than a new column.
+        #
+        # `sources` is already a free-form role -> url map with its own tab, so
+        # this needs no schema change and no matching edit in data.js — which a
+        # new column on the IPOs tab would have required on both sides. The
+        # studio reads it as `ipo.sources.logo`.
+        #
+        # Gap-fill, never overwrite: a hand-pinned logo is someone correcting a
+        # wrong or ugly one off the board, and that decision outranks this.
+        if row.get("logo") and not (ipo.sources or {}).get("logo"):
+            if args.write:
+                fresh_ipo = store.load(slug)
+                fresh_ipo.sources["logo"] = row["logo"]
+                store.save(fresh_ipo)
+                by_slug[slug] = ipo = fresh_ipo
+            logos += 1
+            print(f"  {'+' if args.write else '·'} {slug:<32}logo")
+
         have = {p.date.isoformat(): p.gmp for p in ipo.gmp_history if p.date}
         source_of = {p.date.isoformat(): (p.source or "manual")
                      for p in ipo.gmp_history if p.date}
@@ -1349,6 +1369,10 @@ def cmd_gmp_sync(args) -> int:
         print(f"{terms_filled} issue field(s) filled.")
     if terms_fixed:
         print(f"{terms_fixed} issue field(s) corrected.")
+    if logos:
+        print(f"{logos} company logo(s) "
+              f"{'stored' if args.write else 'found'} — the studio puts these "
+              f"in the card header on every scene.")
     if redone:
         print(f"{redone} day(s) rewritten to {src_name}'s figure "
               f"{'' if args.write else '(dry run) '}— hand-typed days untouched.")
@@ -1395,13 +1419,32 @@ def enrich_plan(ipo: Ipo) -> list[tuple[str, list[str], int]]:
     # requests per day, spending one to learn there is nothing to say is the
     # wrong trade. Wait until the issue has terms.
     has_facts = bool(ipo.issue.price_high or f.revenue or ipo.dates.open)
-    if has_facts and (not a.overview or not (a.green_flags or a.red_flags)):
+    # `len(a.overview) < OVERVIEW_BULLETS`, not `not a.overview`: every IPO
+    # drafted before the count went to 4 has two bullets, and a presence test
+    # calls that done. It re-drafts once per IPO and then stops, because the
+    # new draft satisfies the same condition that triggered it.
+    short_overview = len(a.overview) < OVERVIEW_BULLETS
+    if has_facts and (short_overview or not (a.green_flags or a.red_flags)):
         steps.append(("analysis draft",
                       ["analyse", ipo.slug, "--write", "--no-translate"], 1))
 
     # Translation is two calls (hi + te) and only makes sense once there is
     # prose to translate — which the step above may have just created.
-    if a.overview and (not ipo.i18n.get("hi") or not ipo.i18n.get("te")):
+    #
+    # "Missing" is not the only way a translation is wrong. A re-draft that
+    # takes the overview from two bullets to four leaves hi and te present but
+    # two lines short, and `not ipo.i18n.get("hi")` calls that translated — so
+    # the Hindi and Telugu cuts of reel 1 would keep rendering half the scene
+    # the English one shows. Compare the bullet counts instead of testing for
+    # presence, which catches both cases with one condition.
+    def out_of_step(lang: str) -> bool:
+        got = ipo.i18n.get(lang) or {}
+        if not got:
+            return True
+        return len(got.get("overview") or []) != len(a.overview)
+
+    if a.overview and not short_overview and (
+            out_of_step("hi") or out_of_step("te")):
         steps.append(("hi / te translation", ["translate", ipo.slug], 2))
 
     return steps

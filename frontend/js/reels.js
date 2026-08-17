@@ -86,6 +86,62 @@ const PRESETS = {
   video:  { k: 'video',  w: 960, h: 540, exp: 2.0, fs: 19,   short: '16:9', label: '16:9 YouTube Video', out: '1920×1080' },
 };
 
+/* Card themes.
+ *
+ * Four looks for the same data, so consecutive uploads do not all look like
+ * the same video. Purely cosmetic — no theme changes a number, a label or a
+ * layout, which is what makes switching safe mid-series.
+ *
+ * Each theme carries its own six accents, one per reel, rather than a single
+ * colour. A flat per-theme accent would have made every reel in a theme
+ * identical, throwing away the "which topic is this" signal the accents
+ * already carry; keeping six preserves it inside every theme.
+ *
+ * Two hard constraints, both from the export path (see css/studio.css):
+ *
+ *  1. Plain hex and rgba() only. No color-mix(), no oklch() — Chrome resolves
+ *     those to color(srgb ...) and html2canvas throws on it, killing the whole
+ *     PNG. Every value below is a literal a 2015 parser would accept.
+ *  2. `bg` must be the flat colour nearest the top of `card`. html2canvas is
+ *     handed it as `backgroundColor`, and it is what shows through the rounded
+ *     corners — a mismatch draws a dark ring around a light card.
+ */
+const THEMES = [
+  {
+    key: 'midnight', name: 'Midnight', swatch: '#0F172A',
+    card: 'linear-gradient(180deg, #101B33 0%, #0F172A 42%, #0B1120 100%)',
+    bg: '#0B1120',
+    // The original palette. Kept first and unchanged so every reel recorded
+    // before themes existed still matches what this produces today.
+    hues: ['#60A5FA', '#22C55E', '#22D3EE', '#F59E0B', '#A78BFA', '#34D399'],
+  },
+  {
+    key: 'carbon', name: 'Carbon', swatch: '#17191D',
+    card: 'linear-gradient(180deg, #23262C 0%, #191B1F 45%, #0E0F12 100%)',
+    bg: '#0E0F12',
+    // Neutral grey ground, so the accents read louder than they do on navy.
+    hues: ['#7DD3FC', '#4ADE80', '#67E8F9', '#FBBF24', '#C4B5FD', '#6EE7B7'],
+  },
+  {
+    key: 'royal', name: 'Royal', swatch: '#1E1B4B',
+    card: 'linear-gradient(180deg, #2A2560 0%, #1E1B4B 45%, #120F2E 100%)',
+    bg: '#120F2E',
+    // Indigo ground pushes the accents warm — amber and rose separate from it
+    // far better than blue-greens, which sink into the background.
+    hues: ['#93C5FD', '#86EFAC', '#5EEAD4', '#FCD34D', '#D8B4FE', '#A7F3D0'],
+  },
+  {
+    key: 'ember', name: 'Ember', swatch: '#2A1512',
+    card: 'linear-gradient(180deg, #3A1D18 0%, #2A1512 45%, #170A08 100%)',
+    bg: '#170A08',
+    // Warm ground. Greens are lifted towards lime here: a mid green on brown
+    // is the one combination in this set that loses contrast badly.
+    hues: ['#7DD3FC', '#A3E635', '#5EEAD4', '#FDBA74', '#F0ABFC', '#BEF264'],
+  },
+];
+
+const THEME_BY_KEY = Object.fromEntries(THEMES.map((t) => [t.key, t]));
+
 const REGISTRARS = {
   'KFintech': 'https://kosmic.kfintech.com/ipostatus/',
   'MUFG Intime (Link Intime)': 'https://in.mpms.mufg.com/Initial_Offer/public-issues.html',

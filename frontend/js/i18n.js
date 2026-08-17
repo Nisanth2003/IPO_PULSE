@@ -49,8 +49,29 @@ const LABELS = {
   peak:        ['Peak', 'सबसे ऊपर', 'గరిష్టం'],
   trough:      ['Low', 'सबसे नीचे', 'కనిష్టం'],
   daysTracked: ['Days Tracked', 'दिन ट्रैक किए', 'ట్రాక్ చేసిన రోజులు'],
+  /* Short enough for a fifth table column on a 9:16 frame — "Profit / Lot"
+     wraps and pushes the row height up, which costs a whole day off the trail. */
+  profitLot:   ['Profit', 'मुनाफ़ा', 'లాభం'],
+  profitLotNote: ['profit per lot of {n} shares, if it lists at the GMP',
+                  '{n} शेयर के एक लॉट पर मुनाफ़ा, GMP पर लिस्ट हुआ तो',
+                  '{n} షేర్ల లాట్‌కు లాభం, GMP వద్ద లిస్ట్ అయితే'],
+  /* Reel 6's range can come from a real expected-listing range rather than the
+     GMP, so it must not claim the GMP as its basis the way the trail note does. */
+  profitLotOn: ['on one lot of {n} shares',
+                '{n} शेयर के एक लॉट पर',
+                '{n} షేర్ల ఒక లాట్‌పై'],
   kostak:      ['Kostak', 'कोस्टक', 'కోస్టక్'],
   sauda:       ['Subject to Sauda', 'सब्जेक्ट टू सौदा', 'సబ్జెక్ట్ టు సౌదా'],
+  /* Both of these are prices for the APPLICATION, not the shares, and both are
+     jargon a retail viewer will not know — the figure alone reads like a second
+     GMP. One line each, in the space under the number, saying which risk the
+     buyer is taking off your hands. */
+  kostakNote:  ['paid even if you get no allotment',
+                'अलॉटमेंट न मिले तो भी मिलता है',
+                'కేటాయింపు రాకపోయినా చెల్లిస్తారు'],
+  saudaNote:   ['paid only if you get allotment',
+                'अलॉटमेंट मिलने पर ही मिलता है',
+                'కేటాయింపు వచ్చినప్పుడే చెల్లిస్తారు'],
   updated:     ['Updated', 'अपडेट', 'అప్‌డేట్'],
   surge:       ['SURGE', 'तेज़ी', 'జోరు'],
   stable:      ['STABLE', 'स्थिर', 'స్థిరం'],

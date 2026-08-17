@@ -137,6 +137,17 @@ def _write_model_cache(model: str) -> None:
 DEFAULT_MODEL = FALLBACK_MODEL          # kept for `Gemini(model=...)` defaults
 DEFAULT_CACHE_DAYS = 30          # translations go stale slowly; numbers don't cache at all
 
+# How many "what the business does" bullets reel 1's company scene wants.
+#
+# One number, read by three places that used to disagree: the prompt in
+# draft_analysis, the cap applied to what comes back, and doctor's threshold.
+# Two bullets left the scene half empty on a 9:16 frame — the card is tall and
+# a two-line answer to "what does this company do" floated in the middle of it.
+# Raising it is not free: each bullet is a claim that has to come from the
+# facts, so the prompt names four distinct angles rather than asking for
+# "more", which would only get the same point reworded.
+OVERVIEW_BULLETS = 4
+
 LANG_NAMES = {
     "hi": "Hindi (Devanagari script)",
     "te": "Telugu (Telugu script)",
@@ -480,7 +491,26 @@ jargon. Each bullet must be one short line, under about 12 words, suitable
 as an on-screen caption.
 
 Return JSON with exactly these keys:
-  "overview":    2 bullets on what the business actually does
+  "overview":    exactly {OVERVIEW_BULLETS} bullets introducing this IPO. This
+                 is the whole of what reel 1 says about the company, so it has
+                 to stand alone. Each bullet takes a DIFFERENT angle, in this
+                 order, and every one must rest on a fact given below:
+                   1. what the company sells or operates, in concrete terms
+                   2. the sector it competes in and what that market is like
+                   3. the offer: how big it is, and whether the money is fresh
+                      capital for the company or existing holders selling out
+                   4. the headline number that decides it — the growth rate, or
+                      how the pricing compares with peers
+                 Hard rules, because breaking them is worse than a short scene:
+                   * Never write that a fact is missing. "The RHP does not show
+                     store counts" is a true sentence and a useless caption; a
+                     viewer reads it as the company having nothing to show. If
+                     an angle has no fact behind it, write a different real one.
+                   * Never restate a figure or claim another bullet already
+                     used. Four ways of saying "sells jewellery" is padding.
+                   * The FACTS below carry no business description beyond the
+                     sector, so do not attempt customer names, plant counts,
+                     geographies or brand names — you would be inventing them.
   "green_flags": up to 3 genuine positives, each citing a fact given
   "red_flags":   up to 3 genuine risks, each citing a fact given
   "growth":      one line summarising the growth trajectory
@@ -503,9 +533,15 @@ FACTS:
             raise AiUnavailable("Gemini not configured; cannot draft analysis.")
 
         out = self._generate_json(prompt)
-        listy = lambda k: [str(x).strip() for x in (out.get(k) or []) if str(x).strip()][:3]
+        # The cap is per key, not shared. It was one `[:3]` for every list with
+        # `overview` then trimmed to `[:2]`, so raising the overview count in
+        # the prompt above silently did nothing — the model returned four and
+        # two were thrown away. OVERVIEW_BULLETS is the single number the
+        # prompt, this cap and doctor's threshold all read.
+        listy = lambda k, n=3: [
+            str(x).strip() for x in (out.get(k) or []) if str(x).strip()][:n]
         drafted = {
-            "overview": listy("overview")[:2],
+            "overview": listy("overview", OVERVIEW_BULLETS),
             "green_flags": listy("green_flags"),
             "red_flags": listy("red_flags"),
             "growth": str(out.get("growth") or "").strip(),

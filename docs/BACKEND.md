@@ -183,8 +183,8 @@ that accepts a command — so there is nothing to inject into.
 | `push-gmp` | `push --kind gmp --tab GMP` | part of `grey` |
 | `translate` | `translate` | Sun 03:00 |
 | `report` | `report` | Sun 04:00 |
-| `daily` | composite | 13:00 & 16:30 Mon–Fri, 18:00 daily |
-| `grey` | composite | 21:00 daily |
+| `daily` | composite | 10:00 & 18:35 daily |
+| `grey` | composite | 23:45 daily |
 
 ```python
 CHAINS = {
@@ -202,12 +202,20 @@ N has exited 0.
   without `--strict`, so it cannot break the chain.
 * `enrich` sits **right after** sync, because sync is what discovers a new IPO and enrich
   is what makes it usable. Its budget is only 6 calls precisely because the chain runs
-  three times a day — the work spreads across runs instead of exhausting the free tier in
-  one.
-* Three daily triggers, not one: Indian bidding runs 10:00–17:00 IST and subscription is
-  a running total that only moves inside that window. 13:00 catches mid-window, 16:30 the
-  pre-close surge, 18:00 the final figures. `grey` is at 21:00 because the grey market
-  settles later than the exchange.
+  twice a day — the work spreads across runs instead of exhausting the free tier in one.
+* Two daily triggers, not one: Indian bidding runs 10:00–17:00 IST and subscription is a
+  running total that only moves inside that window. 10:00 puts a new issue's day 1 on file
+  as bidding opens; 18:35 takes the settled figures well clear of the close.
+* `grey` is at **23:45**, and the time is measured, not guessed. InvestorGain opens a row
+  for the day at 05:55 and then revises it in place all day — `last_updated` for a
+  finished day lands at 23:28–23:37 across its whole board. The old 21:00 slot could only
+  ever capture a mid-session quote: 16 Aug 2026 was stored as Skytech 10 / Tempsens 85
+  when the settled figures were 7 and 65. `gmp-sync --reconcile` re-walks the dated table
+  each night and rewrites any day the desk has since revised, so a late correction still
+  lands; running after the settle just means it is right the first time.
+* `grey` ends in `build` rather than chaining the whole of `daily`, so the night's GMP is
+  still verified without running `sync` fifteen minutes before midnight — which would file
+  a bidding day under tomorrow the moment the run drifts.
 
 > Drift to be aware of: `JOBS["daily"]["detail"]` still reads "sync → doctor → build →
 > push" and `deploy/windows/Register-IpoPulseTasks.ps1` says "sync,build,push". `CHAINS`
@@ -247,17 +255,19 @@ Cron is UTC with no timezone option, so every entry is IST − 5:30:
 
 | cron (UTC) | IST | jobs |
 |---|---|---|
-| `30 7 * * 1-5` | 13:00 Mon–Fri | `daily` |
-| `0 11 * * 1-5` | 16:30 Mon–Fri | `daily` |
-| `30 12 * * *` | 18:00 daily | `daily` |
-| `30 15 * * *` | 21:00 daily | `grey` |
+| `30 4 * * *` | 10:00 daily | `daily` |
+| `5 13 * * *` | 18:35 daily | `daily` |
+| `15 18 * * *` | 23:45 daily | `grey` |
 | `30 21 * * 6` | 03:00 Sun | `translate` |
 | `30 22 * * 6` | 04:00 Sun | `report` |
 
 Plus `workflow_dispatch` with a free-text `jobs` input. Actions cron is best-effort and
-can start 5–20 minutes late under load, which is why the important run is 18:00 — an hour
-clear of the close. `concurrency: ipopulse-data, cancel-in-progress: false` stops a 16:30
-run overlapping a slow 13:00 one, since they write the same files.
+can start 5–20 minutes late under load, which is why nothing is timed to land on a
+deadline — 18:35 is clear of the 17:00 close with room to drift, and for the 23:45 GMP run
+drift only helps, since late is further past InvestorGain's settle rather than before it.
+`concurrency: ipopulse-data, cancel-in-progress: false` stops the 23:45 run overlapping a
+slow 18:35 one, since they write the same sheet. Note it guards Actions against itself
+only — it cannot see a run on your own machine.
 
 Three details that were each a bug once:
 
@@ -655,7 +665,8 @@ garbage, `_list()` accepts a list *or* a newline-separated string.
 | `financials.pe_peer_avg` | float | rhp / you | listed-peer average; drives the valuation component |
 | `gmp_history[]` | `{date, gmp, kostak, sauda, source}` | `gmp` cmd / research / import | `source` records provenance (`manual`, `gemini`, `sheet`, `investorgain`, …) |
 | `subscription[]` | `{day, date, qib, nii, retail, employee, total}` | nse / `sub` cmd / research | keyed on `day` |
-| `analysis.overview` | list[str] | analyse / you | 2 bullets, English source text |
+| `analysis.overview` | list[str] | analyse / you | `ai.OVERVIEW_BULLETS` (4) bullets, English source text. Fewer than that counts as missing — see `doctor` and `enrich` |
+| `sources.logo` | str | `gmp-sync` / you | company artwork URL, shown in the studio's card header on every scene. A Sources role, not a column, so adding it needed no schema change. Pin your own to override — `gmp-sync` never overwrites one |
 | `analysis.green_flags` / `red_flags` | list[str] | analyse / you | up to 3 each |
 | `analysis.growth` / `valuation` / `risk` | str | analyse / you | one line each |
 | `analysis.growth_tone` / `valuation_tone` | str | you | `good\|warn\|bad` |

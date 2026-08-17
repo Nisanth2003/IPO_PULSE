@@ -113,7 +113,7 @@ JOBS: dict[str, dict[str, Any]] = {
         "detail": "Verify every record in the sheet still derives cleanly, so "
                   "a broken row surfaces here and not as a blank card.",
         "argv": ["build"],
-        "schedule": "part of daily",
+        "schedule": "part of daily & grey",
     },
     # There is no `push` job any more. It existed to copy a local store up
     # into the Google Sheet; the sheet IS the store now, so pushing it to
@@ -131,13 +131,14 @@ JOBS: dict[str, dict[str, Any]] = {
         "detail": "sync → enrich → doctor → build. The scheduled one; "
                   "run this if you run one.",
         "argv": None,                       # composite; see CHAINS
-        "schedule": "13:00 & 16:30 Mon-Fri, 18:00 daily",
+        "schedule": "10:00 & 18:35 IST daily",
     },
     "grey": {
         "label": "GMP chain",
-        "detail": "free keyless GMP, then the model fills what it missed.",
+        "detail": "free keyless GMP, then the model fills what it missed, "
+                  "then build verifies what the night wrote.",
         "argv": None,
-        "schedule": "21:00 IST daily",
+        "schedule": "23:45 IST daily",
     },
 }
 
@@ -153,14 +154,22 @@ JOBS: dict[str, dict[str, Any]] = {
 # ever produced an empty card that waited for somebody to type four commands
 # at it — the tools to fill it existed but nothing ran them.
 #
-# Its budget is small (6 calls) precisely because the chain runs three times a
-# day: the work spreads across runs instead of exhausting the free tier in one.
+# Its budget is small (6 calls) precisely because the chain runs twice a day:
+# the work spreads across runs instead of exhausting the free tier in one.
 CHAINS = {
     "daily": ["sync", "enrich", "doctor", "build"],
     # gmp-sync runs BEFORE the model-based refresh: it is free, keyless and
     # deterministic, so anything it can supply should not cost a Gemini call
     # or need vetting. `gmp` then fills only what InvestorGain did not cover.
-    "grey": ["gmp-sync", "gmp"],
+    #
+    # `build` closes the chain so a night that wrote GMP also gets verified,
+    # rather than a broken row waiting until 10:00 to surface. It is `build`
+    # and NOT the whole `daily` chain on purpose: this slot fires at 23:45
+    # (see the timer for why), and `sync` fifteen minutes before midnight is
+    # a bidding day filed under tomorrow the moment the chain runs long.
+    # `build` only re-derives what is already stored, so it has no date of
+    # its own to get wrong.
+    "grey": ["gmp-sync", "gmp", "build"],
 }
 
 
