@@ -76,7 +76,7 @@ JOBS: dict[str, dict[str, Any]] = {
         # Hand-typed days are exempt, so a correction still sticks.
         "argv": ["gmp-sync", "--history", "--write", "--reconcile",
                  "--discover", "--mainboard-only"],
-        "schedule": "part of grey",
+        "schedule": "11:15, 14:15, 21:15 IST + part of grey",
     },
     "gmp": {
         "label": "Refresh GMP (model)",

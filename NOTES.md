@@ -54,6 +54,32 @@ inside that window. A single 18:30 run captured one number a day and missed
 the last-day surge, which is the thing worth making a video about. Now 10:00
 and 18:35, every day.
 
+**Two of the three subscription bars were the same colour, measurably.**
+QIB was `#60A5FA` and NII `#A78BFA` — blue and violet, which look distinct on a
+designer's screen. Run through a CVD simulation they are **ΔE 0.3 apart under
+deuteranopia**, and only 10.2 under normal vision, where 15 is the floor for
+"tell apart at a glance". So one man in twelve saw a single colour across two
+bars, and everyone else was reading the labels rather than the chart. Now blue /
+pink / cyan (`SERIES` in reels.js), which passes all six checks against all four
+theme surfaces. Two rules fell out of fixing it: no green, amber or red in a
+categorical set here, because those are the status vocabulary and green already
+means "good flag" and "premium up"; and marks want OKLCH L 0.48–0.67 on a dark
+card, where the old set sat at 0.71+ and washed out on export as well. The point
+is not the palette, it is that **this is computable** — never eyeball it.
+
+**A laptop on battery runs no scheduled jobs at all.**
+Task Scheduler defaults `DisallowStartIfOnBatteries` to true, so every trigger
+put the task into "Queued" and it never ran: no error, no event, and
+`LastTaskResult` stayed 267011 "has not run", which is exactly what an untriggered
+task looks like. A whole 18:35 chain was lost on 17 Aug 2026 while all four tasks
+looked correctly registered. `StopIfGoingOnBatteries` is the mirror and worse — a
+job that started on mains is killed when the charger comes out, and since
+`write_records` clears every tab before rewriting them, being killed in that
+window empties the store rather than merely dating it. Both are now turned off
+explicitly in Register-IpoPulseTasks.ps1. The Task Scheduler *Operational* log is
+also disabled on this machine, which is why none of this left a trace to find —
+enable it if a job ever goes quiet again.
+
 **A date is what turns stale knowledge into a lie.**
 Reel 1 needed general awareness about the company — most viewers have never
 heard these names. The first attempt asked Gemini for *recent news* and it

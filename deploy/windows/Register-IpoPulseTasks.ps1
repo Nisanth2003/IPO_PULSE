@@ -51,6 +51,29 @@ $Jobs = @(
            @{ Kind = 'Daily'; At = '10:00' },
            @{ Kind = 'Daily'; At = '18:35' }
        ) },
+    @{ Name = 'gmp-sync'
+       # Price-only refreshes through the day, three of them.
+       #
+       # InvestorGain revises the day's GMP in place in batch passes - measured
+       # at ~10:55, mid-afternoon, ~21:00 and a final settle at 23:28-23:37. On
+       # 17 Aug 2026 one issue went 30 -> 33 -> 34 -> 29 and Tempsens went
+       # 110 -> 152, so a single daily read is a snapshot rather than a schedule
+       # and the card is wrong by the afternoon whichever hour you choose.
+       #
+       # Safe to run this often because `gmp-sync` is free, keyless and has no
+       # model step: the only cost is a whole-tab sheet rewrite. Its argv carries
+       # --reconcile, which is what makes a revision overwrite rather than being
+       # logged as a disagreement and left on the old number.
+       #
+       # Each slot sits ~15 minutes after an observed batch so it reads the new
+       # figure instead of racing it, and none of them lands on 10:00, 18:35 or
+       # 23:45 - two jobs writing the sheet at once is last-write-wins.
+       Why  = 'GMP only, free and keyless. Follows InvestorGain revisions. 11:15, 14:15, 21:15.'
+       Triggers = @(
+           @{ Kind = 'Daily'; At = '11:15' },
+           @{ Kind = 'Daily'; At = '14:15' },
+           @{ Kind = 'Daily'; At = '21:15' }
+       ) },
     @{ Name = 'grey'
        # 23:45, not 21:00, and the time is measured rather than guessed.
        #
@@ -138,12 +161,30 @@ if ($RunAsSystem) {
 $settings = New-ScheduledTaskSettingsSet `
     -StartWhenAvailable `
     -DontStopOnIdleEnd `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 20) `
     -MultipleInstances IgnoreNew `
     -RestartCount 2 -RestartInterval (New-TimeSpan -Minutes 5)
 
 # -StartWhenAvailable is the Persistent=true equivalent: a machine that was
 # asleep at 18:30 still runs the job when it wakes, rather than losing a day.
+
+# The two battery flags are the difference between this schedule working and
+# not, and both are Task Scheduler DEFAULTS that have to be turned off.
+#
+# Without -AllowStartIfOnBatteries, DisallowStartIfOnBatteries is true: on a
+# laptop that is not plugged in, every trigger puts the task into the "Queued"
+# state and it simply never runs. No error, no event, LastTaskResult stays
+# 267011 "has not run", indistinguishable from a task nobody ever triggered.
+# This machine is a laptop and it cost a whole 18:35 run on 17 Aug 2026 before
+# anyone noticed; the tasks had looked correctly registered all day.
+#
+# Without -DontStopIfGoingOnBatteries the mirror case applies: a job that
+# started on mains is KILLED the moment the charger comes out. That is worse
+# than not starting, because sheets.write_records clears every tab before it
+# rewrites them, a job killed in that window leaves the store empty rather
+# than merely stale.
 
 # Clear the folder first so a previous layout cannot leave stragglers behind.
 Remove-AllIpoPulseTasks | Out-Null

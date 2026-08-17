@@ -65,6 +65,16 @@ const LABELS = {
      year have one correct form — so only the label crosses languages, and the
      scene falls back to the stored English label for any key not listed here. */
   knowThem:      ['Know the company', 'कंपनी को जानिए', 'కంపెనీ గురించి తెలుసుకోండి'],
+  /* Tag on the one timeline stage still ahead. Short because it sits inline
+     between the stage name and its date on a 9:16 frame. */
+  nowNext:       ['NEXT', 'अगला', 'తదుపరి'],
+  /* Labels under the lot × price = cost strip on reel 1. Deliberately short —
+     they sit under three side-by-side figures on a 9:16 frame. */
+  capPrice:      ['Cap price', 'कैप प्राइस', 'క్యాప్ ధర'],
+  /* GMP is already an initialism every viewer of this channel knows, so it is
+     left untranslated — see KEEP_VERBATIM in ai.py for the same rule. */
+  gmpShort:      ['GMP', 'GMP', 'GMP'],
+  youPay:        ['You pay', 'आप देंगे', 'మీరు చెల్లించేది'],
   factFounded:   ['Founded', 'स्थापना', 'స్థాపన'],
   factHQ:        ['Head office', 'मुख्यालय', 'ప్రధాన కార్యాలయం'],
   factIndustry:  ['Industry', 'इंडस्ट्री', 'పరిశ్రమ'],

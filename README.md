@@ -35,6 +35,26 @@ no cutting.
 Every scene renders in 9:16, 4:5, 1:1 and 16:9. Text auto-shrinks to fit, so a
 long company name never spills out of frame.
 
+**Every scene carries a figure where a figure helps**, not just formatted text:
+
+| Reel · scene | Figure |
+|---|---|
+| 1 · terms | price band drawn to scale, with the GMP-implied listing marked beyond the cap; and `lot × cap = what you pay` spelled out |
+| 1 · dates | a timeline rail — ticks for stages passed, a pulsing marker on the next one, dimmed ahead |
+| 2 · gauge | percentage ring |
+| 2 · listing | the estimate as a stack, so the premium's size *relative to* the price is visible |
+| 2 · trail | sparkline + profit-per-lot per day |
+| 3 · bars | QIB / NII / Retail, direct-labelled |
+| 3 · trend | day-wise columns scaled to the peak — shows whether demand crept or hockey-sticked |
+| 4 · financials · valuation | table + benchmark meters with a "healthy" tick |
+| 4 · flags | green-vs-red balance bar with counts |
+| 5 · score | scored ring |
+| 6 · checklist | numbered steps joined by a connector |
+
+Series colours are **validated, not chosen by eye** — see `SERIES` in
+`frontend/js/reels.js` and the note in `NOTES.md`. The old QIB/NII pair measured
+ΔE 0.3 apart under deuteranopia, i.e. identical.
+
 The **IPO picker is colour-coded by status** — green bidding now, amber upcoming,
 red closed and awaiting allotment, blue allotment, grey already listed — on both
 the list and the closed control, with the status word in the label so the colour

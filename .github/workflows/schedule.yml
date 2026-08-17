@@ -15,17 +15,31 @@ name: Scheduled data refresh
 # land on a deadline — 10:00 is after bidding opens rather than at it, and
 # 18:35 is clear of the 17:00 cut-off with room to drift.
 #
-# The GMP slot is 23:45 for a measured reason: InvestorGain opens a row for
-# the day at 05:55 and revises it in place until 23:28-23:37 (checked across
-# its whole board). Reading it at 21:00, as this used to, could only ever
-# capture a mid-session quote — 16 Aug 2026 was stored as Skytech 10 /
-# Tempsens 85 when the settled figures were 7 and 65. Drift only helps here:
-# late is further past the settle, never before it.
+# GMP is read FOUR times a day, and the times are measured rather than picked.
+# InvestorGain opens a row for the day at 05:55 and then revises it in place, in
+# batch passes: ~10:55, mid-afternoon, ~21:00 (all 14 IPOs inside nine minutes),
+# and a final settle at 23:28-23:37. Across 17 Aug 2026 a single issue went
+# 30 -> 33 -> 34 -> 29; Tempsens went 110 -> 152. So one read a day is not a
+# schedule, it is a snapshot, and whichever hour you pick is wrong by the
+# afternoon.
+#
+#   11:15 / 14:15 / 21:15   `gmp-sync` only — free, keyless, no model. Each one
+#                           carries --reconcile, so a revised figure overwrites
+#                           the stored one rather than being reported as a clash.
+#   23:45                   the full `grey` chain, after the settle, so the day
+#                           closes on the figure InvestorGain finished with.
+#
+# The intraday slots sit ~15 minutes after each observed batch, so they read the
+# new figure rather than racing it. Drift only helps: Actions cron runs late, and
+# late is further past a revision, never before it.
 
 on:
   schedule:
     - cron: '30 4 * * *'      # 10:00 IST daily   — bidding opens; the day's first read
+    - cron: '45 5 * * *'      # 11:15 IST daily   — GMP only, after the ~10:55 revision
+    - cron: '45 8 * * *'      # 14:15 IST daily   — GMP only, afternoon revision
     - cron: '5 13 * * *'      # 18:35 IST daily   — after close; the settled figures
+    - cron: '45 15 * * *'     # 21:15 IST daily   — GMP only, after the ~21:00 revision
     - cron: '15 18 * * *'     # 23:45 IST daily   — GMP once InvestorGain has settled the day
     - cron: '30 21 * * 6'     # 03:00 IST Sunday  — translate
     - cron: '30 22 * * 6'     # 04:00 IST Sunday  — Excel report
@@ -103,6 +117,14 @@ jobs:
             # bidding day under tomorrow the moment the run drifts, and Actions
             # cron drifts late by design. `daily` already ran at 18:35.
             '15 18 * * *')  JOBS='grey' ;;
+            # Intraday price-only refreshes. `gmp-sync` alone: it is free,
+            # keyless and deterministic, so it can run as often as the desk moves
+            # without touching Gemini quota or spending an enrich budget. Its
+            # argv carries --reconcile, which is the whole point — a revised
+            # figure OVERWRITES the one on file instead of being filed as a clash
+            # and left. Deliberately not `grey`, which would drag the model step
+            # and `build` along four extra times a day for nothing.
+            '45 5 * * *'|'45 8 * * *'|'45 15 * * *')  JOBS='gmp-sync' ;;
             '30 21 * * 6')  JOBS=translate ;;
             '30 22 * * 6')  JOBS=report ;;
             '')             JOBS='${{ inputs.jobs }}' ;;   # manual dispatch
@@ -128,6 +150,34 @@ jobs:
           GOOGLE_SHEETS_TAB: ${{ vars.GOOGLE_SHEETS_TAB }}
           PYTHONIOENCODING: utf-8
         run: python -m ipopulse.cli job ${{ steps.pick.outputs.jobs }}
+
+      # Keep the rollback snapshot after the runner is gone.
+      #
+      # `gmp-sync --reconcile --write` calls store.backup() before its first
+      # write, which drops backend/out/ipo-pulse.prev.xlsx — the whole sheet as it
+      # was one moment earlier. On your laptop that file sits there as an undo. On
+      # a runner it was written and then deleted with the machine, so the one path
+      # that does MOST of the writing had no undo at all.
+      #
+      # That matters specifically because write_records clears every tab before
+      # rewriting them: a run interrupted in that window leaves the store empty,
+      # and this artifact is then the only copy of what was in it.
+      #
+      # `if: always()` is the point of the step — a FAILED run is exactly when the
+      # snapshot is worth having, and the default would skip it.
+      #
+      # The weekly `report` job writes its .xlsx to the same folder and was being
+      # discarded the same way, so that comes along too. 30 days is longer than
+      # any IPO's three-week life, which is as far back as a rollback is useful.
+      - name: Keep the snapshot and the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipopulse-out-${{ github.run_id }}
+          path: |
+            backend/out/*.xlsx
+          retention-days: 30
+          if-no-files-found: ignore
 
       # No commit step any more, and that is the point.
       #

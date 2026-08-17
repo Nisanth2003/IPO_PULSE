@@ -166,6 +166,39 @@ const THEMES = [
 
 const THEME_BY_KEY = Object.fromEntries(THEMES.map((t) => [t.key, t]));
 
+/* Categorical series colours — QIB / NII / Retail on reel 3.
+ *
+ * These are IDENTITY colours, not the theme accent, so they stay fixed across
+ * themes: a viewer who learns "pink is NII" on one video must not find it means
+ * something else on the next. Assigned in fixed order and never cycled.
+ *
+ * Blue / pink / cyan, and every part of that is a result rather than a taste:
+ *
+ *  - The previous set was #60A5FA blue, #A78BFA violet, #22C55E green. Measured,
+ *    blue↔violet is ΔE 0.3 under deuteranopia and 10.2 under NORMAL vision —
+ *    indistinguishable to roughly one man in twelve and hard for everyone else.
+ *    The QIB and NII bars were effectively the same colour.
+ *  - No green, amber or red here on purpose. Those are the status vocabulary in
+ *    this app — green flags, red flags, positive vs negative GMP — and reusing
+ *    them for "which investor category" makes green mean two things on one card.
+ *  - Mid-tone rather than pastel: OKLCH L must sit in 0.48-0.67 against a dark
+ *    card, and the old set was 0.71+, which is why it looked washed out on
+ *    export as well as being hard to separate.
+ *
+ * Verified with the dataviz validator against all four theme surfaces: lightness
+ * band, chroma floor, CVD separation (worst adjacent ΔE 10.3 deutan), normal
+ * vision (31.1) and contrast all pass. Re-run it before changing any value:
+ *   node validate_palette.js "#2563EB,#DB2777,#0891B2" --mode dark --surface "#0F172A"
+ *
+ * Each bar is also direct-labelled with its name and multiple, so identity never
+ * rests on colour alone.
+ */
+const SERIES = {
+  qib:    '#2563EB',
+  nii:    '#DB2777',
+  retail: '#0891B2',
+};
+
 const REGISTRARS = {
   'KFintech': 'https://kosmic.kfintech.com/ipostatus/',
   'MUFG Intime (Link Intime)': 'https://in.mpms.mufg.com/Initial_Offer/public-issues.html',

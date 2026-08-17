@@ -665,31 +665,114 @@
             </div>
 
             <div x-show="at(1,'terms')" class="scene">
+              <!-- The band drawn to scale. Two rupee figures give a viewer no
+                   sense of distance; a shaded span with the grey market's
+                   expected listing marked beyond it answers the question they
+                   actually have — how far above what I pay? Hidden entirely when
+                   NSE has not published a band, rather than drawing from ₹0. -->
+              <template x-if="bandRuler.has">
+                <div class="glass p-3">
+                  <div class="flex items-baseline justify-between mb-2">
+                    <span class="lbl" x-text="t('priceBand')"></span>
+                    <span class="font-black tnum" style="font-size:calc(var(--fs)*0.95)"
+                          x-text="'₹'+bandRuler.lo+' – ₹'+bandRuler.hi"></span>
+                  </div>
+                  <!-- Label row above the track, not crowded under it: a value
+                       hung below the marker sat on the caption and clipped at the
+                       block edge. Above, it has the full row to itself. -->
+                  <div class="relative" style="height:calc(var(--fs)*1.1)"
+                       x-show="bandRuler.estPct !== null">
+                    <div class="absolute whitespace-nowrap font-black tnum text-center"
+                         :style="`left:${bandRuler.estPct}%;transform:translateX(-50%);
+                                  bottom:calc(var(--fs)*0.12);
+                                  font-size:calc(var(--fs)*0.7);color:#4ADE80`">
+                      <span x-text="'₹'+fmt(Math.round(bandRuler.est))"></span>
+                    </div>
+                  </div>
+                  <div class="relative" style="height:calc(var(--fs)*0.9)">
+                    <!-- track -->
+                    <div class="absolute rounded-full" style="left:0;right:0;top:calc(var(--fs)*0.26);
+                         height:calc(var(--fs)*0.38);background:rgba(255,255,255,.09)"></div>
+                    <!-- the band itself -->
+                    <!-- Floored at 7% of the track. A narrow band next to a large
+                         premium is honest arithmetic but draws as a 3px stub that
+                         reads like a rendering fault; the floor keeps it legible
+                         without moving where it starts. -->
+                    <div class="absolute rounded-full bar-fill"
+                         :style="`left:${bandRuler.loPct}%;
+                                  width:${mounted ? Math.max(bandRuler.bandPct, 7) : 0}%;
+                                  top:calc(var(--fs)*0.26);height:calc(var(--fs)*0.38);
+                                  background:linear-gradient(90deg,${rgba(acc,.65)},${acc})`"></div>
+                    <!-- expected listing, only when the grey market puts it above
+                         the cap; a marker below the cap would imply a discount we
+                         have not actually forecast -->
+                    <template x-if="bandRuler.estPct !== null">
+                      <div class="absolute rounded-full"
+                           :style="`left:${bandRuler.estPct}%;top:0;transform:translateX(-50%);
+                                    width:3px;height:calc(var(--fs)*0.9);background:#4ADE80`"></div>
+                    </template>
+                  </div>
+                  <div class="text-3xs font-bold text-slate-500 text-center mt-0.5"
+                       x-show="bandRuler.estPct !== null" x-text="t('fromGmp')"></div>
+                </div>
+              </template>
+
+              <!-- The sum every retail viewer does in their head, drawn out.
+                   `min_investment` alone hides where it came from; lot × cap
+                   price = what you pay is the whole of it. -->
+              <template x-if="hasLot && ipo.issue.price_high">
+                <div class="glass p-2.5 flex items-center justify-between gap-1.5">
+                  <div class="text-center flex-1 min-w-0">
+                    <div class="font-black tnum" style="font-size:calc(var(--fs)*1.05)"
+                         x-text="fmt(ipo.issue.lot_size)"></div>
+                    <div class="lbl" style="font-size:calc(var(--fs)*0.5)" x-text="t('shares')"></div>
+                  </div>
+                  <span class="font-black text-slate-500 shrink-0" style="font-size:calc(var(--fs)*0.8)">×</span>
+                  <div class="text-center flex-1 min-w-0">
+                    <div class="font-black tnum" style="font-size:calc(var(--fs)*1.05)"
+                         x-text="'₹'+ipo.issue.price_high"></div>
+                    <div class="lbl" style="font-size:calc(var(--fs)*0.5)" x-text="t('capPrice')"></div>
+                  </div>
+                  <span class="font-black text-slate-500 shrink-0" style="font-size:calc(var(--fs)*0.8)">=</span>
+                  <div class="text-center flex-1 min-w-0">
+                    <div class="font-black tnum" :style="`font-size:calc(var(--fs)*1.05);color:${acc}`"
+                         x-text="'₹'+fmt(d.issue.min_investment)"></div>
+                    <div class="lbl" style="font-size:calc(var(--fs)*0.5)" x-text="t('youPay')"></div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Only what the two figures above do NOT already say.
+                   Price band, lot size and minimum investment all used to have
+                   their own tile here; the ruler states the band to scale and the
+                   strip states lot × cap = minimum, so keeping the tiles printed
+                   every one of those numbers twice on one frame. Falls back to
+                   the tiles when a figure is missing, so an issue with no
+                   published band still shows its terms. -->
               <div class="grid grid-cols-2 gap-2.5">
-                <div class="glass p-3">
-                  <div class="lbl" x-text="t('priceBand')"></div>
-                  <div class="font-black text-xl tnum"
-                       x-text="'₹'+ipo.issue.price_low+' – ₹'+ipo.issue.price_high"></div>
-                </div>
-                <div class="glass p-3">
-                  <div class="lbl" x-text="t('lotSize')"></div>
-                  <div class="font-black text-xl tnum"><span x-text="fmt(ipo.issue.lot_size)"></span>
-                    <span class="text-xs font-bold text-slate-400" x-text="t('shares')"></span></div>
-                </div>
-                <div class="glass glass-acc p-3" :style="accTint">
-                  <div class="lbl" x-text="t('minInv')"></div>
-                  <div class="font-black text-xl tnum" :style="`color:${acc}`"
-                       x-text="'₹'+fmt(d.issue.min_investment)"></div>
-                </div>
+                <template x-if="!bandRuler.has">
+                  <div class="glass p-3">
+                    <div class="lbl" x-text="t('priceBand')"></div>
+                    <div class="font-black text-xl tnum"
+                         x-text="'₹'+ipo.issue.price_low+' – ₹'+ipo.issue.price_high"></div>
+                  </div>
+                </template>
+                <template x-if="!hasLot || !ipo.issue.price_high">
+                  <div class="glass p-3">
+                    <div class="lbl" x-text="t('lotSize')"></div>
+                    <div class="font-black text-xl tnum"><span x-text="fmt(ipo.issue.lot_size)"></span>
+                      <span class="text-xs font-bold text-slate-400" x-text="t('shares')"></span></div>
+                  </div>
+                </template>
                 <div class="glass p-3">
                   <div class="lbl" x-text="t('listOn')"></div>
                   <div class="font-black text-xl" x-text="(ipo.issue.exchanges||[]).join(', ')"></div>
                 </div>
-              </div>
-              <div class="glass p-3 text-center" x-show="d.financials.market_cap_cr">
-                <div class="lbl" x-text="t('marketCap')"></div>
-                <div class="font-black text-2xl tnum"
-                     x-text="'₹'+fmt(d.financials.market_cap_cr)+' '+t('cr')"></div>
+                <div class="glass p-3" x-show="d.financials.market_cap_cr">
+                  <div class="lbl" x-text="t('marketCap')"></div>
+                  <div class="font-black text-xl tnum"
+                       x-text="'₹'+fmt(d.financials.market_cap_cr)+' '+t('cr')"></div>
+                </div>
               </div>
             </div>
 
@@ -701,17 +784,59 @@
                    in the middle of an otherwise complete timeline. A row that
                    is not there reads as "not applicable"; a dash reads as
                    "broken". -->
-              <template x-for="k in dateRows" :key="k.key">
-                <div class="glass px-3 py-2 flex items-center gap-3"
-                     :class="k.key === 'closes' ? 'glass-r' : ''">
-                  <span class="w-[10px] h-[10px] rounded-full shrink-0"
-                        :style="`background:${k.key === 'closes' ? '#EF4444' : acc}`"></span>
-                  <span class="lbl flex-1" x-text="t(k.key)"></span>
-                  <span class="font-black text-lg tnum"
-                        :class="k.key === 'closes' ? 'text-red-400' : 'text-slate-100'"
-                        x-text="fmtDate(k.date, true)"></span>
+              <!-- A rail, not a list. Five bare dates make the viewer work out
+                   which one is next while the reel moves on; position on a rail
+                   plus a per-stage tag answers it without them counting.
+                   `timeline` marks exactly one row `now` — the next stage still
+                   ahead — so the pulse can never land on two.
+                   Stage state is never colour-alone: done carries a tick, now
+                   carries the word NOW, future is simply dimmer. -->
+              <div class="glass p-3">
+                <div class="relative" style="padding-left:calc(var(--fs)*1.55)">
+                  <!-- the rail: behind the nodes, inset so it starts and ends
+                       at the first and last dot rather than overhanging -->
+                  <div class="absolute" aria-hidden="true"
+                       :style="`left:calc(var(--fs)*0.62);top:calc(var(--fs)*0.72);
+                                bottom:calc(var(--fs)*0.72);width:2px;
+                                background:linear-gradient(180deg,${rgba(acc,.55)},rgba(255,255,255,.10))`"></div>
+                  <template x-for="(k,i) in timeline" :key="k.key">
+                    <div class="relative flex items-baseline gap-2.5"
+                         :style="`padding-bottom:${i === timeline.length-1 ? 0 : 'calc(var(--fs)*0.62)'}`">
+                      <!-- node: filled + tick when done, ringed and pulsing when
+                           now, hollow when still ahead -->
+                      <span class="absolute grid place-items-center rounded-full shrink-0"
+                            :class="k.state === 'now' ? 'alertpulse' : ''"
+                            :style="`left:calc(var(--fs)*-0.93);top:calc(var(--fs)*0.16);
+                                     width:calc(var(--fs)*0.68);height:calc(var(--fs)*0.68);
+                                     background:${k.state === 'future' ? 'transparent' : (k.state === 'now' ? '#EF4444' : acc)};
+                                     border:2px solid ${k.state === 'future' ? 'rgba(255,255,255,.28)' : (k.state === 'now' ? '#EF4444' : acc)}`">
+                        <span x-show="k.state === 'done'" class="font-black leading-none"
+                              style="font-size:calc(var(--fs)*0.42);color:#0B1120">✓</span>
+                      </span>
+                      <span class="lbl flex-1 min-w-0"
+                            :class="k.state === 'future' ? '!text-slate-500' : ''"
+                            x-text="t(k.key)"></span>
+                      <span x-show="k.state === 'now'"
+                            class="rounded px-1.5 shrink-0 font-black tracking-[.12em]"
+                            style="font-size:calc(var(--fs)*0.52);background:rgba(239,68,68,.22);
+                                   color:#FCA5A5;border:1px solid rgba(239,68,68,.5)"
+                            x-text="t('nowNext')"></span>
+                      <span class="font-black tnum shrink-0"
+                            :style="`font-size:calc(var(--fs)*0.95);color:${
+                              k.state === 'now' ? '#FCA5A5' : (k.state === 'future' ? '#94A3B8' : '#E2E8F0')}`"
+                            x-text="fmtDate(k.date, true)"></span>
+                    </div>
+                  </template>
                 </div>
-              </template>
+              </div>
+              <!-- The one number a viewer acts on, pulled out of the rail. -->
+              <div class="glass px-3 py-2.5 flex items-center justify-between alertpulse"
+                   x-show="!countdown.over"
+                   style="background:linear-gradient(90deg,rgba(239,68,68,.20),rgba(239,68,68,.05));
+                          border:1px solid rgba(239,68,68,.45)">
+                <div class="lbl !text-red-300" x-text="t('closesIn')"></div>
+                <div class="font-black text-xl tnum text-red-300" x-text="countdown.txt"></div>
+              </div>
             </div>
 
             <!-- ─── REEL 2 · DAILY GMP (single) ────────────────────── -->
@@ -778,6 +903,37 @@
                      x-text="'₹'+fmt(Math.round(a.est))"></div>
                 <div class="text-2xs font-bold text-slate-400 tnum"
                      x-text="'₹'+ipo.issue.price_high+' + ₹'+d.gmp.gmp+' '+t('todayGmp')"></div>
+                <!-- The same sum as a stack, so the premium's SIZE relative to
+                     the issue price is visible rather than inferred: ₹34 on ₹201
+                     and ₹34 on ₹2,010 read identically as text.
+                     A 2px surface gap separates the two fills — abutting fills of
+                     different hue read as one shape with a colour change in it.
+                     Only drawn for a positive premium: a negative GMP is not a
+                     segment you can stack on top of the price. -->
+                <!-- Not on 16:9. That frame is the trap: it shares the 540px
+                     height of 4:5 and 1:1 but carries the largest base type
+                     (PRESETS.video fs 19), so it has the least room of the four
+                     and this block pushed it into overflow even at the 0.81
+                     shrink floor. The line above it already states the sum, so
+                     16:9 loses the picture and keeps the fact. -->
+                <template x-if="gmpPositive && d.gmp.gmp > 0 && ipo.issue.price_high && P.k !== 'video'">
+                  <div class="mt-2.5">
+                    <div class="flex items-center rounded-full overflow-hidden"
+                         style="height:calc(var(--fs)*0.5);background:rgba(255,255,255,.07)">
+                      <div class="h-full bar-fill" style="background:rgba(255,255,255,.30)"
+                           :style="`width:${mounted ? (ipo.issue.price_high / a.est * 100) : 0}%;
+                                    background:rgba(255,255,255,.30)`"></div>
+                      <div class="h-full shrink-0" style="width:2px;background:transparent"></div>
+                      <div class="h-full bar-fill flex-1"
+                           :style="`background:${acc}`"></div>
+                    </div>
+                    <div class="flex justify-between mt-1" style="font-size:calc(var(--fs)*0.55)">
+                      <span class="font-bold text-slate-400" x-text="t('capPrice')"></span>
+                      <span class="font-black" :style="`color:${acc}`"
+                            x-text="'+'+Math.round(d.gmp.pct)+'% '+t('gmpShort')"></span>
+                    </div>
+                  </div>
+                </template>
               </div>
               <div class="glass p-3 text-center">
                 <div class="lbl" x-text="t('perLot')"></div>
@@ -996,7 +1152,12 @@
             <div x-show="at(3,'bars')" class="scene">
               <div class="lbl text-center" x-text="t('subDay')+' '+(d.subscription.day||1)"></div>
               <div class="glass p-4">
-                <template x-for="b in [['qib',d.subscription.qib,'#60A5FA'],['nii',d.subscription.nii,'#A78BFA'],['retail',d.subscription.retail,'#22C55E']]" :key="b[0]">
+                <!-- Series colours come from SERIES (reels.js), not inline hexes
+                     and not the theme accent: they identify the investor
+                     category, so they must mean the same thing on every video
+                     and in every theme. See the comment there for why blue /
+                     pink / cyan and not the old blue / violet / green. -->
+                <template x-for="b in [['qib',d.subscription.qib,SERIES.qib],['nii',d.subscription.nii,SERIES.nii],['retail',d.subscription.retail,SERIES.retail]]" :key="b[0]">
                   <div class="mb-4 last:mb-0">
                     <div class="flex items-baseline justify-between mb-1.5">
                       <span class="text-base font-black tracking-[.08em]" x-text="t(b[0])"></span>
@@ -1021,6 +1182,36 @@
 
             <div x-show="at(3,'trend')" class="scene">
               <div class="lbl text-center" x-text="t('dayWise')"></div>
+              <!-- Columns for the shape, the table below for the lookup. These are
+                   two different jobs, not the same data twice: whether demand
+                   crept or hockey-sticked on the final day is the story, and a
+                   column of figures never shows it at a glance.
+                   Scaled to the peak, so the tallest column is always full — a
+                   fixed ceiling cannot serve both a 0.4x SME and a 200x mainboard.
+                   The value sits on every column because there are at most five,
+                   and the peak is bolded in the accent rather than being the only
+                   thing labelled. -->
+              <template x-if="subTrend.has">
+                <div class="glass p-3">
+                  <div class="flex items-end justify-between gap-2"
+                       style="height:calc(var(--fs)*4.2)">
+                    <template x-for="b in subTrend.days" :key="b.day">
+                      <div class="flex-1 flex flex-col items-center justify-end h-full gap-1">
+                        <span class="font-black tnum whitespace-nowrap"
+                              :style="`font-size:calc(var(--fs)*0.6);color:${b.isPeak ? acc : '#94A3B8'}`"
+                              x-text="b.total.toFixed(b.total >= 10 ? 0 : 2)+'x'"></span>
+                        <div class="w-full rounded-t bar-fill"
+                             :style="`height:${mounted ? b.pct : 0}%;
+                                      background:${b.isPeak
+                                        ? `linear-gradient(180deg,${acc},${rgba(acc,.45)})`
+                                        : `linear-gradient(180deg,${rgba(acc,.42)},${rgba(acc,.16)})`}`"></div>
+                        <span class="lbl" style="font-size:calc(var(--fs)*0.5)"
+                              x-text="'D'+b.day"></span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </template>
               <div class="glass p-2 overflow-hidden">
                 <table class="dtable">
                   <thead><tr>
@@ -1218,6 +1409,37 @@
                   then edit before recording — Gemini proposes, you decide.
                 </div>
               </div>
+              <!-- The balance, before the detail. Two lists make a viewer count
+                   rows to work out which side is heavier; a proportional bar
+                   states it in one glance and the lists then say why.
+                   Green and red here are the status vocabulary, not series
+                   colours, and both carry a count and an icon — never colour
+                   alone. Hidden when either side is empty, because a bar that is
+                   100% one colour communicates nothing the heading did not. -->
+              <template x-if="loc.green_flags.length && loc.red_flags.length">
+                <div class="glass p-2.5">
+                  <div class="flex items-center rounded-full overflow-hidden"
+                       style="height:calc(var(--fs)*0.62)">
+                    <div class="h-full bar-fill grid place-items-center"
+                         :style="`width:${mounted ? (loc.green_flags.length/(loc.green_flags.length+loc.red_flags.length)*100) : 50}%;
+                                  background:linear-gradient(90deg,rgba(34,197,94,.55),#22C55E)`"></div>
+                    <div class="h-full shrink-0" style="width:2px"></div>
+                    <div class="h-full bar-fill flex-1"
+                         style="background:linear-gradient(90deg,#EF4444,rgba(239,68,68,.55))"></div>
+                  </div>
+                  <div class="flex justify-between mt-1.5" style="font-size:calc(var(--fs)*0.6)">
+                    <span class="font-black text-emerald-300">
+                      ✓ <span x-text="loc.green_flags.length"></span>
+                      <span class="font-bold text-slate-400" x-text="t('greenFlags')"></span>
+                    </span>
+                    <span class="font-black text-red-300">
+                      <span class="font-bold text-slate-400" x-text="t('redFlags')"></span>
+                      <span x-text="loc.red_flags.length"></span> ✕
+                    </span>
+                  </div>
+                </div>
+              </template>
+
               <div class="glass glass-g p-3" x-show="loc.green_flags.length">
                 <div class="flex items-center gap-1.5 mb-2">
                   <span class="text-base">🟢</span>
@@ -1401,12 +1623,28 @@
                 <span class="text-base font-black uppercase tracking-[.06em]" :style="`color:${acc}`"
                       x-text="t('how10')"></span>
               </div>
+              <!-- Numbered chips joined by a connector, so the block reads as a
+                   sequence rather than as three unrelated cards that happen to
+                   start with digits. The connector is drawn per step and skipped
+                   on the last one, which is what keeps it from overhanging into
+                   the footer. Same rail idiom as reel 1's date timeline, on
+                   purpose: one visual grammar for "these happen in order". -->
               <template x-for="(s,i) in steps" :key="i">
-                <div class="glass p-3 flex gap-3 items-start" :style="i===0 ? accTint : ''">
-                  <span class="shrink-0 grid place-items-center rounded-lg text-xs font-black"
-                        :style="`width:calc(var(--fs)*1.7);height:calc(var(--fs)*1.7);background:${acc};color:#04210F`"
-                        x-text="i+1"></span>
-                  <span class="text-sm text-slate-100 leading-snug font-semibold" x-text="s"></span>
+                <div class="relative flex gap-3 items-start">
+                  <div class="relative shrink-0">
+                    <span class="grid place-items-center rounded-lg font-black"
+                          :style="`width:calc(var(--fs)*1.7);height:calc(var(--fs)*1.7);
+                                   font-size:calc(var(--fs)*0.72);background:${acc};color:#04210F`"
+                          x-text="i+1"></span>
+                    <div x-show="i !== steps.length-1" aria-hidden="true"
+                         :style="`position:absolute;left:50%;transform:translateX(-50%);
+                                  top:calc(var(--fs)*1.7);height:calc(var(--fs)*1.05);width:2px;
+                                  background:linear-gradient(180deg,${rgba(acc,.5)},${rgba(acc,.12)})`"></div>
+                  </div>
+                  <div class="glass p-3 flex-1 min-w-0" :style="i===0 ? accTint : ''"
+                       :class="i !== steps.length-1 ? 'mb-2.5' : ''">
+                    <span class="text-sm text-slate-100 leading-snug font-semibold" x-text="s"></span>
+                  </div>
                 </div>
               </template>
             </div>

@@ -1,15 +1,28 @@
 # REQUIRED. The store is a Google Sheet, so reaching it is not optional any
 # more — without these, no command runs at all. They used to be listed as
 # optional extras for a `push` step that no longer exists.
-google-api-python-client>=2.100
-google-auth>=2.23
+# Upper bounds on every line, and they are not decoration. These jobs run
+# unattended eight times a day; a major release landing mid-week would break a
+# 21:15 run with nobody watching and no console to read. `<N` blocks that while
+# still taking patches and minor versions, which is what keeps new Gemini models
+# reachable — a hard `==` pin would freeze those out too.
+# Versions verified working 17 Aug 2026: api-client 2.198.0, auth 2.56.3,
+# openpyxl 3.1.5, genai 2.17.0.
+google-api-python-client>=2.100,<3
+google-auth>=2.23,<3
 
 # Local .xlsx snapshots (store.backup) and the formatted report.
-openpyxl>=3.1
+openpyxl>=3.1,<4
 
 # Gemini translation / drafting. Genuinely optional: without it, or without a
 # key, everything else still runs and captions stay in English.
-google-genai>=1.0.0
+#
+# Floor raised from 1.0.0 because ai._client_or_raise now asks for
+# types.HttpOptions(timeout=...) to stop a wedged request hanging the whole
+# chain. That call is wrapped in try/except so an older SDK still runs, but it
+# runs WITHOUT the timeout — silently losing the protection. The floor should
+# say what the code actually wants.
+google-genai>=2.17,<3
 
 # PyYAML is gone: it existed for the per-IPO YAML store, and nothing in
 # backend/ imports it any more.

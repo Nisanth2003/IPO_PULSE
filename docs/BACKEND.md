@@ -268,10 +268,23 @@ Cron is UTC with no timezone option, so every entry is IST − 5:30:
 | cron (UTC) | IST | jobs |
 |---|---|---|
 | `30 4 * * *` | 10:00 daily | `daily` |
+| `45 5 * * *` | 11:15 daily | `gmp-sync` |
+| `45 8 * * *` | 14:15 daily | `gmp-sync` |
 | `5 13 * * *` | 18:35 daily | `daily` |
+| `45 15 * * *` | 21:15 daily | `gmp-sync` |
 | `15 18 * * *` | 23:45 daily | `grey` |
 | `30 21 * * 6` | 03:00 Sun | `translate` |
 | `30 22 * * 6` | 04:00 Sun | `report` |
+
+**GMP is read four times a day, not once.** InvestorGain revises the day's figure
+in place in batch passes — measured at ~10:55, mid-afternoon, ~21:00 (all 14 IPOs
+inside nine minutes) and a final settle at 23:28–23:37. On 17 Aug 2026 one issue
+went 30 → 33 → 34 → 29 and Tempsens went 110 → 152, so a single daily read is a
+snapshot, not a schedule, and the card is wrong by the afternoon whichever hour
+you pick. The three intraday slots run `gmp-sync` alone — free, keyless, no model
+— and its `--reconcile` is what makes a revision **overwrite** the stored value
+instead of being logged as a clash and left. The 23:45 slot runs the full `grey`
+chain so the day closes on the settled figure.
 
 Plus `workflow_dispatch` with a free-text `jobs` input. Actions cron is best-effort and
 can start 5–20 minutes late under load, which is why nothing is timed to land on a

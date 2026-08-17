@@ -755,6 +755,98 @@ function studio() {
       ].filter(([, v]) => !!v).map(([key, date]) => ({ key, date }));
     },
 
+    /**
+     * Day-wise total subscription as column heights.
+     *
+     * The table below it is for looking a day's number up; this is for seeing the
+     * shape — whether demand crept or hockey-sticked on the last day, which is
+     * the story and which no column of figures tells at a glance.
+     *
+     * Scaled to the peak rather than to a fixed ceiling: these run from 0.4x on a
+     * quiet SME to 200x+ on a hot mainboard, so any fixed axis makes one of those
+     * two unreadable. The peak column is therefore always full height, and the
+     * value labels are what carry the absolute scale.
+     *
+     * Floored at 3% so a genuine near-zero day is still a visible stub rather
+     * than looking like a missing bar.
+     */
+    get subTrend() {
+      const days = (this.d?.subscription?.days || []).filter((x) => x.total > 0);
+      if (days.length < 2) return { has: false, days: [] };
+      const peak = Math.max(...days.map((x) => x.total));
+      return {
+        has: true, peak,
+        days: days.map((x) => ({
+          day: x.day, total: x.total,
+          pct: Math.max(3, (x.total / peak) * 100),
+          isPeak: x.total === peak,
+        })),
+      };
+    },
+
+    /**
+     * The price band as a ruler, plus where the grey market puts the listing.
+     *
+     * "₹190 – ₹201" is two numbers a viewer has no scale for. Drawn, the band
+     * becomes a width and the expected listing becomes a distance beyond it —
+     * which is the actual question ("how far above what I pay?").
+     *
+     * The domain runs from the floor price to whichever is higher, the cap or the
+     * GMP-implied listing, with 8% padding so the end markers are not flush to
+     * the edge. Returns percentages, so the scene needs no measuring.
+     *
+     * `has` is false unless both band ends exist: an issue whose price band NSE
+     * has not published yet would otherwise draw a ruler from 0, making a ₹0
+     * floor look like a real published fact.
+     */
+    get bandRuler() {
+      const lo = Number(this.ipo?.issue?.price_low) || 0;
+      const hi = Number(this.ipo?.issue?.price_high) || 0;
+      if (!lo || !hi || hi < lo) return { has: false };
+      const est = Number(this.d?.gmp?.est_listing) || 0;
+      const top = Math.max(hi, est);
+      const pad = (top - lo) * 0.08 || hi * 0.04;
+      const min = lo - pad, max = top + pad;
+      const at = (v) => ((v - min) / (max - min)) * 100;
+      return {
+        has: true, lo, hi, est,
+        loPct: at(lo), hiPct: at(hi),
+        estPct: est > hi ? at(est) : null,
+        // Width of the shaded band segment, as a percentage of the track.
+        bandPct: at(hi) - at(lo),
+      };
+    },
+
+    /**
+     * The same dates as a timeline: each stage tagged done / now / future.
+     *
+     * A list of five dates makes a viewer do the arithmetic — "is the 19th
+     * before or after today?" — while the reel is already moving on. The stage
+     * tag answers it, and the scene draws it as a rail so the answer is
+     * positional as well as coloured.
+     *
+     * `now` is the NEXT stage still ahead, not the most recent one behind: on an
+     * IPO that opened yesterday the thing a viewer needs is the close date, not
+     * a highlight on the open. Exactly one stage is ever `now`, so the pulse
+     * cannot land on two rows.
+     *
+     * Day granularity throughout — comparing a date-only value against a
+     * timestamp would flip a stage a few hours early and mark the close "done"
+     * on the morning of the close, which is the one day it matters most.
+     */
+    get timeline() {
+      const today = new Date(this.now); today.setHours(0, 0, 0, 0);
+      const rows = this.dateRows.map((r) => {
+        const dt = new Date(r.date + 'T00:00:00');
+        return { ...r, done: dt <= today };
+      });
+      const next = rows.findIndex((r) => !r.done);
+      return rows.map((r, i) => ({
+        ...r,
+        state: i === next ? 'now' : (r.done ? 'done' : 'future'),
+      }));
+    },
+
     /* Expected listing range. Falls back to what the grey market implies,
        clearly labelled — the hand-entered range is almost never filled, and
        "₹0 – ₹0" was being read off the card as a real forecast. */
