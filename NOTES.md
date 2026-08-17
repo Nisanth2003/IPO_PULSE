@@ -54,6 +54,20 @@ inside that window. A single 18:30 run captured one number a day and missed
 the last-day surge, which is the thing worth making a video about. Now 10:00
 and 18:35, every day.
 
+**A date is what turns stale knowledge into a lie.**
+Reel 1 needed general awareness about the company — most viewers have never
+heard these names. The first attempt asked Gemini for *recent news* and it
+obliged: dated headlines, confidently formatted, with **zero grounding sources
+attached**. "2024-06-12: Shiprocket expanded cross-border shipping to 220
+countries" is parametric recall wearing a citation's clothes, two years old,
+on a card that says LIVE. Asked instead for undated background — how
+established the firm is, what it is known for, who it competes with — the same
+model is useful and safe, because nothing there claims to be recent. Same
+knowledge, same call; the date was the whole problem. It also declines
+properly: Fascinate Textiles came back with an empty list and the note "obscure
+SME with no widely recognized brand presence", and reel 1 drops the scene
+rather than holding five seconds on padding.
+
 **A source that revises yesterday needs reading after it stops.**
 InvestorGain opens a row for the day at 05:55 and then edits it in place all
 day — `last_updated` for a finished day lands at 23:28–23:37 across its whole

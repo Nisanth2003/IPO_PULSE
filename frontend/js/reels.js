@@ -15,6 +15,13 @@ const REELS = [
     scenes: [
       { id: 'hook',    hold: 3 },   // the size + the name
       { id: 'company', hold: 5 },   // what it actually does
+      // Its own scene rather than more blocks on `company`: that one already
+      // carries four bullets and the profile strip and fits at full text scale
+      // with nothing to spare, so folding this in would have shrunk the type on
+      // both. Skipped automatically when `analysis.background` is empty — see
+      // `scenesFor` — so an obscure SME with nothing to say plays a 5-scene
+      // reel rather than holding on a blank frame for 5 seconds.
+      { id: 'background', hold: 5 },   // who they are, in context
       { id: 'split',   hold: 5 },   // fresh vs OFS — the money question
       { id: 'terms',   hold: 4 },   // price band, lot, minimum
       { id: 'dates',   hold: 4 },   // when it opens/closes/lists
@@ -69,9 +76,26 @@ const REELS = [
   },
 ];
 
-/** Scenes for a reel, honouring the GMP board toggle. */
-function scenesFor(reel, gmpMode) {
+/**
+ * Scenes for a reel, honouring the GMP board toggle and dropping any scene
+ * that has no data behind it.
+ *
+ * `background` is the only optional scene so far, and it has to be optional:
+ * ai.research_background returns an empty list for a company it does not
+ * genuinely know, which is the correct answer for most SME issues. Every other
+ * scene degrades into something readable when a field is blank; this one would
+ * be an empty frame the reel still holds on for five seconds, and the progress
+ * bar would promise six scenes and show five.
+ *
+ * `ipo` is optional so callers that only want the shape — the scene-count
+ * label, the nav strip — can omit it and get the full list.
+ */
+function scenesFor(reel, gmpMode, ipo) {
   if (reel.n === 2 && gmpMode === 'board' && reel.boardScenes) return reel.boardScenes;
+  if (reel.n === 1 && ipo) {
+    const bg = (ipo.analysis && ipo.analysis.background) || [];
+    if (!bg.length) return reel.scenes.filter((s) => s.id !== 'background');
+  }
   return reel.scenes;
 }
 

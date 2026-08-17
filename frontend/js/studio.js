@@ -375,7 +375,7 @@ function studio() {
 
     // ── reel / scene navigation ────────────────────────────────────────
     get reel() { return REELS[this.reelIndex]; },
-    get scenes() { return scenesFor(this.reel, this.gmpMode); },
+    get scenes() { return scenesFor(this.reel, this.gmpMode, this.ipo); },
     get sceneId() { return (this.scenes[this.scene] || this.scenes[0]).id; },
     get sceneCount() { return this.scenes.length; },
     // ── theme ──────────────────────────────────────────────────────────
@@ -387,7 +387,12 @@ function studio() {
     /* Accent for the reel on screen, picked from the active theme.
        Falls back to the reel's own `acc` if a theme is short a hue, so adding
        a seventh reel cannot render it colourless. */
-    get acc() { return this.th.hues[this.reel.n - 1] || this.reel.acc; },
+    get acc() { return this.reelAcc(this.reel); },
+
+    /* Any reel's accent under the active theme. Needed by the reel tabs, which
+       tint themselves per reel and would otherwise be the one part of the UI
+       still showing the un-themed colours. */
+    reelAcc(reel) { return this.th.hues[reel.n - 1] || reel.acc; },
 
     /* The card's own background. Applied inline rather than by swapping a
        class, because .stage-card sets `background` in the stylesheet and an
@@ -845,6 +850,35 @@ function studio() {
       const cap = limit ?? (this.P.h >= 700 ? 7 : 4);
       return (this.d?.gmp?.series || []).slice(-cap).reverse();
     },
+    /**
+     * The company-profile strip for reel 1: [{label, value}].
+     *
+     * Stored as "Founded: 1985" on the Lists tab, split here so the label can
+     * be styled and localised while the value is left exactly as filed. The
+     * split is on the FIRST colon only — "HQ: Chennai, Tamil Nadu" is fine, but
+     * so is a value that itself contains a colon, which a greedy split would
+     * truncate.
+     *
+     * Read straight off `ipo.analysis`, not `loc`: these are language-
+     * independent by design, so they are not part of the localised payload.
+     * Only the label crosses languages, via `factFounded` and friends, and an
+     * unrecognised label falls through to its stored English form rather than
+     * rendering an i18n key at a viewer.
+     */
+    get aboutFacts() {
+      const raw = (this.ipo && this.ipo.analysis && this.ipo.analysis.about_facts) || [];
+      const KEY = { Founded: 'factFounded', HQ: 'factHQ',
+                    Industry: 'factIndustry', Promoters: 'factPromoters' };
+      return raw.map((line) => {
+        const at = String(line).indexOf(':');
+        if (at < 1) return { label: '', value: String(line).trim() };
+        const label = String(line).slice(0, at).trim();
+        const key = KEY[label];
+        return { label: key ? this.t(key) : label,
+                 value: String(line).slice(at + 1).trim() };
+      }).filter((f) => f.value);
+    },
+
     /* Is the lot size published? Gates the trail's profit column and the rupee
        figure on reel 6 — both are `premium × lot`, and without a lot they are
        zero, which on screen reads as "no profit" rather than "not known yet".

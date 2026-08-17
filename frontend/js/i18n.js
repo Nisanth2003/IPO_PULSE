@@ -60,6 +60,15 @@ const LABELS = {
   profitLotOn: ['on one lot of {n} shares',
                 '{n} शेयर के एक लॉट पर',
                 '{n} షేర్ల ఒక లాట్‌పై'],
+  /* Labels for the company-profile strip on reel 1. The VALUES behind them are
+     deliberately never translated — a promoter's name, a city and a founding
+     year have one correct form — so only the label crosses languages, and the
+     scene falls back to the stored English label for any key not listed here. */
+  knowThem:      ['Know the company', 'कंपनी को जानिए', 'కంపెనీ గురించి తెలుసుకోండి'],
+  factFounded:   ['Founded', 'स्थापना', 'స్థాపన'],
+  factHQ:        ['Head office', 'मुख्यालय', 'ప్రధాన కార్యాలయం'],
+  factIndustry:  ['Industry', 'इंडस्ट्री', 'పరిశ్రమ'],
+  factPromoters: ['Promoters', 'प्रोमोटर', 'ప్రమోటర్లు'],
   kostak:      ['Kostak', 'कोस्टक', 'కోస్టక్'],
   sauda:       ['Subject to Sauda', 'सब्जेक्ट टू सौदा', 'సబ్జెక్ట్ టు సౌదా'],
   /* Both of these are prices for the APPLICATION, not the shares, and both are

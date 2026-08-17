@@ -97,6 +97,18 @@ Narrative, in the order a number actually travels:
    locale or epoch can reinterpret them. A save clears and rewrites whole tabs; there is
    no lock and no transaction, so concurrent writers are last-write-wins — the
    scheduler's `concurrency:` group is what keeps that from happening.
+
+   **It is worse than last-write-wins, and this is unfixed.** `write_records`
+   `batchClear`s every tab and *then* `batchUpdate`s them, which is two calls and not
+   atomic. A reader landing in that window sees an **empty sheet** and gets no error:
+   `records()` returns `{}`, so `store.load(slug)` raises `No IPO '<slug>' in the sheet`
+   for a row that exists, and `load_all()` returns `[]`. Both were observed on
+   2026-08-17 while a backfill was writing. The danger is `upsert`, which is
+   `records()` → mutate → `write_records`: a reader that observes the cleared sheet and
+   then saves writes that emptiness back, reducing the store to the single IPO it was
+   holding. `gmp-sync --reconcile` takes a `backup()` first; a plain `store.save()` does
+   not. Until there is a guard, **never run two writing jobs against the sheet at once** —
+   that includes a local `enrich` while the Actions schedule is due.
 4. **Repair.** `doctor --fix` fills only what follows arithmetically (fresh+OFS totals,
    the T+3 calendar, `shares_post_issue_cr = PAT / EPS`, the registrar's status URL).
 5. **Derive.** `compute.derive(ipo)` recomputes everything: nothing derived is ever
@@ -133,7 +145,7 @@ see §9.
 | `sub <slug> <day>` | Logs one bidding day. Keyed on `day`, merged field-wise, list re-sorted. | `--date --qib --nii --retail --employee --total` | none |
 | `sync` | Pull a provider into the sheet. `--provider nse` is the workhorse: keyless, no AI. `--discover` scaffolds IPOs NSE lists that we do not track (without it, a "live" feed can never introduce a new listing). | `--slug --provider manual\|api\|sheet\|nse\|research --prefer-api --discover --no-translate --model` | 0 for the fetch; **2 per touched IPO** for the auto-translate unless `--no-translate` |
 | `translate [slug]` | Gemini → `hi`,`te`, written into `ipo.i18n`. Hard-cached 30 days on `{model, lang, fields}`. | `--langs hi,te --model --force` (bypass cache) | 1 per language per IPO, **0 on a cache hit** |
-| `analyse <slug>` | Drafts `overview / green_flags / red_flags / growth / valuation / risk` from the derived facts only. Prints unless `--write`. | `--write --force --no-translate --model` | 1 (cached on `{model, context}`) + 2 if `--write` triggers translation |
+| `analyse <slug>` | Drafts `overview / green_flags / red_flags / growth / valuation / risk`, and copies `about_facts` through unchanged. First fetches InvestorGain's company brief (`about_company`, `company_desc`, `issue_objects`, promoters, HQ) — free, keyless, one HTTP call, **not stored**: it is 4KB of prose only this command reads, so a column would be a second copy of their page kept in step by nobody. Without it the prompt has no business description and the bullets can only restate the sector. Prints unless `--write`. | `--write --force --no-translate --model` | 1 (cached on `{model, context}`) + 2 if `--write` triggers translation |
 | `import <file\|url>` | Excel/CSV/published-CSV → the sheet. Fuzzy header matching (`sheet.ALIASES`), reports unmatched and skipped columns. | `--kind ipos\|gmp --sheet --slug --prefer-sheet --dry-run --no-translate` | 0 + 2 per touched IPO for auto-translate |
 | `job [names…]` | Runs named jobs from `control.JOBS`, expanding chains, **in-process** via `main(argv)`. Stops at the first non-zero exit. No args = list every job and its schedule. | — | whatever the jobs cost |
 | `push [slug]` | Upserts into a Google Sheet. Matches rows on slug(company) (+date for GMP), preserves columns it does not know. Needs a service account. | `--kind ipos\|gmp --tab --sheet-id --dry-run` | none |
@@ -665,7 +677,9 @@ garbage, `_list()` accepts a list *or* a newline-separated string.
 | `financials.pe_peer_avg` | float | rhp / you | listed-peer average; drives the valuation component |
 | `gmp_history[]` | `{date, gmp, kostak, sauda, source}` | `gmp` cmd / research / import | `source` records provenance (`manual`, `gemini`, `sheet`, `investorgain`, …) |
 | `subscription[]` | `{day, date, qib, nii, retail, employee, total}` | nse / `sub` cmd / research | keyed on `day` |
-| `analysis.overview` | list[str] | analyse / you | `ai.OVERVIEW_BULLETS` (4) bullets, English source text. Fewer than that counts as missing — see `doctor` and `enrich` |
+| `analysis.overview` | list[str] | analyse / you | `ai.OVERVIEW_BULLETS` (4) bullets, English source text. Fewer than that counts as missing — see `doctor` and `enrich`. Drafted from InvestorGain's `about_company` / `company_desc`, so they name real products, plants and revenue mix rather than restating the sector |
+| `analysis.about_facts` | list[str] | analyse | `"Founded: 1995"`, `"HQ: …"`, `"Promoters: …"` — the company-profile strip on reel 1. Copied verbatim from the filing, **never model-written and never translated**: a promoter's name has one correct form. Labels are localised on the frontend, values are not |
+| `analysis.background` | list[str] | `research --what background` | General awareness — how established the company is, what it is known for, who it competes with. The one block on reel 1 no filing backs, so **review it**. Written once at discovery and never refreshed. **Undated by design**: an earlier attempt at dated "recent news" returned ungrounded, stale headlines, and a date is what turns old knowledge into a false claim. An empty list is a correct answer for an obscure SME — reel 1 then drops the scene rather than padding it |
 | `sources.logo` | str | `gmp-sync` / you | company artwork URL, shown in the studio's card header on every scene. A Sources role, not a column, so adding it needed no schema change. Pin your own to override — `gmp-sync` never overwrites one |
 | `analysis.green_flags` / `red_flags` | list[str] | analyse / you | up to 3 each |
 | `analysis.growth` / `valuation` / `risk` | str | analyse / you | one line each |

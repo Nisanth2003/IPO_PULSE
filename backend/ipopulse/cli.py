@@ -221,6 +221,10 @@ def translate_one(gem: Gemini, slug: str, langs: list[str], force: bool = False)
         "overview": a.overview, "green_flags": a.green_flags, "red_flags": a.red_flags,
         "growth": a.growth, "valuation": a.valuation, "risk": a.risk,
         "sector": ipo.sector,
+        # `background` is prose and gets translated; `about_facts` deliberately
+        # is not and must stay out of here — a promoter's name and a city have
+        # one correct form, and only the labels cross languages (see i18n.js).
+        "background": a.background,
     }
     if not any(fields.values()):
         return False                      # nothing written yet; nothing to translate
@@ -408,6 +412,49 @@ def cmd_research(args) -> int:
             merged = merge(ipo.to_dict(), found, prefer_incoming=False)
             store.save(Ipo.from_dict(merged))
             print("  written (existing values kept; only blanks filled)")
+
+    if args.what in ("background", "all"):
+        print(f"\nResearching background on {ipo.company or args.slug}…")
+        # The filing's own description goes in so the model adds context around
+        # it rather than paraphrasing it back. Best-effort: without it the
+        # lookup still runs, it just has less to build on.
+        known, hq = "", ""
+        try:
+            from .providers import investorgain as _ig
+            row = _ig.resolve(args.slug, ipo.company or "")
+            brief = _ig.company_brief(row) if row else {}
+            known = brief.get("about") or brief.get("summary") or ""
+            hq = brief.get("hq") or ""
+        except Exception:
+            pass
+        try:
+            got = Gemini(model=args.model).research_background(
+                ipo.company or args.slug, sector=ipo.sector, hq=hq,
+                known=known, force=args.force)
+        except AiUnavailable as exc:
+            print(f"  ! {exc}")
+            return 1
+        points = got.get("background") or []
+        print(f"  confidence: {got.get('confidence')}  |  "
+              f"{got.get('note', '')[:160]}")
+        for u in (got.get("sources") or [])[:3]:
+            print(f"    source: {u[:100]}")
+        for p in points:
+            print(f"  • {p}")
+        if not points:
+            # An empty list is the honest answer for an obscure SME, not a
+            # failure — so say which it is rather than looking like a crash.
+            print("  (nothing it could vouch for — the scene will hide this "
+                  "block rather than show invented lines)")
+        elif args.write:
+            raw = ipo.to_dict()
+            raw["analysis"]["background"] = points
+            store.save(Ipo.from_dict(raw))
+            print(f"  written ({len(points)} point(s)) — read them before "
+                  f"publishing; this is the one block on reel 1 that no "
+                  f"filing backs.")
+            maybe_translate(args.slug, args)
+        ipo = store.load(args.slug)
 
     flagged = False
 
@@ -935,11 +982,69 @@ def cmd_analyse(args) -> int:
         "subscription": d["subscription"].get("total"),
         "notes": ipo.notes,
     }
+
+    # What the company actually does, fetched live rather than stored.
+    #
+    # Without it the prompt has no business description at all and the overview
+    # bullets can only restate the sector. Fetched here instead of being written
+    # into the sheet because it is 4KB of prose per IPO that only this command
+    # ever reads — storing it would be a second copy of InvestorGain's page,
+    # kept in step by nobody. One free keyless call at draft time is cheaper
+    # than a column, and always current.
+    #
+    # Best-effort on purpose: if the desk is unreachable the draft still runs on
+    # the financial facts, which is how it behaved before this existed. A
+    # thinner scene beats no scene.
+    brief = {}
+    try:
+        from .providers import investorgain as _ig
+        found = _ig.resolve(args.slug, ipo.company or "")
+        if found:
+            brief = _ig.company_brief(found)
+    except Exception as exc:
+        print(f"  · no company brief ({type(exc).__name__}) — "
+              f"drafting from the numbers only.")
+    # The company-profile strip, copied straight through rather than drafted.
+    #
+    # These four are facts with one correct form — a promoter's name, a city, a
+    # founding year — so sending them through the model would only add a chance
+    # of it rewriting one. `incorporated` is the sparsest (16 of 21 rows carry
+    # it) and every entry is skipped when absent, so the strip shrinks rather
+    # than printing "Founded: —".
+    # No Industry row: the scene already prints `ipo.sector` under the company
+    # name, and a second sector line two blocks below it is the same fact twice.
+    # `brief["industry"]` still reaches the prompt, where it is useful context.
+    about_facts: list[str] = []
+    if brief:
+        for label, key in (("Founded", "incorporated"), ("HQ", "hq"),
+                           ("Promoters", "promoters")):
+            val = str(brief.get(key) or "").strip()
+            if val:
+                about_facts.append(f"{label}: {val}")
+
+    if brief:
+        context["business"] = brief
+        print(f"  · company brief from investorgain: "
+              f"{', '.join(sorted(brief))}")
+        if about_facts:
+            print(f"  · {len(about_facts)} profile fact(s): "
+                  f"{'; '.join(f.split(':')[0] for f in about_facts)}")
+    else:
+        print("  ! no company brief — the overview can only describe the "
+              "sector and the offer. Check the IPO is on investorgain.")
+
     try:
         draft = gem.draft_analysis(context, force=args.force)
     except AiUnavailable as exc:
         print(f"Cannot draft: {exc}")
         return 1
+
+    # Merged in after the draft, not into it: `draft` is what the model said and
+    # is cached under the prompt hash, while these are copied facts. Keeping them
+    # apart means a re-draft cannot lose the strip and the strip cannot be
+    # mistaken for something that needs reviewing.
+    if about_facts:
+        draft["about_facts"] = about_facts
 
     print("\n--- DRAFT (review before using) ---")
     for key, val in draft.items():
@@ -1428,6 +1533,29 @@ def enrich_plan(ipo: Ipo) -> list[tuple[str, list[str], int]]:
         steps.append(("analysis draft",
                       ["analyse", ipo.slug, "--write", "--no-translate"], 1))
 
+    # General awareness, once per IPO and then never again.
+    #
+    # Presence is the right test here, unlike the overview above: this is the
+    # model's own knowledge of a company, and that does not improve between
+    # Tuesday and Thursday. `enrich` runs twice a day, so anything re-triggered
+    # by a condition it cannot satisfy would burn a request every run — and an
+    # obscure SME legitimately returns an empty list, and `not a.background`
+    # cannot tell that apart from never having asked. What stops it re-asking
+    # twice a day is the attempt log in `_attempts_path`, which holds a tried
+    # step back for `--retry-after` days (7 by default) — so an IPO the model
+    # knows nothing about costs one request a week, not fourteen. That is a
+    # deliberate trickle rather than zero: the filing brief this leans on fills
+    # in as an issue approaches, so the same question can start returning
+    # something it could not answer the first time.
+    #
+    # Needs a company name and nothing else, so it does not wait on `has_facts`
+    # the way `analyse` does: a freshly discovered row with only a name is
+    # exactly when this is worth writing.
+    if (ipo.company or "").strip() and not a.background:
+        steps.append(("company background",
+                      ["research", ipo.slug, "--what", "background",
+                       "--write", "--no-translate"], 1))
+
     # Translation is two calls (hi + te) and only makes sense once there is
     # prose to translate — which the step above may have just created.
     #
@@ -1437,11 +1565,18 @@ def enrich_plan(ipo: Ipo) -> list[tuple[str, list[str], int]]:
     # the Hindi and Telugu cuts of reel 1 would keep rendering half the scene
     # the English one shows. Compare the bullet counts instead of testing for
     # presence, which catches both cases with one condition.
+    #
+    # Checked per list field, not just `overview`: `background` is written by a
+    # later step than the draft, so an IPO whose hi/te were translated before it
+    # existed has complete-looking translations that are missing a whole scene.
+    # Any list field that gets translated belongs in this tuple.
     def out_of_step(lang: str) -> bool:
         got = ipo.i18n.get(lang) or {}
         if not got:
             return True
-        return len(got.get("overview") or []) != len(a.overview)
+        return any(len(got.get(key) or []) != len(src)
+                   for key, src in (("overview", a.overview),
+                                    ("background", a.background)))
 
     if a.overview and not short_overview and (
             out_of_step("hi") or out_of_step("te")):
@@ -1907,10 +2042,15 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("slug")
     sp.add_argument("--what", default="gmp",
                     choices=["gmp", "gmp-history", "sub", "subscription", "ipo",
-                             "financials", "both", "all"])
+                             "financials", "background", "both", "all"])
     sp.add_argument("--url", help="comma-separated pages to read instead of searching")
     sp.add_argument("--write", action="store_true", help="save the result")
     sp.add_argument("--force", action="store_true", help="save even if flagged for review")
+    # `--what background` writes prose, which is the only branch here that can
+    # trigger a translation. The flag exists so `enrich` can batch its own
+    # translation at the end instead of paying two calls per step.
+    sp.add_argument("--no-translate", dest="no_translate", action="store_true",
+                    help="skip the hi/te translation of written prose")
     sp.add_argument("--model", default=default_model())
     sp.set_defaults(func=cmd_research)
 

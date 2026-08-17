@@ -306,6 +306,82 @@ def band_high(row_or_url: Any) -> float | None:
     return None
 
 
+def _plain(value: Any) -> str:
+    """HTML fragment -> one line of readable prose. '' for nothing usable."""
+    s = html.unescape(re.sub(r"<[^>]+>", " ", str(value or "")))
+    return re.sub(r"\s+", " ", s).strip()
+
+
+_detail_cache: dict[int, dict[str, Any]] = {}
+
+
+def company_brief(row_or_url: Any) -> dict[str, Any]:
+    """What the company actually does, in its own filing's words.
+
+    The single most valuable thing this endpoint carries, and the gap that made
+    reel 1's company scene thin. `draft_analysis` is a facts-only prompt, and
+    the facts it was given held no business description at all — just a sector
+    string, the issue terms and the financials. Asked for four bullets on the
+    business it could only pad ("operates in the jewellery sector", "generates
+    income through jewellery sales") or admit the absence, and an admission is
+    the one thing a caption must never be.
+
+    So this is not a nicety. It is the difference between "operates in the
+    jewellery sector" and "56 stores across 46 cities in Tamil Nadu, Telangana
+    and Karnataka; gold was 93.96% of FY24 revenue".
+
+    Free, keyless and deterministic, which is why it is preferred over the
+    obvious alternative. Grounded search would answer the same question, but
+    `google_search` is metered and 429s on a free key (see ai._generate_grounded)
+    — and a model summarising a page it found is a second chance to invent a
+    fact this returns verbatim.
+
+    Absent keys come back missing rather than empty: a blank string written into
+    the sheet is a fact claimed, and tables.py treats absence and 0 differently
+    for exactly this reason.
+
+    NOT included: recent news. `articles` is an empty list on every row checked
+    and `article_ids` is blank, so this desk simply does not carry it. Do not
+    add a news key here that quietly holds something else.
+    """
+    ident = _ipo_id(row_or_url)
+    if not ident:
+        return {}
+    if ident not in _detail_cache:
+        try:
+            payload = _get(f"ipo-detail-read/{ident}")
+        except Exception:
+            return {}                     # not cached — a blip should retry
+        data = payload.get("ipoData")
+        if isinstance(data, list):
+            data = data[0] if data else {}
+        _detail_cache[ident] = data if isinstance(data, dict) else {}
+    d = _detail_cache[ident]
+    if not d:
+        return {}
+
+    # `about_company` is the editorial write-up and `company_desc` the filing's
+    # own summary. They overlap but not completely — one carries the revenue mix
+    # and store count, the other the incorporation year and the business model —
+    # so both go through and the prompt is told they may repeat each other.
+    out: dict[str, Any] = {}
+    # `company_sector` and NOT `ipo_industry`: the latter is a foreign key, so
+    # it read "Industry: 53" on screen. Anything sourced here has to be the
+    # display value, because nothing downstream can tell an id from a name.
+    for key, field in (("about", "about_company"), ("summary", "company_desc"),
+                       ("objects", "issue_objects"), ("promoters", "promoters"),
+                       ("website", "website"), ("industry", "company_sector"),
+                       ("incorporated", "company_incorporation")):
+        text = _plain(d.get(field))
+        if text:
+            out[key] = text
+
+    city, state = _plain(d.get("city_name")), _plain(d.get("state"))
+    if city or state:
+        out["hq"] = ", ".join(x for x in (city, state) if x)
+    return out
+
+
 def subscription(row_or_url: Any) -> list[dict[str, Any]]:
     """Day-wise subscription, in the store's own column names.
 

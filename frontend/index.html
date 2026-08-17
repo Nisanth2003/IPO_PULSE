@@ -295,11 +295,14 @@
       <button @click="go(i,0)"
               class="group relative rounded-lg border px-2 py-1.5 text-left transition"
               :class="reelIndex===i ? 'border-transparent text-white' : 'border-white/10 bg-white/[.03] text-slate-400 hover:bg-white/[.08]'"
-              :style="reelIndex===i ? `background:linear-gradient(180deg,${r.acc}33,${r.acc}12);border-color:${r.acc}88` : ''">
+              :style="reelIndex===i ? `background:linear-gradient(180deg,${reelAcc(r)}33,${reelAcc(r)}12);border-color:${reelAcc(r)}88` : ''">
         <div class="flex items-center gap-1">
           <span class="text-[9px] font-black tracking-[.16em] opacity-70" x-text="'REEL 0'+r.n"></span>
+          <!-- scenesFor, not r.scenes.length: reel 1 drops its background scene
+               when the IPO has none, and a tab promising 6 while the reel plays
+               5 is the kind of mismatch nobody checks but everybody notices. -->
           <span class="text-[8.5px] opacity-50"
-                x-text="'· ' + (i===reelIndex ? sceneCount : (r.n===2 && gmpMode==='board' ? r.boardScenes.length : r.scenes.length)) + ' scenes'"></span>
+                x-text="'· ' + scenesFor(r, gmpMode, ipo).length + ' scenes'"></span>
         </div>
         <div class="text-[11.5px] font-bold leading-tight truncate" x-text="t(r.key)"></div>
       </button>
@@ -546,6 +549,61 @@
               <template x-for="(b,i) in loc.overview" :key="i">
                 <div class="glass p-3 flex gap-2.5 items-start">
                   <span class="mt-[7px] w-[7px] h-[7px] rounded-full shrink-0" :style="`background:${acc}`"></span>
+                  <span class="text-base text-slate-100 leading-snug font-semibold" x-text="b"></span>
+                </div>
+              </template>
+              <!-- Company-profile strip: founded, head office, industry,
+                   promoters. The bullets say what the business does; these are
+                   the who-and-where a viewer meeting the name for the first
+                   time still wants. Values are filed facts, never model-written,
+                   so they carry no review risk — and never translated, so a
+                   promoter's name survives the Hindi and Telugu cuts intact.
+                   Rendered as rows rather than a fixed grid because the strip
+                   shrinks when a fact is absent (only 16 of 21 IPOs file an
+                   incorporation year). -->
+              <template x-if="aboutFacts.length">
+                <div class="glass p-2.5" style="display:flex;flex-direction:column;gap:5px">
+                  <template x-for="(f,i) in aboutFacts" :key="i">
+                    <div class="flex items-baseline gap-2 min-w-0">
+                      <span class="lbl shrink-0" style="letter-spacing:.10em"
+                            x-text="f.label"></span>
+                      <!-- Wraps to a second line rather than truncating. A
+                           five-promoter company cut to "Lovlish Ga…" reads as a
+                           rendering fault; two lines of real names does not, and
+                           this scene has the room. Clamped at two so a long list
+                           still cannot push the bullets out of frame. -->
+                      <span class="text-2xs font-bold text-slate-200 leading-snug"
+                            style="display:-webkit-box;-webkit-line-clamp:2;
+                                   -webkit-box-orient:vertical;overflow:hidden"
+                            x-text="f.value"></span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+
+            <!-- General awareness: who this company is, in context.
+                 The only block on reel 1 no filing backs — it is the model's own
+                 knowledge, undated on purpose (see ai.research_background), and
+                 written once when the IPO is discovered. The scene is dropped
+                 entirely when there is nothing to say rather than padded, so
+                 everything here can assume a non-empty list. -->
+            <div x-show="at(1,'background')" class="scene">
+              <div class="flex items-center gap-2.5">
+                <div class="shrink-0 grid place-items-center rounded-xl"
+                     :style="`width:calc(var(--fs)*2.1);height:calc(var(--fs)*2.1);background:${rgba(acc,.16)};border:1px solid ${rgba(acc,.4)}`">
+                  <span class="text-base">💡</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="lbl" x-text="t('knowThem')"></div>
+                  <div class="font-black text-lg leading-tight truncate"
+                       x-text="ipo.company"></div>
+                </div>
+              </div>
+              <template x-for="(b,i) in loc.background" :key="i">
+                <div class="glass p-3 flex gap-2.5 items-start">
+                  <span class="font-black shrink-0 tnum text-sm mt-[1px]"
+                        :style="`color:${acc}`" x-text="(i+1)+'.'"></span>
                   <span class="text-base text-slate-100 leading-snug font-semibold" x-text="b"></span>
                 </div>
               </template>

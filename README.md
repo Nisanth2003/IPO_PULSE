@@ -24,7 +24,7 @@ no cutting.
 
 | Reel | Scenes |
 |---|---|
-| 1 · About IPO | hook → company → fresh vs OFS → price/lot/minimum → key dates |
+| 1 · About IPO | hook → company → **know the company** → fresh vs OFS → price/lot/minimum → key dates |
 | 2 · Daily GMP | hook → gauge → estimated listing → **announcement-to-listing trail, with profit per lot for every day** |
 | 2 · Daily GMP *(board mode)* | hook → **every live IPO in one table** |
 | 3 · Subscription | hook → QIB/NII/Retail bars → day-wise build-up |

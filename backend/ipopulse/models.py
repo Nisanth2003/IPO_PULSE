@@ -187,9 +187,31 @@ class Analysis:
     Always stored in the source language (English); translations live in
     `Ipo.i18n` so the original is never overwritten.
     """
-    overview: list[str] = field(default_factory=list)     # 2 business bullets
+    overview: list[str] = field(default_factory=list)     # ai.OVERVIEW_BULLETS
     green_flags: list[str] = field(default_factory=list)
     red_flags: list[str] = field(default_factory=list)
+    # "Founded: 1985", "HQ: Chennai, Tamil Nadu", "Promoters: ..." — the
+    # company-profile facts reel 1 shows under the bullets. Stored "Label: value"
+    # so the scene can style the label separately without a second field, and so
+    # a human reading the Lists tab sees what each row means.
+    #
+    # Deliberately NOT model-written: every one is copied verbatim from
+    # InvestorGain's filing data, so there is nothing here to hallucinate. Kept
+    # out of `overview` because those are prose captions that get translated,
+    # and a promoter's name must survive a Hindi cut unchanged.
+    about_facts: list[str] = field(default_factory=list)
+    # General awareness: how established the company is, what it is known for,
+    # who it competes with. Model-written from its own knowledge, because no
+    # filing carries it — so unlike `about_facts` this one IS reviewable copy,
+    # and it is translated like the rest of the prose.
+    #
+    # Undated on purpose. See ai.research_background: dated "recent news" came
+    # back ungrounded and stale, and a date is what turns old knowledge into a
+    # false claim. Background with no date is just background.
+    #
+    # Written once when the IPO is discovered and never refreshed — none of it
+    # moves over a three-week issue.
+    background: list[str] = field(default_factory=list)
     growth: str = ""
     valuation: str = ""
     risk: str = ""
@@ -209,6 +231,8 @@ class Analysis:
             overview=_list(d.get("overview")),
             green_flags=_list(d.get("green_flags")),
             red_flags=_list(d.get("red_flags")),
+            about_facts=_list(d.get("about_facts")),
+            background=_list(d.get("background")),
             growth=d.get("growth", "") or "",
             valuation=d.get("valuation", "") or "",
             risk=d.get("risk", "") or "",

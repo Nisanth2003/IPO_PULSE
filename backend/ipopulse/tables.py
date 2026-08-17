@@ -104,10 +104,15 @@ TABS: dict[str, list[str]] = {
 }
 
 # The list-valued fields, as paths into to_dict().
+# Adding one here needs no column change and no matching edit in data.js: the
+# Lists tab is keyed by field NAME, and the browser side splits that name on '.'
+# and plants the array at that path. That is the whole cost of a new list field.
 LIST_FIELDS = [
     ("analysis", "overview"),
     ("analysis", "green_flags"),
     ("analysis", "red_flags"),
+    ("analysis", "about_facts"),
+    ("analysis", "background"),
     ("allotment", "steps"),
 ]
 

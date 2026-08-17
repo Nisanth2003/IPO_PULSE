@@ -218,7 +218,30 @@ class Gemini:
             raise AiUnavailable(
                 "google-genai is not installed. pip install -r requirements.txt"
             ) from exc
-        self._client = genai.Client(api_key=self.api_key)
+        # A request timeout, because the default is effectively forever.
+        #
+        # Observed 2026-08-17: `translate` sat on a single IPO for over ten
+        # minutes at zero CPU, blocked inside generate_content with nothing
+        # printed. That is worse than an error. `_call` already walks to the next
+        # model on a failure and every caller turns AiUnavailable into one line,
+        # so a request that gives up is handled; a request that hangs is not —
+        # it stalls the whole `daily` chain until Task Scheduler's 20-minute
+        # ExecutionTimeLimit kills the lot, so one wedged call costs `sync`,
+        # `doctor` and `build` too.
+        #
+        # Milliseconds, and generous: grounded search legitimately takes 30-60s
+        # and translation runs two calls per IPO. This is a hang-breaker, not a
+        # latency budget — set it too tight and slow-but-working runs start
+        # failing. Wrapped because `http_options` is not accepted by every
+        # google-genai version, and no timeout beats no client.
+        try:
+            from google.genai import types as _types
+            self._client = genai.Client(
+                api_key=self.api_key,
+                http_options=_types.HttpOptions(timeout=180_000),
+            )
+        except (ImportError, AttributeError, TypeError, ValueError):
+            self._client = genai.Client(api_key=self.api_key)
         return self._client
 
     # ── cache, with expiry ────────────────────────────────────────────────
@@ -295,7 +318,7 @@ class Gemini:
     # ── raw calls ─────────────────────────────────────────────────────────
     @staticmethod
     def _fault(exc: Exception) -> str | None:
-        """Classify an API error into the two kinds worth reacting to."""
+        """Classify an API error into the kinds worth reacting to."""
         text = str(exc)
         if "RESOURCE_EXHAUSTED" in text or "429" in text:
             return "quota"
@@ -303,6 +326,19 @@ class Gemini:
             return "retired"
         if "API_KEY_INVALID" in text or "PERMISSION_DENIED" in text:
             return "key"
+        # A timeout is transport, not a verdict on the model or the key, and
+        # `_client_or_raise` sets one precisely so a wedged request dies. Left
+        # unclassified it returned None, which makes `_call` re-raise — so the
+        # timeout that replaced a silent hang produced a raw httpx traceback
+        # instead, killing the command and reading like a bug in ipopulse. This
+        # is exactly what the docstring below says must not escape.
+        #
+        # Classified as its own kind rather than folded into "quota" so the
+        # message at the end can say which happened: a run that timed out is
+        # worth retrying now, a run out of quota is worth retrying tomorrow.
+        name = type(exc).__name__
+        if "Timeout" in name or "timed out" in text.lower() or "timeout" in text.lower():
+            return "timeout"
         return None
 
     def _candidates(self) -> list[str]:
@@ -339,6 +375,16 @@ class Gemini:
                 fault = self._fault(exc)
                 if fault == "key":
                     raise AiUnavailable("GEMINI_API_KEY was rejected.") from exc
+                if fault == "timeout":
+                    # Stop, do not walk the list. Quota and retirement are facts
+                    # about one model, so the next candidate is worth a try; a
+                    # timeout is the network or the service, and every candidate
+                    # would wait the full timeout to learn the same thing. With
+                    # a dozen models on the free tier that turns one stalled
+                    # call into an hour of stalled calls — slower than the hang
+                    # this timeout exists to prevent.
+                    last = exc
+                    break
                 if fault is None:
                     raise
                 last = exc
@@ -348,12 +394,25 @@ class Gemini:
             _write_model_cache(model)
             return resp
 
+        kind = self._fault(last) or "error"
+
+        # A timeout says nothing about the model, so "no usable Gemini model" —
+        # correct for quota and retirement — would send you looking in the wrong
+        # place. Name what actually happened and that it is worth retrying.
+        if kind == "timeout":
+            raise AiUnavailable(
+                "Gemini did not respond within the request timeout. This is the "
+                "network or the service, not your key or the model — the same "
+                "call usually works on a retry.\n  "
+                f"Model: {self.model}. Nothing was written for this step."
+            ) from last
+
         grounded = "tools" in str(kwargs.get("config", ""))
         detail = ("Grounded search has a much smaller free allowance than plain "
                   "generation and usually needs billing enabled.\n  "
                   if grounded else "")
         raise AiUnavailable(
-            f"No usable Gemini model ({self._fault(last) or 'error'}). "
+            f"No usable Gemini model ({kind}). "
             f"Tried: {', '.join(tried[:6])}"
             f"{' …' if len(tried) > 6 else ''}\n  {detail}"
             "https://ai.dev/rate-limit"
@@ -491,16 +550,26 @@ jargon. Each bullet must be one short line, under about 12 words, suitable
 as an on-screen caption.
 
 Return JSON with exactly these keys:
-  "overview":    exactly {OVERVIEW_BULLETS} bullets introducing this IPO. This
-                 is the whole of what reel 1 says about the company, so it has
-                 to stand alone. Each bullet takes a DIFFERENT angle, in this
-                 order, and every one must rest on a fact given below:
-                   1. what the company sells or operates, in concrete terms
-                   2. the sector it competes in and what that market is like
-                   3. the offer: how big it is, and whether the money is fresh
-                      capital for the company or existing holders selling out
-                   4. the headline number that decides it — the growth rate, or
-                      how the pricing compares with peers
+  "overview":    exactly {OVERVIEW_BULLETS} bullets introducing this company.
+                 This is the whole of what reel 1 says about it, and most
+                 viewers have never heard the name — so it has to leave them
+                 actually knowing what the business is, not just that an IPO
+                 exists. Where `business` is present below, it is the company's
+                 own filing describing itself: that is your main source, and
+                 these bullets should read as if written by someone who had
+                 read it. Each bullet takes a DIFFERENT angle, in this order:
+                   1. what it sells or operates, concretely — the products,
+                      brands or services a viewer would recognise
+                   2. its scale and footprint: stores, plants, fleet, capacity,
+                      cities, states, customers, how long it has been going
+                   3. how it earns — the revenue model, the mix, which segment
+                      carries the business
+                   4. what this IPO is for: the offer's size, fresh capital vs
+                      existing holders selling, and what the money funds
+                 Prefer a specific figure from `business` over a general
+                 statement every time: "56 stores across 46 cities" beats
+                 "a wide retail presence", and "gold was 93.96% of FY24
+                 revenue" beats "gold is the core product".
                  Hard rules, because breaking them is worse than a short scene:
                    * Never write that a fact is missing. "The RHP does not show
                      store counts" is a true sentence and a useless caption; a
@@ -508,9 +577,12 @@ Return JSON with exactly these keys:
                      an angle has no fact behind it, write a different real one.
                    * Never restate a figure or claim another bullet already
                      used. Four ways of saying "sells jewellery" is padding.
-                   * The FACTS below carry no business description beyond the
-                     sector, so do not attempt customer names, plant counts,
-                     geographies or brand names — you would be inventing them.
+                   * `business.about` and `business.summary` overlap — they are
+                     two write-ups of the same company. Treat them as one
+                     source and do not let the same detail fill two bullets.
+                   * If `business` is absent, fall back to the sector and the
+                     offer, and invent nothing: no customer names, plant counts,
+                     geographies or brands that are not written below.
   "green_flags": up to 3 genuine positives, each citing a fact given
   "red_flags":   up to 3 genuine risks, each citing a fact given
   "growth":      one line summarising the growth trajectory
@@ -821,6 +893,93 @@ is null unless a page states it outright."""
         data = _parse_json(text, default={})
         data["sources"] = sources
         return data
+
+    def research_background(
+        self, company: str, *, sector: str = "", hq: str = "",
+        known: str = "", force: bool = False,
+    ) -> dict[str, Any]:
+        """General awareness about the company: who they are, in context.
+
+        The one thing on reel 1 that cannot come from the filing. `about_company`
+        says what the business does; this says what a viewer who has never heard
+        the name should know — how established it is, what it is known for, who
+        it competes with, where it sits in its market.
+
+        Written ONCE, when the IPO is first discovered, and never refreshed:
+        none of it changes over an issue's three-week life, so re-asking would
+        spend a request a day to receive the same paragraph.
+
+        No dates, and that restriction is the whole design. An earlier attempt at
+        this asked for *recent news* and got dated headlines back with zero
+        grounding sources attached — "2024-06-12: Shiprocket expanded to 220
+        countries" — which is parametric recall wearing a citation's clothes, on
+        a card that says LIVE. Undated background carries no recency claim, so
+        stale knowledge is merely background rather than a false statement. If
+        you ever want real news here, it needs a source that can be cited.
+
+        `known` is the filing's own description, passed in so the model can add
+        context around it instead of repeating it back.
+        """
+        if not self.available():
+            raise AiUnavailable("Gemini not configured; cannot research.")
+
+        facts = "\n".join(x for x in (
+            f"Sector: {sector}" if sector else "",
+            f"Head office: {hq}" if hq else "",
+            f"What its filing says it does: {known[:1200]}" if known else "",
+        ) if x)
+
+        prompt = f"""Write general-awareness background on the Indian company
+"{company}" — the context a retail viewer who has never heard the name needs
+before deciding anything. This is for an explainer video, not a news bulletin.
+
+{facts}
+
+Wanted, in rough order of usefulness:
+  * how long it has been going and how established it is
+  * what it is best known for — brands, flagship products, reputation
+  * where it sits in its market: leader, challenger, niche; who it is up
+    against by name if that is widely known
+  * anything a reasonably informed Indian viewer would already associate
+    with the name
+
+Hard rules:
+  * NO DATES and no claims about recent or current events. You cannot verify
+    when anything happened, so anything time-sensitive is out: no "recently",
+    no "last year", no funding rounds, launches, results or appointments.
+    Durable facts only — things that were true five years ago and still are.
+  * NO FIGURES unless they appear in the facts above. Revenue, store counts,
+    headcount, market share and valuations are exactly what gets misremembered.
+  * Do not repeat what the filing already says. Add context around it.
+  * If you do not actually know this company — most SME issues are genuinely
+    obscure — return FEWER points, or an empty list. Three real lines beat
+    five invented ones, and an empty list is a correct answer that the caller
+    handles. Never pad to reach a count.
+
+Each point one short line, under about 16 words, plain spoken English.
+
+Return ONLY JSON:
+{{"background": ["...", "..."],
+  "confidence": "high" | "medium" | "low",
+  "note": "<what you actually knew, or why the list is short>"}}"""
+
+        key = _hash({"m": self.model, "p": prompt})
+        if not force:
+            hit = self._cached("bg", key)
+            if hit is not None:
+                return hit
+
+        text, sources = self._generate_grounded(prompt)
+        data = _parse_json(text, default={})
+        out = {
+            "background": [str(x).strip() for x in (data.get("background") or [])
+                           if str(x).strip()][:4],
+            "confidence": str(data.get("confidence") or "low"),
+            "note": str(data.get("note") or ""),
+            "sources": sources,
+        }
+        self._store("bg", key, out)
+        return out
 
     def research_financials(
         self, company: str, *, years: list[str] | None = None,

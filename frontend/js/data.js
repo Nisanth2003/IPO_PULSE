@@ -258,6 +258,7 @@ const DATA = {
     const src = ipo.analysis || {};
     const base = {
       overview: src.overview || [],
+      background: src.background || [],
       green_flags: src.green_flags || [],
       red_flags: src.red_flags || [],
       growth: src.growth || '',
@@ -278,6 +279,7 @@ const DATA = {
     };
     return {
       overview: pick('overview'),
+      background: pick('background'),
       green_flags: pick('green_flags'),
       red_flags: pick('red_flags'),
       growth: pick('growth'),
@@ -348,6 +350,14 @@ function normalise(r) {
       overview: an.overview || [],
       green_flags: an.green_flags || [],
       red_flags: an.red_flags || [],
+      // Reel 1's company-profile strip. Reading the Lists tab is generic — it
+      // splits the field name on '.' and plants the array — but THIS step is
+      // not: it rebuilds `analysis` key by key, so a field missing from here is
+      // silently dropped however correctly it was stored. That is the mirror
+      // tables.py means by "change a column here and this file has to change
+      // with it", and it applies to LIST_FIELDS too.
+      about_facts: an.about_facts || [],
+      background: an.background || [],
       growth: _s(an.growth), valuation: _s(an.valuation), risk: _s(an.risk),
       growth_tone: _s(an.growth_tone) || 'good',
       valuation_tone: _s(an.valuation_tone) || 'warn',
