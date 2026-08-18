@@ -96,7 +96,16 @@ $Jobs = @(
        Triggers = @( @{ Kind = 'Weekly'; At = '03:00'; Day = 'Sunday' } ) },
     @{ Name = 'report'
        Why  = 'After translate, so the workbook has the week final copy.'
-       Triggers = @( @{ Kind = 'Weekly'; At = '04:00'; Day = 'Sunday' } ) }
+       Triggers = @( @{ Kind = 'Weekly'; At = '04:00'; Day = 'Sunday' } ) },
+    @{ Name = 'grade'
+       # A weekly report card on the numbers themselves, which nothing else
+       # measures: `doctor` says what is MISSING and `verify` says whether an
+       # IPO should exist, and a record can pass both while holding a figure
+       # the desk never published. Read-only, so it is safe to run beside
+       # anything -- it cannot clobber a concurrent write because it makes
+       # none. 05:00 Sunday, after report at 04:00, so the week is closed.
+       Why  = 'Scores stored GMP and subscription against InvestorGain. Sun 05:00.'
+       Triggers = @( @{ Kind = 'Weekly'; At = '05:00'; Day = 'Sunday' } ) }
 )
 
 function Get-TaskName($job) { "IPO Pulse - $($job.Name)" }

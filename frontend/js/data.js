@@ -237,6 +237,12 @@ const DATA = {
         gain_per_lot: seen ? g.gain_per_lot : null,
         movement: seen ? g.movement : null,
         subscription: s.has_data ? s.total : null,
+        // Retail separately, for reel 3's all-IPOs board: it is the column
+        // the audience is actually in, and "overall 40x" hides the fact that
+        // retail was 2x. null, not 0, for the usual reason — no reading is
+        // not a reading of zero.
+        retail: s.has_data ? s.retail : null,
+        sub_day: s.has_data ? s.day : null,
         open: d.dates.open,
         close: d.dates.close,
         listing: d.dates.listing,

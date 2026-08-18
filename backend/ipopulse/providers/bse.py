@@ -107,8 +107,13 @@ def _get() -> list[dict[str, Any]]:
     return (r.json() or {}).get("Table") or []
 
 
-def board() -> list[dict[str, Any]]:
-    """Every equity public issue BSE currently lists. [] if unreachable.
+def board(strict: bool = False) -> list[dict[str, Any]]:
+    """Every equity public issue BSE currently lists.
+
+    `strict=True` re-raises instead of returning [], which is what lets a
+    caller tell "BSE answered, and there are no live IPOs this week" apart
+    from "BSE did not answer". Those are the same empty list otherwise, and
+    conflating them makes a quiet week look like an outage.
 
     Shaped to match `investorgain.board()` field for field where the fields
     overlap, so a caller can walk either without special-casing. `[]` on
@@ -119,6 +124,8 @@ def board() -> list[dict[str, Any]]:
     try:
         rows = _get()
     except Exception:
+        if strict:
+            raise
         return []
 
     out: list[dict[str, Any]] = []
@@ -148,5 +155,9 @@ def board() -> list[dict[str, Any]]:
 
 
 def available() -> bool:
-    """Is the feed answering? Used to tell 'absent' apart from 'unreachable'."""
-    return bool(board())
+    """Is the feed answering at all? True even when it lists no IPOs today."""
+    try:
+        _get()
+        return True
+    except Exception:
+        return False

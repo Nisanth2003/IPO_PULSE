@@ -32,6 +32,12 @@ function studio() {
     showSafe: false, showFooter: true, showProgress: true, rounded: true,
     leftOpen: true, rightOpen: true,
     playing: false, speed: 1, sceneProg: 0,
+    /* Timing. `script` derives each scene's hold from how long its narration
+       takes to say; `fixed` keeps the designed holds from reels.js.
+       reelTarget is per reel number — 0 means "no target, run naturally" —
+       because reel 2 and reel 5 do not want the same length. */
+    timingMode: 'script',
+    reelTarget: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
     mounted: false, overflow: false, copied: '',
     now: Date.now(),
     a: { gmp: 0, pct: 0, est: 0, total: 0, score: 0 },
@@ -101,7 +107,8 @@ function studio() {
        'gmpMode', 'showLogo']
         .forEach((k) => this.$watch(k, () => { this.savePrefs(); this.check(); }));
       ['scale', 'autoFit', 'bg', 'rounded', 'speed', 'handle',
-       'theme', 'showGif', 'gifSize']
+       'theme', 'showGif', 'gifSize', 'timingMode', 'reelTarget',
+       'defaultGif', 'themePerReel']
         .forEach((k) => this.$watch(k, () => this.savePrefs()));
 
       this.probeBackend();
@@ -358,6 +365,8 @@ function studio() {
           rounded: this.rounded, speed: this.speed, handle: this.handle,
           gmpMode: this.gmpMode, theme: this.theme, showLogo: this.showLogo,
           showGif: this.showGif, gifSize: this.gifSize,
+          timingMode: this.timingMode, reelTarget: this.reelTarget,
+          defaultGif: this.defaultGif, themePerReel: this.themePerReel,
         }));
       } catch (e) { /* private mode */ }
     },
@@ -366,6 +375,19 @@ function studio() {
         const s = JSON.parse(localStorage.getItem('ipoPulse.prefs') || '{}');
         Object.keys(s).forEach((k) => { if (s[k] !== undefined) this[k] = s[k]; });
         this.density = this.densityBase;
+        // Same defensiveness as `th` applies to a stale theme key: a
+        // reelTarget restored as null, an array, or short a reel would make
+        // every timing getter read `undefined` and hold every scene for
+        // NaN seconds, which stops playback dead.
+        const t = this.reelTarget;
+        const clean = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+        if (t && typeof t === 'object' && !Array.isArray(t)) {
+          for (const k of Object.keys(clean)) clean[k] = Math.max(0, Number(t[k]) || 0);
+        }
+        this.reelTarget = clean;
+        if (this.timingMode !== 'fixed' && this.timingMode !== 'script') {
+          this.timingMode = 'script';
+        }
       } catch (e) { /* ignore */ }
     },
 
@@ -381,8 +403,22 @@ function studio() {
     // ── theme ──────────────────────────────────────────────────────────
     /* Always a theme object, never undefined: a stale `theme` key in
        localStorage from a renamed or removed theme would otherwise take the
-       accent, the card and the export background down with it. */
-    get th() { return THEME_BY_KEY[this.theme] || THEMES[0]; },
+       accent, the card and the export background down with it.
+     *
+     * `themePerReel` rotates the palette by reel instead of using one for the
+     * whole set. Six videos published the same day in identical colours is
+     * exactly the "interchangeable from video to video" look YouTube's
+     * inauthentic-content policy describes, and it also makes a viewer's feed
+     * read as one repeated upload. Deterministic — reel 3 is always the same
+     * theme — so a series stays recognisable rather than becoming random. */
+    themePerReel: true,
+    get th() {
+      if (this.themePerReel) {
+        const i = (this.reelIndex + THEME_ROTATION_OFFSET) % THEMES.length;
+        return THEMES[i] || THEMES[0];
+      }
+      return THEME_BY_KEY[this.theme] || THEMES[0];
+    },
 
     /* Accent for the reel on screen, picked from the active theme.
        Falls back to the reel's own `acc` if a theme is short a hue, so adding
@@ -433,8 +469,13 @@ function studio() {
      * only, so a pinned GIF can never break the export path. */
     gifBroken: '',
     gifTaints: false,
+    /* A channel-wide sticker, used when the IPO has not pinned its own.
+       Per-IPO-only meant nobody ever set one: all 20 IPOs had role `gif`
+       empty, so the whole feature had never appeared on a single reel. */
+    defaultGif: '',
     get brandGif() {
-      const url = (this.ipo && this.ipo.sources && this.ipo.sources.gif) || '';
+      const pinned = (this.ipo && this.ipo.sources && this.ipo.sources.gif) || '';
+      const url = pinned || this.defaultGif || '';
       if (!url || url === this.gifBroken) return '';
       return this.showGif ? url : '';
     },
@@ -462,12 +503,168 @@ function studio() {
     nextReel() { this.go((this.reelIndex + 1) % REELS.length, 0); },
     prevReel() { this.go((this.reelIndex + REELS.length - 1) % REELS.length, 0); },
 
+    /* ── how long a scene should hold ────────────────────────────────────
+     *
+     * Until now `hold` was a hand-tuned constant in reels.js with no
+     * relationship to what the narrator says over it: a scene with four
+     * bullets and a scene with one both held for five seconds, so the
+     * voiceover and the picture drifted apart and had to be fixed by hand in
+     * CapCut on every single video.
+     *
+     * Two controls replace that:
+     *
+     *   timingMode 'script'  — hold each scene for as long as its narration
+     *                          actually takes to say (see speakSeconds)
+     *   reelTarget[n]        — force a reel to a total length; every scene
+     *                          scales to hit it, keeping their proportions
+     *
+     * `speed` stays as the final multiplier so the existing control is
+     * unchanged.
+     */
+
+    /* Estimated seconds to speak `text` aloud in `lang`.
+     *
+     * English is counted in WORDS: 155 wpm is the Audible/ACX narration
+     * standard, so 0.387 s/word.
+     *
+     * Hindi and Telugu are counted in GRAPHEME CLUSTERS, not words and not
+     * codepoints. Words are hopeless across languages — Telugu is
+     * agglutinative, so one word can carry what English needs four for, and
+     * the two studies that pin cross-language speech rate (Pellegrino 2011,
+     * Coupé 2019, ~39 bits/s) work in syllables rather than words for
+     * exactly that reason. Codepoints are just as wrong in the other
+     * direction: one Devanagari or Telugu akshara is typically 2-4
+     * codepoints (base + virama + vowel sign), so `.length` over-counts by
+     * roughly double. A grapheme cluster ≈ one akshara ≈ one syllable, which
+     * is the unit that actually tracks time. Intl.Segmenter implements the
+     * Unicode rules for it natively, so no library is needed.
+     *
+     * 0.15 s/akshara (≈6.7/sec) is a SEED, interpolated from clinical
+     * speech-rate norms for Dravidian languages (4-10 syllables/s, adults
+     * 6-8) and slowed a little for deliberate narration. Neither Hindi nor
+     * Telugu appears in the cross-linguistic literature, so this is an
+     * engineering estimate, not a measured constant. Calibrate it against
+     * real output when convenient: ElevenLabs' timestamps endpoint returns
+     * exact per-character timings, so a few hundred words of real script
+     * would let these be fitted properly.
+     */
+    speakSeconds(text, lang) {
+      const s = String(text || '').trim();
+      if (!s) return 0;
+      const L = lang || this.lang || 'en';
+      let body;
+      if (L === 'en') {
+        body = (s.match(/\S+/g) || []).length * 0.387;
+      } else {
+        let units = 0;
+        try {
+          const seg = new Intl.Segmenter(L, { granularity: 'grapheme' });
+          for (const _ of seg.segment(s)) units++;
+        } catch (e) {
+          // No Intl.Segmenter: fall back to codepoints and discount for the
+          // over-count rather than silently returning a doubled duration.
+          units = [...s].length * 0.55;
+        }
+        body = units * 0.15;
+      }
+      // Pauses are added on top rather than folded into the rate, because
+      // punctuation density varies independently of length.
+      const sentences = (s.match(/[.!?।॥]/g) || []).length;
+      const commas = (s.match(/[,;:—]/g) || []).length;
+      return body + sentences * 0.5 + commas * 0.25;
+    },
+
+    /* Seconds each scene of the current reel needs for its narration.
+     *
+     * Only English is written per scene (`enSegments`); Hindi and Telugu are
+     * still one block of template text, deliberately — see the note in
+     * output.js about not machine-translating a voice.
+     *
+     * So the SHAPE of the reel comes from English, where the per-scene split
+     * is known, and the LENGTH comes from the language actually being
+     * narrated. Each scene keeps its English share of the reel, and that
+     * share is applied to the real duration of the Hindi or Telugu script.
+     *
+     * Measuring the English text with the Indic rate — which an earlier
+     * version did — is nonsense twice over: it counts Latin characters as
+     * though they were aksharas, and it reports a duration for words nobody
+     * is going to speak. It read 168s for a Hindi reel whose English
+     * equivalent was 93s.
+     */
+    get scriptHolds() {
+      const segs = (this.enSegments ? this.enSegments(this.reel.n) : {}) || {};
+      const ids = this.scenes.map((sc) => sc.id);
+
+      // English seconds per scene — the shape.
+      const shape = {};
+      let shapeTotal = 0;
+      for (const sc of this.scenes) {
+        const text = segs[sc.id];
+        const secs = text ? this.speakSeconds(text, 'en') : 0;
+        shape[sc.id] = secs;
+        shapeTotal += secs;
+      }
+
+      // Total seconds for the language actually being read.
+      const spoken = this.lang === 'en'
+        ? shapeTotal
+        : this.speakSeconds(this.scriptFor(this.reel.n), this.lang);
+
+      const out = {};
+      for (const sc of this.scenes) {
+        // A scene with no narration still has to be readable on screen, so
+        // it keeps its designed hold rather than collapsing to nothing.
+        if (!shape[sc.id] || shapeTotal <= 0) { out[sc.id] = sc.hold || 4; continue; }
+        const share = shape[sc.id] / shapeTotal;
+        out[sc.id] = Math.max(2, spoken * share + 0.6);
+      }
+      return out;
+    },
+
+    /* The natural hold per scene before any target is applied. */
+    get baseHolds() {
+      if (this.timingMode === 'script' && this.lang === 'en') return this.scriptHolds;
+      if (this.timingMode === 'script') return this.scriptHolds;
+      const out = {};
+      for (const sc of this.scenes) out[sc.id] = sc.hold || 4;
+      return out;
+    },
+
+    /* Scale factor that turns the natural total into the requested total. */
+    get targetScale() {
+      const want = Number(this.reelTarget[this.reel.n] || 0);
+      if (!want) return 1;
+      const natural = this.scenes.reduce((t, sc) => t + (this.baseHolds[sc.id] || 4), 0);
+      return natural > 0 ? want / natural : 1;
+    },
+
+    /* Final per-scene seconds, target and speed applied. */
+    get finalHolds() {
+      const base = this.baseHolds, k = this.targetScale, sp = this.speed || 1;
+      const out = {};
+      for (const sc of this.scenes) {
+        out[sc.id] = Math.max(1, ((base[sc.id] || 4) * k) / sp);
+      }
+      return out;
+    },
+
     get holdSeconds() {
-      const base = (this.scenes[this.scene] || {}).hold || 4;
-      return Math.max(1, base / (this.speed || 1));
+      const sc = this.scenes[this.scene];
+      return sc ? (this.finalHolds[sc.id] || 4) : 4;
     },
     get reelSeconds() {
-      return Math.round(this.scenes.reduce((sum, s) => sum + s.hold, 0) / (this.speed || 1));
+      return Math.round(
+        this.scenes.reduce((sum, sc) => sum + (this.finalHolds[sc.id] || 4), 0));
+    },
+    /* What the reel would run to on its own, ignoring any target — shown
+     * next to the control so the number being overridden is visible. */
+    get naturalSeconds() {
+      return Math.round(
+        this.scenes.reduce((t, sc) => t + (this.baseHolds[sc.id] || 4), 0) / (this.speed || 1));
+    },
+    setReelTarget(v) {
+      const n = Math.max(0, Math.round(Number(v) || 0));
+      this.reelTarget = { ...this.reelTarget, [this.reel.n]: n };
     },
 
     togglePlay() { this.playing ? this.stopPlay() : this.startPlay(); },
@@ -1083,6 +1280,67 @@ function studio() {
       const rows = this.boardRows || [];
       const cap = this.P.h >= 700 ? 12 : (this.P.h >= 520 ? 8 : 6);
       return { rows: rows.slice(0, cap), hidden: Math.max(0, rows.length - cap) };
+    },
+
+    /* Does the reel on screen have an all-IPOs mode at all?
+     *
+     * The mode toggle used to render on every reel and belonged to only one
+     * of them — worse, its handler jumped to reel 2, so pressing "All IPOs"
+     * while working on reel 4 silently moved you somewhere else. A control
+     * that does nothing on four of six screens, and something unwanted on
+     * the other two, is worse than no control. */
+    get canBoard() { return !!(this.reel && this.reel.boardScenes); },
+    get boardOn() { return this.canBoard && this.gmpMode === 'board'; },
+    setBoardMode(mode) {
+      this.gmpMode = mode;
+      // Re-enter the CURRENT reel — switching mode changes its scene list, so
+      // the scene index has to reset or it can point past the end.
+      this.go(this.reelIndex, 0);
+    },
+
+    /* The subscription round-up, sorted the way a viewer reads it.
+     *
+     * Only issues actually taking bids: subscription on an issue that closed
+     * last week is a historical fact, not something anyone can act on, and
+     * it would push a live one off a board that only holds a dozen rows.
+     * Sorted by closing date first — the ones running out of time are the
+     * point of the reel — then by demand.
+     */
+    get subBoardTable() {
+      const today = isoDate(new Date(this.now));
+      const live = (this.boardRows || []).filter(
+        (r) => r.subscription != null && r.open && r.open <= today
+               && (!r.close || r.close >= today));
+      live.sort((a, b) =>
+        String(a.close || '9999').localeCompare(String(b.close || '9999'))
+        || (b.subscription || 0) - (a.subscription || 0));
+      const cap = this.P.h >= 700 ? 10 : (this.P.h >= 520 ? 7 : 5);
+      return { rows: live.slice(0, cap), hidden: Math.max(0, live.length - cap),
+               total: live.length };
+    },
+
+    /* Rough allotment odds from the retail multiple.
+     *
+     * When retail is oversubscribed, SEBI's rules put single-lot applications
+     * into a computerised draw, and the multiple IS the odds — 5x means about
+     * one in five. Stated as "1 in N" rather than a percentage because that
+     * is how a lottery is understood, and capped in words at the top end
+     * because "1 in 87" invites false precision about a draw. */
+    get allotOdds() {
+      const r = Number(this.d && this.d.subscription && this.d.subscription.retail) || 0;
+      if (r <= 0) return '—';
+      if (r < 1) return this.t('likely');
+      return '1 in ' + (r < 10 ? r.toFixed(1) : Math.round(r));
+    },
+
+    /* Colour for a subscription multiple, on the same scale compute.js uses
+       for `sentiment` so the board and the single-IPO reel never disagree. */
+    subTone(x) {
+      const v = Number(x) || 0;
+      if (v >= 10) return 'text-emerald-400';
+      if (v >= 3) return 'text-emerald-300';
+      if (v >= 1) return 'text-amber-300';
+      return 'text-red-400';
     },
     /**
      * Can a viewer act on this IPO today, and how urgently?

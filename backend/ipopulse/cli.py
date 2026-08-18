@@ -1751,6 +1751,57 @@ def cmd_enrich(args) -> int:
     return 0
 
 
+def cmd_grade(args) -> int:
+    """Score the stored numbers against InvestorGain. Read-only."""
+    from . import grade as grader
+
+    r = grader.collect(days=args.days)
+    for line in grader.report(r):
+        print(line)
+    # Non-zero only under --strict, so a weekly run cannot fail a chain it is
+    # not part of, but a pre-record gate can still use it.
+    bad = r["gmp_bad"] or r["sub_bad"] or r["orphans"]
+    return 1 if (bad and args.strict) else 0
+
+
+def cmd_videos(args) -> int:
+    """What the channel has published, and which tracked IPOs still have no
+    video. Keyless — see providers/youtube.py for why no API key is needed."""
+    from .providers import youtube
+
+    cid = youtube.channel_id()
+    if not cid:
+        print("No channel id. Set YOUTUBE_STUDIO_URL in .env to your Studio")
+        print("URL (https://studio.youtube.com/channel/UC...) — the id is read")
+        print("out of it; the Studio page itself is never fetched.")
+        return 1
+
+    name = youtube.channel_name()
+    vids = youtube.videos()
+    print(f"Channel: {name or '(unnamed)'}  [{cid}]")
+    print(f"{len(vids)} recent upload(s) in the public feed\n")
+    for v in vids:
+        print(f"  {v['published']}  {v['title']}")
+
+    ipos = store.load_all()
+    cov = youtube.coverage([i.slug for i in ipos],
+                           {i.slug: (i.company or "") for i in ipos})
+    missing = [i for i in ipos if not cov.get(i.slug)]
+    if vids:
+        print()
+        for i in ipos:
+            if cov.get(i.slug):
+                print(f"  ✓ {i.slug:<34}{len(cov[i.slug])} video(s)")
+    print(f"\n{len(missing)} tracked IPO(s) with no video yet:")
+    for i in missing:
+        d = derive(i)["dates"]["status"]
+        print(f"    {i.slug:<34}{d}")
+    if not vids:
+        print("\n(The feed is empty — nothing published yet. It carries roughly")
+        print(" the 15 most recent uploads and excludes private/unlisted ones.)")
+    return 0
+
+
 def cmd_verify(args) -> int:
     """Does every tracked IPO actually exist? Ask NSE and BSE.
 
@@ -2269,6 +2320,16 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--retry", action="store_true",
                     help="ignore the attempt log and run every planned step")
     sp.set_defaults(func=cmd_enrich)
+
+    sp = sub.add_parser("grade", help="score the stored numbers against InvestorGain")
+    sp.add_argument("--days", type=int, default=7,
+                    help="how many days without a GMP counts as stale (default 7)")
+    sp.add_argument("--strict", action="store_true",
+                    help="exit 1 if anything disagrees (for a pre-record gate)")
+    sp.set_defaults(func=cmd_grade)
+
+    sp = sub.add_parser("videos", help="what the channel has published, and what is missing")
+    sp.set_defaults(func=cmd_videos)
 
     sp = sub.add_parser("verify", help="does every tracked IPO exist? ask NSE and BSE")
     sp.add_argument("--write", action="store_true",

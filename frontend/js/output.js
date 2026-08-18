@@ -91,7 +91,10 @@ const OUTPUT = {
    * window shuts tonight or on Thursday. */
   get voClock() {
     const ipo = this.ipo, d = this.d;
-    const today = new Date(this.now).toISOString().slice(0, 10);
+    // isoDate, not toISOString: the latter is UTC, so between midnight
+    // and 05:30 IST it reports yesterday and every "closes today"
+    // comparison silently misses. compute.js already solved this.
+    const today = isoDate(new Date(this.now));
     const open = ipo.dates.open, close = ipo.dates.close;
     const span = (open && close)
       ? Math.round((Date.parse(close) - Date.parse(open)) / 864e5) + 1 : 3;
@@ -195,8 +198,26 @@ const OUTPUT = {
     return "Retail isn't fully covered, so if you apply you'll very likely get the full allotment. Ask yourself why nobody else wanted it.";
   },
 
-  // ── the English scripts ──────────────────────────────────────────────
-  enScript(n) {
+  /* ── the English scripts, per scene ───────────────────────────────────
+   *
+   * Returns a map of scene id -> the narration for that scene, not one
+   * block of text.
+   *
+   * That shape is the whole point. A reel is a sequence of scenes, each
+   * holding for a fixed number of seconds, and until now those seconds were
+   * hand-tuned constants in reels.js with no relationship to what the
+   * narrator is saying over them. A scene with four bullets and a scene with
+   * one both held for five seconds. Keyed by scene, the card can measure the
+   * words it is actually reading and hold for exactly that long — see
+   * `speakSeconds` and `autoHolds` in studio.js.
+   *
+   * It is also where a hand-written reference script slots in later: one
+   * scene's line can be replaced without touching the rest of the reel.
+   *
+   * `enScript` below flattens this back into the single block the Script
+   * panel has always shown, in scene order, so nothing downstream changed.
+   */
+  enSegments(n) {
     const ipo = this.ipo, d = this.d, L = this.loc;
     const iss = ipo.issue, g = d.gmp, s = d.subscription, fin = d.financials;
     const dt = (x) => this.fmtDate(x, true);
@@ -219,40 +240,49 @@ const OUTPUT = {
       const lot = (iss.lot_size && d.issue.min_investment)
         ? `One lot is ${iss.lot_size} shares, so the smallest cheque you can write is ${R(d.issue.min_investment)}.`
         : `The lot size isn't published yet, so I can't tell you the minimum application today — I'll bring it the moment it's out.`;
-      return [
-`${ipo.company}. Let me give you the terms first, then tell you what I make of them.`,
-`${band} ${lot}${sme}`,
+      return {
+hook: `${ipo.company}. Let me give you the terms first, then tell you what I make of them.`,
 // Bullets, not list items — each is already a full sentence, so voList()
 // would run them together as "A, B, and C." with capitals mid-clause.
-L.overview.length ? L.overview.map((x) => String(x).replace(/\.$/, '')).join('. ') + '.' : '',
+company: L.overview.length
+  ? L.overview.map((x) => String(x).replace(/\.$/, '')).join('. ') + '.' : '',
+background: (L.background || []).length
+  ? L.background.map((x) => String(x).replace(/\.$/, '')).join('. ') + '.' : '',
 // An all-fresh issue has no OFS leg, and naming it anyway spends the
 // listener's attention on "0 crore rupees is an offer for sale" — the one
 // sentence in the reel that is pure noise.
-Number(iss.ofs_cr)
+split: [Number(iss.ofs_cr)
   ? `Now the part most people scroll past. The issue is ${this.voCrore(d.issue.total_cr)}. Of that, ${this.voCrore(iss.fresh_cr)} is a fresh issue — new money going into the company. ${this.voCrore(iss.ofs_cr)} is an offer for sale, which is existing shareholders selling their stake to you. So ${this.voPct(d.issue.fresh_pct)} of it is fresh.`
   : `Now the part most people scroll past. The whole ${this.voCrore(d.issue.total_cr)} is a fresh issue — every rupee goes into the company. There's no offer for sale here, so nobody is using this listing to cash out.`,
-this.voTakeStructure(),
-`It opens ${dt(ipo.dates.open)}, closes ${dt(ipo.dates.close)}, and lists ${dt(ipo.dates.listing)}.`,
-      ].filter(Boolean).join('\n');
+  this.voTakeStructure()].filter(Boolean).join(' '),
+terms: `${band} ${lot}${sme}`,
+// Closing line points at the long-form cut of the same IPO. Reel 1 is the
+// one people find first — it is the "what is this company" search — so it
+// is the right place to send them somewhere longer, and it is the only reel
+// whose job is finished once the viewer knows what the issue is.
+dates: `It opens ${dt(ipo.dates.open)}, closes ${dt(ipo.dates.close)}, and lists ${dt(ipo.dates.listing)}. The full breakdown of this one — financials, valuation and the risks — is on the channel, so go and watch that before you decide anything.`,
+      };
     }
 
     if (n === 2 && this.gmpMode === 'board') {
       const quoted = this.boardRows.filter((r) => r.has_gmp).slice(0, 5);
-      return [
-`Today's grey market board. ${this.boardRows.length} IPOs on the radar.`,
-quoted.map((r) => `${r.company}, ${R(r.gmp)}, that's ${this.voPct(r.gmp_pct)}`).join('. ') + '.',
-`Quick reminder on what you're looking at. The grey market premium is what people are unofficially willing to pay for these shares before they list. No exchange publishes it. No regulator stands behind it. It is a rumour with a number attached — a useful rumour, and one I check every day, but a rumour. It moves, and it can move hard in the last forty-eight hours.`,
-      ].filter(Boolean).join('\n');
+      return {
+boardhook: `Today's grey market board. ${this.boardRows.length} IPOs on the radar.`,
+board: [
+  quoted.map((r) => `${r.company}, ${R(r.gmp)}, that's ${this.voPct(r.gmp_pct)}`).join('. ') + '.',
+  `Quick reminder on what you're looking at. The grey market premium is what people are unofficially willing to pay for these shares before they list. No exchange publishes it. No regulator stands behind it. It is a rumour with a number attached — a useful rumour, and one I check every day, but a rumour. It moves, and it can move hard in the last forty-eight hours.`,
+].join(' '),
+      };
     }
 
     if (n === 2) {
       if (!g.has_data) {
-        return [
-`${ipo.company}, grey market premium.`,
-`If this is new to you: the grey market premium is what people are unofficially willing to pay for these shares before they list. It's not an exchange price and no regulator publishes it.`,
-this.voTakeGmp(),
-`When there's a quote worth reporting, you'll get it here.`,
-        ].join('\n');
+        return {
+hook: `${ipo.company}, grey market premium.`,
+gauge: `If this is new to you: the grey market premium is what people are unofficially willing to pay for these shares before they list. It's not an exchange price and no regulator publishes it.`,
+listing: this.voTakeGmp(),
+trail: `When there's a quote worth reporting, you'll get it here.`,
+        };
       }
       const when = g.is_stale
         ? `The most recent reading, from ${dt(g.updated)}, is`
@@ -274,27 +304,50 @@ this.voTakeGmp(),
       const tracked = g.days_tracked === 1
         ? `We've only got one day of readings on this so far, at ${R(g.gmp)} — too early to call a trend.`
         : `We've tracked it ${g.days_tracked} days since the announcement. High of ${R(g.peak)}, low of ${R(g.trough)}.`;
-      return [
-`${ipo.company}, grey market premium.`,
-`If this is new to you: GMP is what people are unofficially willing to pay for these shares before they list. It is not an exchange price. No regulator publishes it. It's a rumour with a number attached — a useful one, which is why I track it daily, but a rumour.`,
-`${headline}${perLot}`,
-this.voTakeGmp(),
-tracked,
-`And I'll say it again because it matters: this number is unofficial and it changes every single day. Never let it be the only reason you apply.`,
-      ].filter(Boolean).join('\n');
+      return {
+hook: [`${ipo.company}, grey market premium.`,
+  `If this is new to you: GMP is what people are unofficially willing to pay for these shares before they list. It is not an exchange price. No regulator publishes it. It's a rumour with a number attached — a useful one, which is why I track it daily, but a rumour.`].join(' '),
+gauge: [`${headline}${perLot}`, this.voTakeGmp()].filter(Boolean).join(' '),
+listing: tracked,
+trail: `And I'll say it again because it matters: this number is unofficial and it changes every single day. Never let it be the only reason you apply.`,
+      };
+    }
+
+    // Reel 3's all-IPOs cut: every issue taking bids, soonest to close first.
+    if (n === 3 && this.gmpMode === 'board') {
+      const tb = this.subBoardTable;
+      if (!tb.total) {
+        return {
+subboardhook: `Nothing is taking bids today.`,
+subboard: `No issue is open right now, so there is no subscription to report. That is an ordinary week rather than a bad one — and the money you did not commit is the money you get to use when the next one opens.`,
+        };
+      }
+      const closingToday = tb.rows.filter((r) => r.close === this.voClock.today);
+      return {
+subboardhook: `Today's subscription board. ${tb.total} ${tb.total === 1 ? 'issue is' : 'issues are'} taking bids right now.`,
+subboard: [
+  tb.rows.map((r) => `${r.company}, ${this.voTimes(r.subscription)} overall`
+    + (r.retail != null ? `, retail ${this.voTimes(r.retail)}` : '')).join('. ') + '.',
+  closingToday.length
+    ? `${this.voList(closingToday.map((r) => r.company))} ${closingToday.length === 1 ? 'shuts' : 'shut'} tonight — and the last afternoon is when the institutional money arrives, so this morning's figure is not the one it finishes on.`
+    : '',
+  `One thing to hold on to: subscription moves all day, and the closing figure is the only one worth acting on.`,
+].filter(Boolean).join(' '),
+      };
     }
 
     if (n === 3) {
       if (!s.has_data) {
-        return [`${ipo.company}, subscription.`, this.voTakeSubscription()].join('\n');
+        return { hook: `${ipo.company}, subscription.`, bars: this.voTakeSubscription() };
       }
-      return [
-`${ipo.company}, day ${s.day} of subscription.`,
-`Quick translation, because these three letters put people off. QIB is the big institutions — mutual funds, insurers, banks. NII is high net worth individuals, the large private money. Retail is you and me, anything up to two lakh rupees.`,
-`QIB, ${this.voTimes(s.qib)}. NII, ${this.voTimes(s.nii)}. Retail, ${this.voTimes(s.retail)}. Overall the issue is subscribed ${this.voTimes(s.total)}.`,
-this.voTakeSubscription(),
-this.voTakeLeader(),
-      ].filter(Boolean).join('\n');
+      return {
+hook: `${ipo.company}, day ${s.day} of subscription.`,
+bars: [
+  `Quick translation, because these three letters put people off. QIB is the big institutions — mutual funds, insurers, banks. NII is high net worth individuals, the large private money. Retail is you and me, anything up to two lakh rupees.`,
+  `QIB, ${this.voTimes(s.qib)}. NII, ${this.voTimes(s.nii)}. Retail, ${this.voTimes(s.retail)}. Overall the issue is subscribed ${this.voTimes(s.total)}.`,
+].join(' '),
+trend: [this.voTakeSubscription(), this.voTakeLeader()].filter(Boolean).join(' '),
+      };
     }
 
     if (n === 4) {
@@ -304,25 +357,38 @@ this.voTakeLeader(),
       const margin = (fin.has_data && fin.present && fin.present.ebitda)
         ? `Operating margin is ${this.voPct(fin.latest.ebitda_margin)}, ${Number(fin.margin_shift_bps) >= 0 ? 'up' : 'down'} ${Math.abs(Number(fin.margin_shift_bps) || 0)} basis points on last year.`
         : '';
-      return [
-`So — should you apply to ${ipo.company}? Here's how I'd think about it.`,
-growth,
-margin,
-this.voTakeValuation(),
-L.green_flags.length ? `What I like: ${this.voList(L.green_flags)}.` : '',
-L.red_flags.length ? `What worries me: ${this.voList(L.red_flags)}.` : '',
-L.risk ? `And the single biggest risk — ${String(L.risk).replace(/\.$/, '')}.` : '',
-`None of this is a recommendation. It's the homework. The decision is yours.`,
-      ].filter(Boolean).join('\n');
+      return {
+hook: `So — should you apply to ${ipo.company}? Here's how I'd think about it.`,
+financials: [growth, margin].filter(Boolean).join(' '),
+valuation: this.voTakeValuation(),
+flags: [
+  L.green_flags.length ? `What I like: ${this.voList(L.green_flags)}.` : '',
+  L.red_flags.length ? `What worries me: ${this.voList(L.red_flags)}.` : '',
+  L.risk ? `And the single biggest risk — ${String(L.risk).replace(/\.$/, '')}.` : '',
+  `None of this is a recommendation. It's the homework. The decision is yours.`,
+].filter(Boolean).join(' '),
+stake: [
+  iss.lot_size && d.issue.min_investment
+    ? `So what does applying actually cost you? One lot is ${iss.lot_size} shares at ${R(iss.price_high)}, which is ${R(d.issue.min_investment)}.`
+    : `The lot size isn't out yet, so I can't tell you the cheque today.`,
+  (g.has_data && iss.lot_size && Number(g.gain_per_lot))
+    ? `At today's premium that one lot would be worth about ${R(Math.abs(g.gain_per_lot))} ${Number(g.gain_per_lot) >= 0 ? 'more' : 'less'} than you paid — ${this.voPct(g.pct)}. That is today's number, not a forecast.`
+    : '',
+  (s.has_data && Number(s.retail) >= 1)
+    ? `Retail is ${this.voTimes(s.retail)} over, so roughly one application in ${Number(s.retail) < 10 ? Number(s.retail).toFixed(1) : Math.round(s.retail)} gets a lot.`
+    : (s.has_data ? `Retail isn't covered yet, so an application now would very likely get the full allotment.` : ''),
+  `And the rule that saves people money: extra lots do not improve your odds in retail. One lot enters the draw exactly like five do. Apply with money you can afford to have locked up.`,
+].filter(Boolean).join(' '),
+      };
     }
 
     if (n === 5) {
       const scoreLine = d.score.has_data
         ? `Our IPO Pulse score comes out at ${Number(d.score.effective).toFixed(1)} out of 10. ${this.verdictText}.`
         : `There isn't enough published data to score this one honestly yet — so I'm not going to give you a number that looks confident and isn't.`;
-      return [
-`Final word on ${ipo.company}.`,
-scoreLine,
+      return {
+score: [`Final word on ${ipo.company}.`, scoreLine].join(' '),
+verdict: [
 // Spoken immediately BEFORE the call, not filed at the end of the video.
 // India's Research Analyst regulations exempt an opinion on a public offer
 // made only through public media, but the exemption is conditional: the
@@ -332,18 +398,22 @@ scoreLine,
 // the thing the rule asks for. See docs/YOUTUBE-PLAYBOOK.md.
 `Before I give you the calls, the part that has to sit right next to them. I am not a SEBI-registered research analyst or investment adviser. I hold no position in this issue. What follows is my opinion on public information, published openly to everyone — it is not personalised advice, and it is not a solicitation to buy or sell anything.`,
 `With that said — for retail, ${this.t('r_' + ipo.analysis.reco_retail)}. For HNI, ${this.t('r_' + ipo.analysis.reco_hni)}. And holding it long term, ${this.t('r_' + ipo.analysis.reco_long)}.`,
+].filter(Boolean).join(' '),
+who: [
 this.voTakeAllotmentOdds(),
 `The issue closes ${dt(ipo.dates.close)} at ${ipo.dates.close_time}. If you're applying, do it before the cut-off — your bank's UPI mandate needs time to clear, and every year people miss it by an hour.`,
 `And the thing I would most want you to take away. Only ever apply with money you can afford to have locked up, or to lose. An IPO is not a savings account. Do your own research, read the offer document, and if you want advice that fits your situation, speak to a SEBI-registered adviser.`,
-      ].filter(Boolean).join('\n');
+].filter(Boolean).join(' '),
+      };
     }
 
     if (n === 6) {
       const out = d.listing.status === 'out';
       const lr = this.listingRange;
-      return [
-`${ipo.company} allotment ${out ? 'is out — go and check it now' : `is expected on ${dt(ipo.dates.allotment)}`}. The registrar is ${iss.registrar}.`,
-`Here's how to check it in about ten seconds. ${this.voList(this.steps)}.`,
+      return {
+status: `${ipo.company} allotment ${out ? 'is out — go and check it now' : `is expected on ${dt(ipo.dates.allotment)}`}. The registrar is ${iss.registrar}.`,
+checklist: `Here's how to check it in about ten seconds. ${this.voList(this.steps)}.`,
+listing: [
 // No premium and no published range means there is no forecast to give,
 // and the fallback rendered it as "zero rupees to zero rupees, that's zero
 // percent to zero percent" — a forecast of total loss, stated confidently,
@@ -353,9 +423,30 @@ this.voTakeAllotmentOdds(),
   : `Listing is on ${dt(ipo.dates.listing)}. There's no grey market premium to project a range from, so I'm not going to guess one for you.`,
 `And whatever happens on listing day: have your exit decided before the bell, not during it. If you didn't get an allotment, don't chase it at the open — that's the most expensive hour of the stock's life.`,
 `Follow for the allotment alert.`,
-      ].filter(Boolean).join('\n');
+].filter(Boolean).join(' '),
+      };
     }
-    return '';
+    return {};
+  },
+
+  /* Scene ids for a reel, in play order — mirrors scenesFor() in reels.js so
+   * the script walks the same scenes the card actually shows. A reel 1 whose
+   * `background` scene was dropped for want of copy must not be narrated as
+   * though it still had one. */
+  sceneIdsFor(n) {
+    const reel = REELS[n - 1];
+    if (!reel) return [];
+    return scenesFor(reel, this.gmpMode, this.ipo).map((sc) => sc.id);
+  },
+
+  /* The flat script the Script panel has always shown: every segment, in
+   * scene order, one per line. Nothing downstream had to change. */
+  enScript(n) {
+    const segs = this.enSegments(n) || {};
+    return this.sceneIdsFor(n)
+      .map((id) => String(segs[id] || '').trim())
+      .filter(Boolean)
+      .join('\n');
   },
 
   // ── the weekly strategy, across every IPO on the board ───────────────
@@ -377,7 +468,10 @@ this.voTakeAllotmentOdds(),
     if (!rows.length) return '';
     const R = this.voRupees.bind(this);
     const dt = (x) => this.fmtDate(x, true);
-    const today = new Date(this.now).toISOString().slice(0, 10);
+    // isoDate, not toISOString: the latter is UTC, so between midnight
+    // and 05:30 IST it reports yesterday and every "closes today"
+    // comparison silently misses. compute.js already solved this.
+    const today = isoDate(new Date(this.now));
 
     const open = rows.filter((r) => r.status === 'open');
     const soon = rows.filter((r) => r.status === 'upcoming');

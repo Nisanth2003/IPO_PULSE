@@ -1250,6 +1250,58 @@
               </div>
             </div>
 
+            <!-- ─── REEL 3 · ALL IPOs (subscription round-up) ──────── -->
+            <div x-show="at(3,'subboardhook')" class="scene items-center text-center">
+              <div class="pill self-center text-2xs font-black tracking-[.16em]"
+                   :style="`background:${acc}22;color:${acc};border:1px solid ${acc}66`"
+                   x-text="today"></div>
+              <div class="font-black text-4xl leading-tight" x-text="t('subBoard')"></div>
+              <div class="font-black text-6xl tnum" :style="`color:${acc}`"
+                   x-text="subBoardTable.total"></div>
+              <div class="lbl" x-text="t('takingBids')"></div>
+              <!-- Nothing open is a real state, not an error, and saying so
+                   beats a board with an empty table under it. -->
+              <div class="text-sm font-bold text-slate-400 mt-2" x-show="!subBoardTable.total">
+                No issue is taking bids today.
+              </div>
+            </div>
+
+            <div x-show="at(3,'subboard')" class="scene tight">
+              <div class="lbl text-center" x-text="t('subBoard')"></div>
+              <div class="glass p-2 overflow-hidden">
+                <table class="dtable">
+                  <thead><tr>
+                    <th>IPO</th><th x-text="t('overallCol')"></th>
+                    <th x-text="t('retail')"></th><th x-text="t('closesCol')"></th>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="r in subBoardTable.rows" :key="r.slug">
+                      <tr>
+                        <td class="truncate" style="max-width:calc(var(--fs)*8)">
+                          <span class="inline-block rounded-full align-middle mr-1"
+                                style="width:.45em;height:.45em"
+                                :style="`background:${applyState(r).dot}`"></span>
+                          <span x-text="r.company"></span>
+                        </td>
+                        <!-- The multiple is the headline; colour carries it at
+                             a glance, on the same scale the single-IPO reel
+                             uses so the two never disagree. -->
+                        <td class="tnum font-black" :class="subTone(r.subscription)"
+                            x-text="r.subscription!=null ? r.subscription+'x' : '—'"></td>
+                        <td class="tnum" :class="subTone(r.retail)"
+                            x-text="r.retail!=null ? r.retail+'x' : '—'"></td>
+                        <td class="tnum" :class="applyState(r).urgent ? 'text-amber-300 font-black' : 'opacity-80'"
+                            x-text="fmtShort(r.close)"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="text-2xs font-bold text-center text-slate-400" x-show="subBoardTable.hidden"
+                   x-text="'+ '+subBoardTable.hidden+' '+t('more')"></div>
+              <div class="text-2xs text-slate-500 font-semibold text-center" x-text="'ⓘ '+t('subNote')"></div>
+            </div>
+
             <!-- ─── REEL 4 · APPLY OR SKIP ─────────────────────────── -->
             <div x-show="at(4,'hook')" class="scene items-center text-center">
               <div class="font-black text-xl" x-text="ipo.company"></div>
@@ -1485,6 +1537,62 @@
                 <span class="text-xs font-extrabold text-amber-200 text-right flex-1"
                       x-text="loc.risk"></span>
               </div>
+            </div>
+
+            <!-- What applying actually costs and returns. Every other scene on
+                 this reel is about the company; this one is about the viewer's
+                 money, which is the question the reel's title asks. -->
+            <div x-show="at(4,'stake')" class="scene tight">
+              <div class="lbl text-center" x-text="t('yourStake')"></div>
+
+              <div class="glass p-3 text-center" x-show="!d.issue.min_investment">
+                <div class="text-sm text-slate-400" x-text="t('lotPending')"></div>
+              </div>
+
+              <template x-if="d.issue.min_investment">
+                <div class="space-y-2">
+                  <!-- The cheque. One lot, because that is what retail should
+                       apply for when an issue is oversubscribed. -->
+                  <div class="glass p-3 text-center">
+                    <div class="lbl" x-text="t('oneLotCost')"></div>
+                    <div class="font-black text-4xl tnum" :style="`color:${acc}`"
+                         x-text="'₹'+fmt(d.issue.min_investment)"></div>
+                    <div class="text-2xs font-bold text-slate-400 mt-0.5"
+                         x-text="ipo.issue.lot_size+' × ₹'+ipo.issue.price_high"></div>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-2">
+                    <!-- Upside at TODAY's premium, stated as a number they can
+                         check, never as a forecast. Hidden entirely when no
+                         premium is quoted — an empty "₹0 gain" tile would be a
+                         claim nobody made. -->
+                    <div class="glass p-2.5 text-center"
+                         :class="d.gmp.gmp>=0 ? 'glass-g' : 'glass-r'" x-show="d.gmp.has_data">
+                      <div class="lbl" x-text="t('atTodayGmp')"></div>
+                      <div class="font-black text-2xl tnum"
+                           :class="d.gmp.gmp>=0 ? 'text-emerald-300' : 'text-red-300'"
+                           x-text="signed(d.gmp.gain_per_lot,0)"></div>
+                      <div class="text-2xs font-bold opacity-70"
+                           x-text="signed(d.gmp.pct,1)+'%'"></div>
+                    </div>
+                    <!-- Allotment odds from the retail multiple: the number
+                         that decides whether the tile on the left is even
+                         reachable. -->
+                    <div class="glass p-2.5 text-center" x-show="d.subscription.has_data">
+                      <div class="lbl" x-text="t('allotOdds')"></div>
+                      <div class="font-black text-2xl tnum" :class="subTone(d.subscription.retail)"
+                           x-text="allotOdds"></div>
+                      <div class="text-2xs font-bold opacity-70"
+                           x-text="t('retail')+' '+d.subscription.retail+'x'"></div>
+                    </div>
+                  </div>
+
+                  <div class="glass glass-a p-2.5 text-center">
+                    <span class="text-2xs font-extrabold text-amber-200"
+                          x-text="t('stakeNote')"></span>
+                  </div>
+                </div>
+              </template>
             </div>
 
             <!-- ─── REEL 5 · FINAL VERDICT ─────────────────────────── -->
@@ -1786,16 +1894,23 @@
          class="w-[300px] shrink-0 border-l border-white/10 bg-[#0A0F1C] overflow-y-auto scroll p-3">
     <div class="text-[11px] font-black uppercase tracking-[.14em] text-pulse mb-3">Studio</div>
 
-    <details class="sect" open><summary>Daily GMP mode</summary><div class="body">
+    <!-- Only rendered on a reel that actually has an all-IPOs cut (2 and 3).
+         Shown on all six it was dead on four of them, and its handler jumped
+         to reel 2 — so pressing it while building reel 4 moved you. -->
+    <details class="sect" open x-show="canBoard"><summary>Coverage</summary><div class="body">
       <div class="grid grid-cols-2 gap-1.5">
         <button class="btn" :class="gmpMode==='single'?'btn-on':''"
-                @click="gmpMode='single'; go(1,0)">This IPO</button>
+                @click="setBoardMode('single')">This IPO</button>
         <button class="btn" :class="gmpMode==='board'?'btn-on':''"
-                @click="gmpMode='board'; go(1,0)">All IPOs</button>
+                @click="setBoardMode('board')">All IPOs</button>
       </div>
-      <div class="text-[9.5px] text-slate-500 mt-1.5">
+      <div class="text-[9.5px] text-slate-500 mt-1.5" x-show="reel.n===2">
         “This IPO” gives the gauge plus the full announcement-to-listing trail.
         “All IPOs” is the round-up board across everything you track.
+      </div>
+      <div class="text-[9.5px] text-slate-500 mt-1.5" x-show="reel.n===3">
+        “This IPO” is the QIB / NII / Retail split for the selected company.
+        “All IPOs” is every issue taking bids right now, soonest to close first.
       </div>
     </div></details>
 
@@ -1820,6 +1935,17 @@
         <button class="btn w-full" :class="autoShrink?'btn-on':''" @click="autoShrink=!autoShrink"
                 x-text="autoShrink ? '✓ Auto-shrink to fit' : 'Auto-shrink: off'"></button>
       </div>
+      <div class="row">
+        <!-- On by default. Six reels published the same day in one palette is
+             the "interchangeable from video to video" look the monetisation
+             policy describes, and it makes a feed read as one repeated upload.
+             Picking a theme below turns it off and pins that one. -->
+        <button class="btn w-full" :class="themePerReel?'btn-on':''"
+                @click="themePerReel=!themePerReel"
+                x-text="themePerReel ? '✓ A theme per reel (auto)' : 'One theme for every reel'"></button>
+        <div class="text-[9.5px] text-slate-500 mt-1" x-show="themePerReel"
+             x-text="'Reel '+reel.n+' is '+th.name+'. Each reel keeps its own look, so a day\'s uploads do not all match.'"></div>
+      </div>
       <div class="row"><label class="fld">Card theme</label>
         <div class="grid grid-cols-4 gap-1.5">
           <!-- `opt`, not `th`: the component already has a `th` getter for the
@@ -1828,9 +1954,9 @@
                getter — two different values behind one name. -->
           <template x-for="opt in THEMES" :key="opt.key">
             <button class="h-9 rounded-lg border border-white/20 grid place-items-center"
-                    :class="theme===opt.key ? 'ring-2 ring-pulse' : ''"
+                    :class="(themePerReel ? th.key===opt.key : theme===opt.key) ? 'ring-2 ring-pulse' : ''"
                     :style="`background:${opt.card}`"
-                    @click="theme=opt.key" :title="opt.name">
+                    @click="themePerReel=false; theme=opt.key" :title="opt.name"
               <span class="flex gap-[3px]">
                 <template x-for="h in opt.hues.slice(0,4)" :key="h">
                   <span class="w-[5px] h-[5px] rounded-full" :style="`background:${h}`"></span>
@@ -1865,12 +1991,19 @@
       <div class="row">
         <button class="btn w-full" :class="showGif?'btn-on':''" @click="showGif=!showGif"
                 x-text="showGif ? '✓ Sticker / GIF in corner' : 'Sticker / GIF: off'"></button>
-        <div class="text-[9.5px] text-slate-500 mt-1"
-             x-show="showGif && !(ipo && ipo.sources && ipo.sources.gif)">
-          Nothing pinned. No IPO source publishes a company GIF, so this one is
-          yours to set: put any GIF or image URL on the Sources tab with role
-          <b class="text-slate-300">gif</b>. It animates while you record;
-          a PNG export freezes it to one frame.
+        <!-- A channel sticker set once, used on every reel of every IPO that
+             has not pinned its own. Nothing was ever pinned on any of the 20
+             IPOs, so the feature had never once appeared — a per-IPO-only
+             setting is a setting nobody fills in. -->
+        <div class="mt-1.5" x-show="showGif">
+          <label class="fld">Channel sticker URL (used when the IPO has none)</label>
+          <input type="url" class="inp" placeholder="https://…/sticker.gif"
+                 x-model.lazy="defaultGif" @change="gifBroken=''">
+          <div class="text-[9.5px] text-slate-500 mt-1">
+            Any GIF, APNG or image URL. It animates while you record; a PNG
+            export freezes it to one frame. An IPO can still override it on the
+            Sources tab with role <b class="text-slate-300">gif</b>.
+          </div>
         </div>
         <div x-show="showGif && brandGif" class="mt-1.5">
           <label class="fld">Sticker size — <span x-text="gifSize.toFixed(1)+'×'"></span></label>
@@ -1883,6 +2016,59 @@
         <button class="btn" :class="showSafe?'btn-on':''" @click="showSafe=!showSafe">Safe zones</button>
         <button class="btn" :class="showFooter?'btn-on':''" @click="showFooter=!showFooter">Footer</button>
         <button class="btn" :class="showProgress?'btn-on':''" @click="showProgress=!showProgress">Progress</button>
+      </div>
+    </div></details>
+
+    <!-- Reel length. Two ideas: where the natural timing comes from, and
+         whether you are forcing a total. Kept next to the record button
+         because that is when it matters. -->
+    <details class="sect" open><summary>Reel timing</summary><div class="body">
+      <div class="row">
+        <label class="fld">Scene length from</label>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button class="btn" :class="timingMode==='script'?'btn-on':''"
+                  @click="timingMode='script'">Script</button>
+          <button class="btn" :class="timingMode==='fixed'?'btn-on':''"
+                  @click="timingMode='fixed'">Designed</button>
+        </div>
+        <div class="text-[9.5px] text-slate-500 mt-1"
+             x-text="timingMode==='script'
+               ? 'Each scene holds for as long as its narration takes to say, in '+lang.toUpperCase()+'.'
+               : 'Each scene keeps the hold designed into the reel.'"></div>
+      </div>
+
+      <div class="row">
+        <label class="fld">Reel <span x-text="reel.n"></span> length —
+          <span class="text-pulse" x-text="reelSeconds+'s'"></span>
+          <span class="opacity-60" x-show="reelTarget[reel.n]"
+                x-text="'(natural '+naturalSeconds+'s)'"></span></label>
+        <div class="flex items-center gap-1.5">
+          <input type="range" min="0" max="180" step="5"
+                 class="w-full accent-emerald-500"
+                 :value="reelTarget[reel.n]"
+                 @input="setReelTarget($event.target.value)">
+          <button class="btn shrink-0" @click="setReelTarget(0)"
+                  title="Drop the target and let the reel run its natural length">Auto</button>
+        </div>
+        <div class="text-[9.5px] text-slate-500 mt-1"
+             x-text="reelTarget[reel.n]
+               ? 'Forced to '+reelTarget[reel.n]+'s — every scene scaled to fit, proportions kept.'
+               : 'No target: the reel runs as long as it needs.'"></div>
+      </div>
+
+      <!-- Per-scene breakdown. The point of the whole feature is being able
+           to see WHICH scene is eating the time before you record. -->
+      <div class="row">
+        <label class="fld">Per scene</label>
+        <div class="space-y-0.5">
+          <template x-for="(sc,i) in scenes" :key="sc.id">
+            <div class="flex items-center justify-between text-[10.5px] rounded px-1.5 py-0.5"
+                 :class="i===scene ? 'bg-white/10 text-slate-100' : 'text-slate-400'">
+              <span x-text="sc.id"></span>
+              <span class="tnum" x-text="finalHolds[sc.id].toFixed(1)+'s'"></span>
+            </div>
+          </template>
+        </div>
       </div>
     </div></details>
 

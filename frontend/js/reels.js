@@ -48,6 +48,15 @@ const REELS = [
       { id: 'bars',  hold: 6 },     // QIB / NII / Retail
       { id: 'trend', hold: 5 },     // day-wise build-up
     ],
+    // Mode B, same idea as reel 2's: every issue currently taking bids, in
+    // one round-up. Subscription is the question with the shortest shelf
+    // life on the whole board — it moves all day and stops mattering the
+    // moment an issue closes — so a daily "where is everything at" cut is
+    // worth more here than almost anywhere else.
+    boardScenes: [
+      { id: 'subboardhook', hold: 3 },
+      { id: 'subboard',     hold: 9 },
+    ],
   },
   {
     n: 4, key: 'reel4', acc: '#F59E0B',
@@ -56,6 +65,11 @@ const REELS = [
       { id: 'financials', hold: 7 },  // revenue / EBITDA / PAT + margins
       { id: 'valuation',  hold: 5 },  // P/E vs peers, RoNW, D/E
       { id: 'flags',      hold: 6 },  // green vs red
+      // The reel is called "Apply or Skip" and had four scenes of company
+      // analysis without ever saying what applying costs or returns. This is
+      // the one a viewer actually acts on: the cheque, the upside at today's
+      // premium, and the odds of getting any of it.
+      { id: 'stake',      hold: 6 },
     ],
   },
   {
@@ -91,7 +105,11 @@ const REELS = [
  * label, the nav strip — can omit it and get the full list.
  */
 function scenesFor(reel, gmpMode, ipo) {
-  if (reel.n === 2 && gmpMode === 'board' && reel.boardScenes) return reel.boardScenes;
+  // Any reel that declares boardScenes gets the all-IPOs cut, not just reel
+  // 2. This was `reel.n === 2` while reel 2 was the only one with a board,
+  // so adding one to reel 3 changed nothing until the check asked about the
+  // property instead of the number.
+  if (gmpMode === 'board' && reel.boardScenes) return reel.boardScenes;
   if (reel.n === 1 && ipo) {
     const bg = (ipo.analysis && ipo.analysis.background) || [];
     if (!bg.length) return reel.scenes.filter((s) => s.id !== 'background');
@@ -165,6 +183,11 @@ const THEMES = [
 ];
 
 const THEME_BY_KEY = Object.fromEntries(THEMES.map((t) => [t.key, t]));
+
+/* Where the per-reel rotation starts. Reel 1 keeps Midnight — the look
+ * every reel recorded before themes existed already has — and the rest
+ * step through from there. Change this to re-skin the whole set at once. */
+const THEME_ROTATION_OFFSET = 0;
 
 /* Categorical series colours — QIB / NII / Retail on reel 3.
  *

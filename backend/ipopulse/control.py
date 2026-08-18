@@ -101,6 +101,15 @@ JOBS: dict[str, dict[str, Any]] = {
         "argv": ["enrich", "--max-ai", "6"],
         "schedule": "part of daily",
     },
+    "grade": {
+        "label": "Grade the data",
+        "detail": "Scores every stored GMP and subscription figure against "
+                  "InvestorGain and names the disagreements. Read-only — it "
+                  "measures, it never repairs, because a grader that fixed "
+                  "what it measured would always report an A. Free, keyless.",
+        "argv": ["grade"],
+        "schedule": "Sun 05:00 IST",
+    },
     "verify": {
         "label": "Verify against the exchanges",
         "detail": "Asks NSE and BSE whether each tracked IPO exists at all, "

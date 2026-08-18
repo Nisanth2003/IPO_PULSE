@@ -1,0 +1,136 @@
+"""Score the data against InvestorGain and say what is wrong with it.
+
+`doctor` answers "what is missing from this record" and `verify` answers
+"should this record exist". Neither answers the question that actually decides
+whether a video can be recorded: **are the numbers right?**
+
+That question only has an answer relative to something. InvestorGain is the
+desk this channel quotes, so it is the yardstick: every stored GMP day and
+subscription day is compared against theirs, and the result is a percentage
+with the disagreements named. A grade nobody can act on is a vanity metric,
+so every band below carries the specific rows that cost the marks.
+
+Run weekly (see deploy/windows/Register-IpoPulseTasks.ps1). It is read-only —
+it writes nothing and fixes nothing, deliberately: a grader that quietly
+repaired what it measured would always report an A.
+"""
+
+from __future__ import annotations
+
+from datetime import date, timedelta
+from typing import Any
+
+from . import store
+from .compute import derive
+
+
+def _band(pct: float) -> str:
+    if pct >= 99.5:
+        return "A"
+    if pct >= 97:
+        return "B"
+    if pct >= 90:
+        return "C"
+    if pct >= 75:
+        return "D"
+    return "F"
+
+
+def collect(days: int = 7) -> dict[str, Any]:
+    """Compare every stored figure against InvestorGain. Read-only."""
+    from .providers import investorgain as ig
+
+    since = date.today() - timedelta(days=days)
+    r: dict[str, Any] = {
+        "gmp_total": 0, "gmp_match": 0, "gmp_bad": [],
+        "sub_total": 0, "sub_match": 0, "sub_bad": [],
+        "orphans": [], "unmatched": [], "stale": [], "ipos": 0,
+        "window_days": days,
+    }
+
+    for ipo in store.load_all():
+        r["ipos"] += 1
+        m = ig.resolve(ipo.slug, ipo.company or "")
+        if not m:
+            # Not automatically wrong — a listed issue can age out — but it
+            # means nothing here can be checked, so it is reported.
+            r["unmatched"].append(ipo.slug)
+            continue
+
+        theirs = {p["date"]: p["gmp"] for p in ig.history(m)}
+        for p in ipo.gmp_history:
+            if not p.date:
+                continue
+            d = p.date.isoformat()
+            if d not in theirs:
+                # A day we hold and the desk does not. Usually a model-written
+                # figure that should never have been stored.
+                r["orphans"].append((ipo.slug, d, p.gmp, p.source or "?"))
+                continue
+            r["gmp_total"] += 1
+            if abs(theirs[d] - p.gmp) < 0.01:
+                r["gmp_match"] += 1
+            else:
+                r["gmp_bad"].append((ipo.slug, d, p.gmp, theirs[d]))
+
+        their_sub = {x["day"]: x["total"] for x in ig.subscription(m)}
+        for s in ipo.subscription:
+            if s.day not in their_sub:
+                continue
+            r["sub_total"] += 1
+            if abs(their_sub[s.day] - (s.total or 0)) < 0.005:
+                r["sub_match"] += 1
+            else:
+                r["sub_bad"].append((ipo.slug, s.day, s.total, their_sub[s.day]))
+
+        # A live issue whose premium has not moved in days is either genuinely
+        # flat or not being read at all, and the card cannot tell you which.
+        status = derive(ipo)["dates"]["status"]
+        if status in ("open", "upcoming") and ipo.gmp_history:
+            newest = max((p.date for p in ipo.gmp_history if p.date), default=None)
+            if newest and newest < since:
+                r["stale"].append((ipo.slug, newest.isoformat()))
+
+    r["gmp_pct"] = 100.0 * r["gmp_match"] / r["gmp_total"] if r["gmp_total"] else 100.0
+    r["sub_pct"] = 100.0 * r["sub_match"] / r["sub_total"] if r["sub_total"] else 100.0
+    checked = r["gmp_total"] + r["sub_total"]
+    matched = r["gmp_match"] + r["sub_match"]
+    r["overall_pct"] = 100.0 * matched / checked if checked else 100.0
+    # Orphans are not in `checked` — they cannot be compared — so they would
+    # otherwise cost nothing. They are the worst failure mode there is
+    # (a number nobody published), so they take the grade down directly.
+    r["grade"] = _band(r["overall_pct"])
+    if r["orphans"] and r["grade"] == "A":
+        r["grade"] = "B"
+    return r
+
+
+def report(r: dict[str, Any]) -> list[str]:
+    """The grade as printable lines."""
+    out = [
+        f"IPO PULSE — data grade: {r['grade']}   ({r['overall_pct']:.1f}% agreement "
+        f"with InvestorGain across {r['ipos']} IPOs)",
+        "",
+        f"  GMP          {r['gmp_match']}/{r['gmp_total']} days match  ({r['gmp_pct']:.1f}%)",
+        f"  Subscription {r['sub_match']}/{r['sub_total']} days match  ({r['sub_pct']:.1f}%)",
+    ]
+    if r["gmp_bad"]:
+        out += ["", f"  {len(r['gmp_bad'])} GMP day(s) disagree — ours vs theirs:"]
+        out += [f"    {s:<32}{d}  {a:g} vs {b:g}" for s, d, a, b in r["gmp_bad"][:12]]
+    if r["sub_bad"]:
+        out += ["", f"  {len(r['sub_bad'])} subscription day(s) disagree:"]
+        out += [f"    {s:<32}day {d}  {a:g} vs {b:g}" for s, d, a, b in r["sub_bad"][:12]]
+    if r["orphans"]:
+        out += ["", f"  {len(r['orphans'])} stored day(s) InvestorGain never published "
+                    f"— these are invented numbers:"]
+        out += [f"    {s:<32}{d}  {v:g}  [{src}]" for s, d, v, src in r["orphans"][:12]]
+    if r["stale"]:
+        out += ["", f"  {len(r['stale'])} live IPO(s) with no GMP in "
+                    f"{r['window_days']} days:"]
+        out += [f"    {s:<32}last {d}" for s, d in r["stale"]]
+    if r["unmatched"]:
+        out += ["", f"  {len(r['unmatched'])} IPO(s) InvestorGain could not be asked about: "
+                    + ", ".join(r["unmatched"][:8])]
+    if not (r["gmp_bad"] or r["sub_bad"] or r["orphans"] or r["stale"]):
+        out += ["", "  Nothing to fix. Every stored figure matches the desk."]
+    return out

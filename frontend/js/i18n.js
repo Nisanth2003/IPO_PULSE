@@ -100,6 +100,26 @@ const LABELS = {
                 'GMP అనధికారిక గ్రే-మార్కెట్ డేటా, రోజూ మారుతుంది'],
   allIpos:     ['All Live IPOs', 'सभी लाइव IPO', 'అన్ని లైవ్ IPOలు'],
   todayBoard:  ["Today's GMP Board", 'आज का GMP बोर्ड', 'నేటి GMP బోర్డ్'],
+  // Reel 3's all-IPOs cut. Its own labels rather than reusing the GMP
+  // board's — the two boards answer different questions and a viewer who
+  // sees "GMP Board" over a subscription table has been told the wrong thing.
+  subBoard:    ['Subscription Board', 'सब्सक्रिप्शन बोर्ड', 'సబ్‌స్క్రిప్షన్ బోర్డ్'],
+  // Reel 4's "what applying costs you" scene.
+  yourStake:   ['YOUR STAKE', 'आपका दांव', 'మీ పెట్టుబడి'],
+  oneLotCost:  ['ONE LOT COSTS', 'एक लॉट की कीमत', 'ఒక లాట్ ఖరీదు'],
+  atTodayGmp:  ['AT TODAY’S GMP', 'आज के GMP पर', 'నేటి GMP వద్ద'],
+  allotOdds:   ['ALLOTMENT ODDS', 'अलॉटमेंट चांस', 'అలాట్‌మెంట్ ఛాన్స్'],
+  likely:      ['Likely', 'संभावित', 'సాధ్యం'],
+  lotPending:  ['Lot size not published yet.', 'लॉट साइज़ अभी नहीं आया।', 'లాట్ సైజ్ ఇంకా రాలేదు.'],
+  stakeNote:   ['Extra lots do not improve retail odds. Apply with money you can lock up.',
+                'ज़्यादा लॉट से रिटेल चांस नहीं बढ़ते। उतना ही लगाएं जितना रोक सकें।',
+                'ఎక్కువ లాట్లు రిటైల్ ఛాన్స్ పెంచవు. ఆపగలిగే డబ్బే పెట్టండి.'],
+  takingBids:  ['TAKING BIDS NOW', 'अभी बिडिंग जारी', 'ఇప్పుడు బిడ్డింగ్'],
+  closesCol:   ['CLOSES', 'बंद', 'ముగుస్తుంది'],
+  overallCol:  ['OVERALL', 'कुल', 'మొత్తం'],
+  subNote:     ['Subscription moves all day — the closing figure is the one that counts.',
+                'सब्सक्रिप्शन दिन भर बदलता है — आखिरी आंकड़ा ही मायने रखता है।',
+                'సబ్‌స్క్రిప్షన్ రోజంతా మారుతుంది — చివరి సంఖ్యే ముఖ్యం.'],
 
   // subscription
   subDay:      ['Subscription Day', 'सब्सक्रिप्शन डे', 'సబ్‌స్క్రిప్షన్ డే'],
