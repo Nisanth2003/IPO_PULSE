@@ -7,10 +7,436 @@
 
 const OUTPUT = {
 
+  /* ── the English voice ────────────────────────────────────────────────
+   *
+   * Who is speaking, because a voice model can only perform what the text
+   * already is:
+   *
+   *   Someone who has watched a lot of these, talking to a twenty-year-old
+   *   with their first ₹15,000. Medium energy — interested, never shouting.
+   *   States a number precisely, then says what it MEANS, because a number
+   *   nobody can act on is decoration. Says "I" for judgement ("I wait for
+   *   the closing number") and "you" for the decision, so the viewer is
+   *   never told what to do. Warns without frightening. Explains the jargon
+   *   the first time it appears, because half the audience is under
+   *   twenty-five and nobody ever told them what NII means.
+   *
+   * It carries the CALM of experience and makes no claim to a biography.
+   * That is deliberate and it is not a style note. Drafts of this said "in
+   * twenty years I have almost never seen…", which is two separate problems
+   * once a synthetic voice reads it onto a finance video: it asserts
+   * credentials that belong to nobody, and YouTube's monetization rules bar
+   * an AI persona that presents itself as a human expert giving financial
+   * guidance — naming that exact case. The authority here therefore comes
+   * from the market's own patterns ("early subscription numbers almost
+   * never tell you where an issue finishes"), which is both true and
+   * checkable, rather than from a tenure the narrator does not have.
+   * See docs/YOUTUBE-PLAYBOOK.md.
+   *
+   * Why this is generated rather than one template with the numbers slotted
+   * in: the old script said the same sentence about a 0.9x issue on day one
+   * and a 150x issue on day three. A veteran's value is entirely in reading
+   * those two differently — light demand on day one is *nothing*, light
+   * demand on the final afternoon is the story. So every judgement line
+   * below is chosen by the data, and the caution is loudest exactly where
+   * the numbers are weakest.
+   *
+   * Hindi and Telugu are untouched. Emotion does not survive being machine
+   * translated, and a veteran voice in a language written by a translator is
+   * worse than the plain one it replaced — those two stay as they are until
+   * a person who speaks them writes them.
+   */
+
+  // ── spoken numbers ───────────────────────────────────────────────────
+  /* ElevenLabs and every other TTS reads "₹1,617.48" unreliably — sometimes
+   * "rupees one six one seven point four eight", sometimes the glyph is
+   * dropped and the figure becomes meaningless. Symbols never reach the
+   * voice: they are spelled into words here first. Same for "%", and for the
+   * "x" in "102.28x", which is read as the letter.
+   */
+  voRupees(n) {
+    const v = Number(n) || 0;
+    const abs = Math.abs(v);
+    // Past a lakh, nobody says the digits — and a reader that does sounds
+    // like a machine reading a spreadsheet.
+    if (abs >= 1e7) return `${this.voNum(v / 1e7)} crore rupees`;
+    if (abs >= 1e5) return `${this.voNum(v / 1e5)} lakh rupees`;
+    // "a premium of 1 rupees" is the kind of thing a listener notices and a
+    // writer never does, because on screen it was "₹1".
+    if (abs === 1) return `${this.voNum(v)} rupee`;
+    return `${this.voNum(v)} rupees`;
+  },
+  voCrore(n) { return `${this.voNum(n)} crore rupees`; },
+  voPct(n) { return `${this.voNum(n)} percent`; },
+  voTimes(n) { return `${this.voNum(n)} times`; },
+  /* Trailing zeros are noise out loud: "one hundred and five point zero
+   * rupees" is how a script sounds when it was written for a screen. */
+  voNum(n) {
+    const v = Number(n) || 0;
+    const r = Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 100) / 100;
+    return String(r).replace(/\.0+$/, '');
+  },
+  /* "A, B and C" — a spoken list, not a semicolon-separated one. */
+  voList(items) {
+    const xs = (items || []).map((s) => String(s).trim().replace(/[.;]+$/, ''))
+      .filter(Boolean);
+    if (!xs.length) return '';
+    if (xs.length === 1) return xs[0];
+    return `${xs.slice(0, -1).join(', ')}, and ${xs[xs.length - 1]}`;
+  },
+
+  // ── where the issue is in its own calendar ───────────────────────────
+  /* The subscription judgement turns entirely on this, so it is computed
+   * once and shared: "0.89 times" means nothing until you know whether the
+   * window shuts tonight or on Thursday. */
+  get voClock() {
+    const ipo = this.ipo, d = this.d;
+    const today = new Date(this.now).toISOString().slice(0, 10);
+    const open = ipo.dates.open, close = ipo.dates.close;
+    const span = (open && close)
+      ? Math.round((Date.parse(close) - Date.parse(open)) / 864e5) + 1 : 3;
+    return {
+      today,
+      status: d.dates.status,
+      isOpen: d.dates.status === 'open',
+      isLastDay: !!close && today === close,
+      totalDays: Math.max(span, 1),
+      close,
+    };
+  },
+
+  // ── the judgement lines ──────────────────────────────────────────────
+  /* Each returns the sentence a person on the desk would actually say about
+   * THIS number, or '' when the honest answer is to say nothing. */
+
+  voTakeStructure() {
+    const d = this.d, fresh = Number(d.issue.fresh_pct) || 0;
+    if (!Number(this.ipo.issue.fresh_cr) && !Number(this.ipo.issue.ofs_cr)) return '';
+    if (fresh >= 90) return "Almost all of it is fresh capital. That's the version I like — you're funding a business, not buying somebody's exit.";
+    if (fresh >= 60) return "Most of the money reaches the company. That's a healthy split.";
+    if (fresh >= 35) return "It's a mix — some growth capital, some exit. Normal for an issue this size.";
+    return "More than half of this is existing shareholders selling to you. That isn't automatically bad — early backers are entitled to an exit — but be clear that most of your money is not going into the business.";
+  },
+
+  voTakeGmp() {
+    const g = this.d.gmp;
+    if (!g.has_data) return "Nobody is quoting a premium on this one yet. That's not a bad sign — it just means the grey market hasn't priced it. I'd rather tell you that than invent a number for you.";
+    const pct = Number(g.pct) || 0;
+    const lines = [];
+    // A premium that has gone to par is not "holding steady" — movement
+    // reads 'stable' because zero equals zero, and the reassuring sentence
+    // that follows is the opposite of what a desk would say about an issue
+    // the grey market has stopped paying up for.
+    if (Number(g.gmp) === 0) {
+      return Number(g.peak) > 0
+        ? `It was quoted as high as ${this.voRupees(g.peak)} earlier and it is at par now. A premium that bleeds to nothing before listing is the grey market changing its mind in public, and I would not talk myself out of noticing it.`
+        : `It has been at par throughout. No dealer is paying up for this one, and that silence is itself a view.`;
+    }
+    // One reading is not a trend, and 'stable' is merely what movement
+    // defaults to when there is no previous day to compare against.
+    if (g.days_tracked < 2) return '';
+    if (g.movement === 'surge') lines.push(`It's climbing — ${this.voRupees(g.prev)} to ${this.voRupees(g.gmp)}. Momentum is real, but a premium that runs up this fast can come off just as fast in the final two days.`);
+    else if (g.movement === 'drop') lines.push(`It's come down, ${this.voRupees(g.prev)} to ${this.voRupees(g.gmp)}. I watch a falling premium far more closely than a rising one — it usually means the grey market is losing conviction, and it tends to keep going.`);
+    else lines.push(`It's holding steady around ${this.voRupees(g.gmp)}. Steady is a better sign than spiky.`);
+    if (pct >= 60) lines.push("And a word on a premium this large: it prices in a perfect listing. Anything less than perfect and it deflates fast.");
+    else if (pct < 0) lines.push("That's a discount, not a premium. The grey market is saying it expects this to list below the issue price. Take that seriously.");
+    return lines.join(' ');
+  },
+
+  /* The one the whole rewrite exists for. */
+  voTakeSubscription() {
+    const s = this.d.subscription, c = this.voClock;
+    if (!s.has_data) return c.isOpen ? "No subscription figures have come through yet today." : "Bidding hasn't opened yet, so there's nothing to read.";
+    const total = Number(s.total) || 0;
+    const when = this.fmtDate(c.close, true);
+
+    if (c.isOpen && !c.isLastDay && total < 2) {
+      return `Now — this looks light, and I don't want you reading anything into it. It's day ${s.day} of ${c.totalDays}. Early subscription numbers almost never tell you where an issue finishes. The institutions and the HNI money arrive on the last afternoon, and they arrive all at once. The number worth reading is the closing one, so that's the one I wait for — and I'd suggest you do the same. Look again on ${when}, after three in the afternoon.`;
+    }
+    if (c.isLastDay && total < 1) {
+      return "Final day, and it's still not fully subscribed. That one I do take seriously. An issue that doesn't get covered can be pulled, or it can list soft. This is the point where I'd rather keep my money and wait for the next one.";
+    }
+    if (c.isLastDay && total < 3) {
+      return "Final day and it's only just covered. Thin demand usually means a thin listing. Nothing here is exciting me.";
+    }
+    if (total >= 50) {
+      return `${this.voTimes(total)} over. At this level allotment is a lottery, and I mean that literally — it goes to a computerised draw. Applying for five lots doesn't improve your odds in the retail category. One lot, and hope.`;
+    }
+    if (total >= 10) {
+      return `${this.voTimes(total)} is heavy demand. Expect allotment to be a draw rather than a certainty — so size your application knowing you may well get nothing.`;
+    }
+    if (total >= 3) return "Comfortably covered. That's a healthy book without being a frenzy — and honestly, those often list better than the frenzied ones.";
+    return "Covered, but only just. I'd want to see where it finishes.";
+  },
+
+  voTakeLeader() {
+    const s = this.d.subscription;
+    if (!s.has_data) return '';
+    if (s.leader === 'qib') return "The institutions are leading this one. They do the deepest homework of anyone in the room, so that's the signal I weight most.";
+    if (s.leader === 'nii') return "The HNI money is out in front. That money is often borrowed for a few days and it chases listing pops — it tells you about expected excitement, not about the business.";
+    return "Retail is carrying this one. That's us — and we're usually the last to know. I'd want to see the institutions turn up before I called it strong.";
+  },
+
+  voTakeValuation() {
+    const fin = this.d.financials;
+    if (!fin.has_data || !fin.pe || !fin.pe_peer_avg) return '';
+    const prem = Number(fin.pe_premium_pct) || 0;
+    if (prem <= -20) return `At ${this.voNum(fin.pe)} times earnings against a peer average of ${this.voNum(fin.pe_peer_avg)}, this is priced below its competition. Cheap for a reason is a thing that exists — but on the numbers, it's asking less than the sector.`;
+    if (prem < 20) return `At ${this.voNum(fin.pe)} times earnings it's priced roughly in line with its peers at ${this.voNum(fin.pe_peer_avg)}. Fair, not a bargain.`;
+    return `At ${this.voNum(fin.pe)} times earnings against peers at ${this.voNum(fin.pe_peer_avg)}, you're paying a premium of ${this.voPct(Math.abs(prem))} to competitors already listed. For that to work, this company has to grow faster than they do — every single year. That's the bet.`;
+  },
+
+  voTakeAllotmentOdds() {
+    const s = this.d.subscription;
+    if (!s.has_data || !s.retail) return '';
+    const r = Number(s.retail) || 0;
+    if (r >= 5) return `Retail is ${this.voTimes(r)} over, so roughly one application in ${Math.round(r)} gets a lot. Apply for one lot. Extra lots do not improve your chances.`;
+    if (r >= 1) return "Retail is covered, so allotment will be a draw — but a kind one. Most single-lot applications should get something.";
+    return "Retail isn't fully covered, so if you apply you'll very likely get the full allotment. Ask yourself why nobody else wanted it.";
+  },
+
+  // ── the English scripts ──────────────────────────────────────────────
+  enScript(n) {
+    const ipo = this.ipo, d = this.d, L = this.loc;
+    const iss = ipo.issue, g = d.gmp, s = d.subscription, fin = d.financials;
+    const dt = (x) => this.fmtDate(x, true);
+    const c = this.voClock;
+    const R = this.voRupees.bind(this);
+
+    if (n === 1) {
+      const sme = ipo.board === 'SME'
+        ? " One thing to know up front: this is an SME issue. Bigger lot size, thinner trading after listing, and a wider swing in both directions. That isn't a warning not to apply — it's a warning to size it properly."
+        : '';
+      // An issue that has filed its papers but not its terms leaves these at
+      // 0, and 0 spoken aloud is a claim: "price band, zero rupees to 788",
+      // "the smallest cheque you can write is zero rupees". Both are said
+      // with total confidence and both are false. Say only what is known.
+      const band = (iss.price_low && iss.price_high)
+        ? `Price band, ${R(iss.price_low)} to ${R(iss.price_high)}.`
+        : iss.price_high
+          ? `The upper end of the price band is ${R(iss.price_high)}; the floor isn't out yet.`
+          : `The price band hasn't been announced yet.`;
+      const lot = (iss.lot_size && d.issue.min_investment)
+        ? `One lot is ${iss.lot_size} shares, so the smallest cheque you can write is ${R(d.issue.min_investment)}.`
+        : `The lot size isn't published yet, so I can't tell you the minimum application today — I'll bring it the moment it's out.`;
+      return [
+`${ipo.company}. Let me give you the terms first, then tell you what I make of them.`,
+`${band} ${lot}${sme}`,
+// Bullets, not list items — each is already a full sentence, so voList()
+// would run them together as "A, B, and C." with capitals mid-clause.
+L.overview.length ? L.overview.map((x) => String(x).replace(/\.$/, '')).join('. ') + '.' : '',
+// An all-fresh issue has no OFS leg, and naming it anyway spends the
+// listener's attention on "0 crore rupees is an offer for sale" — the one
+// sentence in the reel that is pure noise.
+Number(iss.ofs_cr)
+  ? `Now the part most people scroll past. The issue is ${this.voCrore(d.issue.total_cr)}. Of that, ${this.voCrore(iss.fresh_cr)} is a fresh issue — new money going into the company. ${this.voCrore(iss.ofs_cr)} is an offer for sale, which is existing shareholders selling their stake to you. So ${this.voPct(d.issue.fresh_pct)} of it is fresh.`
+  : `Now the part most people scroll past. The whole ${this.voCrore(d.issue.total_cr)} is a fresh issue — every rupee goes into the company. There's no offer for sale here, so nobody is using this listing to cash out.`,
+this.voTakeStructure(),
+`It opens ${dt(ipo.dates.open)}, closes ${dt(ipo.dates.close)}, and lists ${dt(ipo.dates.listing)}.`,
+      ].filter(Boolean).join('\n');
+    }
+
+    if (n === 2 && this.gmpMode === 'board') {
+      const quoted = this.boardRows.filter((r) => r.has_gmp).slice(0, 5);
+      return [
+`Today's grey market board. ${this.boardRows.length} IPOs on the radar.`,
+quoted.map((r) => `${r.company}, ${R(r.gmp)}, that's ${this.voPct(r.gmp_pct)}`).join('. ') + '.',
+`Quick reminder on what you're looking at. The grey market premium is what people are unofficially willing to pay for these shares before they list. No exchange publishes it. No regulator stands behind it. It is a rumour with a number attached — a useful rumour, and one I check every day, but a rumour. It moves, and it can move hard in the last forty-eight hours.`,
+      ].filter(Boolean).join('\n');
+    }
+
+    if (n === 2) {
+      if (!g.has_data) {
+        return [
+`${ipo.company}, grey market premium.`,
+`If this is new to you: the grey market premium is what people are unofficially willing to pay for these shares before they list. It's not an exchange price and no regulator publishes it.`,
+this.voTakeGmp(),
+`When there's a quote worth reporting, you'll get it here.`,
+        ].join('\n');
+      }
+      const when = g.is_stale
+        ? `The most recent reading, from ${dt(g.updated)}, is`
+        : `Today it's`;
+      // A premium of exactly zero is a real quote — the grey market pricing
+      // the issue at par — and it is the one reading that must not be read
+      // out in the "X rupees over the band, that's Y percent" frame, where
+      // it lands as "zero rupees over the band, that's zero percent" and
+      // sounds like missing data. Said plainly it is the most useful
+      // sentence on the reel.
+      const headline = Number(g.gmp) === 0
+        ? `${when} zero. Nothing. The grey market is pricing this one at par — no premium at all over the ${R(iss.price_high)} band.`
+        : `${when} ${R(g.gmp)} over the upper band of ${R(iss.price_high)}. That's ${this.voPct(g.pct)}.`;
+      // Only worth saying when the lot is known, and only when there is a
+      // premium to multiply by it.
+      const perLot = (iss.lot_size && Number(g.gain_per_lot))
+        ? ` Put differently — if it listed there, one lot of ${iss.lot_size} shares would be worth about ${R(g.gain_per_lot)} more than you paid for it.`
+        : '';
+      const tracked = g.days_tracked === 1
+        ? `We've only got one day of readings on this so far, at ${R(g.gmp)} — too early to call a trend.`
+        : `We've tracked it ${g.days_tracked} days since the announcement. High of ${R(g.peak)}, low of ${R(g.trough)}.`;
+      return [
+`${ipo.company}, grey market premium.`,
+`If this is new to you: GMP is what people are unofficially willing to pay for these shares before they list. It is not an exchange price. No regulator publishes it. It's a rumour with a number attached — a useful one, which is why I track it daily, but a rumour.`,
+`${headline}${perLot}`,
+this.voTakeGmp(),
+tracked,
+`And I'll say it again because it matters: this number is unofficial and it changes every single day. Never let it be the only reason you apply.`,
+      ].filter(Boolean).join('\n');
+    }
+
+    if (n === 3) {
+      if (!s.has_data) {
+        return [`${ipo.company}, subscription.`, this.voTakeSubscription()].join('\n');
+      }
+      return [
+`${ipo.company}, day ${s.day} of subscription.`,
+`Quick translation, because these three letters put people off. QIB is the big institutions — mutual funds, insurers, banks. NII is high net worth individuals, the large private money. Retail is you and me, anything up to two lakh rupees.`,
+`QIB, ${this.voTimes(s.qib)}. NII, ${this.voTimes(s.nii)}. Retail, ${this.voTimes(s.retail)}. Overall the issue is subscribed ${this.voTimes(s.total)}.`,
+this.voTakeSubscription(),
+this.voTakeLeader(),
+      ].filter(Boolean).join('\n');
+    }
+
+    if (n === 4) {
+      const growth = fin.has_data
+        ? `Revenue has grown ${this.voPct(fin.revenue_cagr)} a year, to ${this.voCrore(fin.latest.revenue)}. Profit, ${this.voCrore(fin.latest.pat)}.`
+        : `The financials aren't published in enough detail to take apart properly yet, and I won't pretend otherwise.`;
+      const margin = (fin.has_data && fin.present && fin.present.ebitda)
+        ? `Operating margin is ${this.voPct(fin.latest.ebitda_margin)}, ${Number(fin.margin_shift_bps) >= 0 ? 'up' : 'down'} ${Math.abs(Number(fin.margin_shift_bps) || 0)} basis points on last year.`
+        : '';
+      return [
+`So — should you apply to ${ipo.company}? Here's how I'd think about it.`,
+growth,
+margin,
+this.voTakeValuation(),
+L.green_flags.length ? `What I like: ${this.voList(L.green_flags)}.` : '',
+L.red_flags.length ? `What worries me: ${this.voList(L.red_flags)}.` : '',
+L.risk ? `And the single biggest risk — ${String(L.risk).replace(/\.$/, '')}.` : '',
+`None of this is a recommendation. It's the homework. The decision is yours.`,
+      ].filter(Boolean).join('\n');
+    }
+
+    if (n === 5) {
+      const scoreLine = d.score.has_data
+        ? `Our IPO Pulse score comes out at ${Number(d.score.effective).toFixed(1)} out of 10. ${this.verdictText}.`
+        : `There isn't enough published data to score this one honestly yet — so I'm not going to give you a number that looks confident and isn't.`;
+      return [
+`Final word on ${ipo.company}.`,
+scoreLine,
+// Spoken immediately BEFORE the call, not filed at the end of the video.
+// India's Research Analyst regulations exempt an opinion on a public offer
+// made only through public media, but the exemption is conditional: the
+// name, the registration status and any financial interest have to be
+// disclosed *at the time the recommendation is made*. A disclaimer that
+// arrives forty seconds later, after the viewer has heard "apply", is not
+// the thing the rule asks for. See docs/YOUTUBE-PLAYBOOK.md.
+`Before I give you the calls, the part that has to sit right next to them. I am not a SEBI-registered research analyst or investment adviser. I hold no position in this issue. What follows is my opinion on public information, published openly to everyone — it is not personalised advice, and it is not a solicitation to buy or sell anything.`,
+`With that said — for retail, ${this.t('r_' + ipo.analysis.reco_retail)}. For HNI, ${this.t('r_' + ipo.analysis.reco_hni)}. And holding it long term, ${this.t('r_' + ipo.analysis.reco_long)}.`,
+this.voTakeAllotmentOdds(),
+`The issue closes ${dt(ipo.dates.close)} at ${ipo.dates.close_time}. If you're applying, do it before the cut-off — your bank's UPI mandate needs time to clear, and every year people miss it by an hour.`,
+`And the thing I would most want you to take away. Only ever apply with money you can afford to have locked up, or to lose. An IPO is not a savings account. Do your own research, read the offer document, and if you want advice that fits your situation, speak to a SEBI-registered adviser.`,
+      ].filter(Boolean).join('\n');
+    }
+
+    if (n === 6) {
+      const out = d.listing.status === 'out';
+      const lr = this.listingRange;
+      return [
+`${ipo.company} allotment ${out ? 'is out — go and check it now' : `is expected on ${dt(ipo.dates.allotment)}`}. The registrar is ${iss.registrar}.`,
+`Here's how to check it in about ten seconds. ${this.voList(this.steps)}.`,
+// No premium and no published range means there is no forecast to give,
+// and the fallback rendered it as "zero rupees to zero rupees, that's zero
+// percent to zero percent" — a forecast of total loss, stated confidently,
+// where the truth is that nobody has one.
+(lr.has && (lr.low || lr.high))
+  ? `Listing is on ${dt(ipo.dates.listing)}. On the current premium the expected range is ${R(lr.low)} to ${R(lr.high)} — that's ${this.voPct(lr.low_pct)} to ${this.voPct(lr.high_pct)} on the issue price.`
+  : `Listing is on ${dt(ipo.dates.listing)}. There's no grey market premium to project a range from, so I'm not going to guess one for you.`,
+`And whatever happens on listing day: have your exit decided before the bell, not during it. If you didn't get an allotment, don't chase it at the open — that's the most expensive hour of the stock's life.`,
+`Follow for the allotment alert.`,
+      ].filter(Boolean).join('\n');
+    }
+    return '';
+  },
+
+  // ── the weekly strategy, across every IPO on the board ───────────────
+  /* Every other output on this page is about one company. This one is not,
+   * and that is the point: nobody in the community is choosing whether to
+   * apply to Lalithaa in isolation. They have a fixed amount of money, three
+   * issues open in the same week, and a UPI mandate that freezes the cash
+   * until allotment — so applying to the first one they see is a decision
+   * about the other two, whether or not they realise it.
+   *
+   * Ranked on what actually survives contact with a listing: the premium as
+   * a percentage of the band (an absolute rupee premium flatters an
+   * expensive share), whether that premium is holding rather than sliding,
+   * and mainboard ahead of SME at equal merit, because an SME lot is larger
+   * and its exit is thinner.
+   */
+  get strategyScript() {
+    const rows = this.boardRows || [];
+    if (!rows.length) return '';
+    const R = this.voRupees.bind(this);
+    const dt = (x) => this.fmtDate(x, true);
+    const today = new Date(this.now).toISOString().slice(0, 10);
+
+    const open = rows.filter((r) => r.status === 'open');
+    const soon = rows.filter((r) => r.status === 'upcoming');
+    const score = (r) => (Number(r.gmp_pct) || 0)
+      + (r.movement === 'surge' ? 4 : r.movement === 'drop' ? -8 : 0)
+      + (r.board === 'SME' ? -5 : 0);
+    const ranked = open.slice().sort((a, b) => score(b) - score(a));
+
+    const out = [];
+    out.push(`IPO Pulse — where I'd put my money this week, and why.`);
+
+    if (!open.length) {
+      out.push(`Nothing is open for bidding right now. That's not a dead week — it's the week you do the reading, so you're not deciding in a hurry when the next one opens.`);
+    } else {
+      out.push(`${open.length} ${open.length === 1 ? 'issue is' : 'issues are'} taking bids right now.`);
+      ranked.forEach((r, idx) => {
+        const closing = r.close === today ? 'closes TODAY' : `closes ${dt(r.close)}`;
+        const prem = r.has_gmp
+          ? `premium ${R(r.gmp)}, ${this.voPct(r.gmp_pct)}`
+          : `no grey market quote yet`;
+        const sub = r.subscription != null
+          ? `subscribed ${this.voTimes(r.subscription)}`
+          : `no subscription figure yet`;
+        const lot = r.min_investment ? `One lot is ${R(r.min_investment)}. ` : '';
+        out.push(`${idx + 1}. ${r.company}${r.board === 'SME' ? ', an SME issue' : ''}. ${closing}. ${lot}${prem}, ${sub}.`);
+      });
+
+      const top = ranked[0];
+      if (top && (Number(top.gmp_pct) || 0) > 0) {
+        out.push(`If you can only fund one application this week, ${top.company} is where the numbers point. That is not the same as saying it will list well — it's saying it has the best combination of premium and demand of what's in front of us today.`);
+      } else {
+        out.push(`Honestly? Nothing here is compelling on the numbers. There is no rule that says you have to apply every week, and the money you didn't lose is the money you get to use on a better issue next month.`);
+      }
+
+      const closingToday = open.filter((r) => r.close === today);
+      if (closingToday.length) {
+        out.push(`${this.voList(closingToday.map((r) => r.company))} ${closingToday.length === 1 ? 'shuts' : 'shut'} tonight. This is the afternoon the institutional money shows up, so the subscription number you saw this morning is not the one it will finish on. Check it after three, then decide.`);
+      }
+    }
+
+    if (soon.length) {
+      out.push(`Coming up: ${this.voList(soon.slice(0, 4).map((r) => `${r.company} from ${dt(r.open)}`))}. Don't commit every rupee this week — keep something back for those.`);
+    }
+
+    out.push(`Now the part that matters more than any pick on that list.`);
+    out.push(`One. In the retail category, extra lots do not improve your odds. When an issue is oversubscribed it goes to a computerised draw, and one lot enters that draw exactly like five do. Apply for one, across more issues — not five, across one.`);
+    out.push(`Two. Your money is blocked from the moment you apply until allotment, usually five or six days. If you put everything into a Monday issue, you cannot touch the Thursday one. Plan the week, not the day.`);
+    out.push(`Three. Never apply on the premium alone. It is unofficial, it is a rumour with a number attached, and it moves hardest in the last forty-eight hours — which is exactly when most people commit.`);
+    out.push(`And four, the one that matters most if you are just starting out. Listing gains are a bonus, not a plan. Only apply with money you can afford to have locked up, or to lose. Not one rupee of borrowed money for a listing pop — that is the mistake that turns a bad week into a bad year.`);
+    out.push(`None of this is investment advice. Do your own research, or speak to a SEBI-registered adviser.`);
+    return out.join('\n');
+  },
+
   // ── voiceover script, one per reel ───────────────────────────────────
   scriptFor(reelNumber) {
     if (!this.ipo || !this.d) return '';
     const i = LANG_INDEX[this.lang] ?? 0;
+    // English is authored by enScript(); hi/te keep the template below.
+    if (i === 0) return this.enScript(reelNumber).replace(/\n{2,}/g, '\n').trim();
     const ipo = this.ipo, d = this.d, L = this.loc;
     const f = this.fmt.bind(this), dt = (x) => this.fmtDate(x, true);
     const iss = ipo.issue, g = d.gmp, s = d.subscription, fin = d.financials;
@@ -188,15 +614,294 @@ Follow for the allotment alert.`,
 
   get script() { return this.scriptFor(this.reel.n); },
 
+  /* ── YouTube packaging ────────────────────────────────────────────────
+   *
+   * Title, description, hashtags and a thumbnail brief — the four things
+   * that decide whether a video is watched, none of which the reel itself
+   * carries. All of them per language, because they are not translations of
+   * each other: a Hindi viewer searching for this video types different
+   * words than an English one, and a hashtag set that works in one reads as
+   * spam in the other.
+   *
+   * The company's legal suffix is dropped throughout. "Lalithaa Jewellery
+   * Mart Limited IPO GMP Today" spends nine characters of a ~60-character
+   * search display on the word "Limited", which nobody searches for.
+   */
+
+  get voShortName() {
+    return String(this.ipo?.company || '')
+      .replace(/\s*\b(Limited|Ltd\.?|Private|Pvt\.?|Corporation|Corp\.?)\b/gi, '')
+      .replace(/\s{2,}/g, ' ').trim();
+  },
+
+  /* A hashtag needs to be one token; a company name is not. */
+  get voTagName() {
+    return String(this.voShortName).replace(/[^A-Za-z0-9]/g, '');
+  },
+
+  /* Three title variants per reel: the search-led one first (front-loads the
+   * words people actually type), then a curiosity-led one, then a short one
+   * for Shorts where the title is truncated hard. Pick per upload, or A/B. */
+  get ytTitles() {
+    if (!this.ipo || !this.d) return [];
+    const n = this.reel.n, name = this.voShortName, d = this.d;
+    const g = d.gmp, s = d.subscription;
+    const lang = this.lang;
+    const gmpTxt = g.has_data ? `₹${g.gmp}` : '';
+    const pctTxt = g.has_data ? `${g.pct}%` : '';
+    const score = Number(d.score.effective || 0).toFixed(1);
+
+    // Finance vocabulary stays in English in all three languages, because
+    // that is how it is searched — a Hindi speaker types "IPO GMP today",
+    // not a Devanagari transliteration of it. Only the framing changes.
+    const T = {
+      en: {
+        1: [`${name} IPO Review | Price Band, Lot Size & Full Details`,
+            `${name} IPO — Everything You Need To Know Before You Apply`,
+            `${name} IPO Full Details`],
+        2: [`${name} IPO GMP Today ${gmpTxt} | ${pctTxt} Listing Gain?`,
+            `${name} IPO GMP ${gmpTxt} — Is The Grey Market Right?`,
+            `${name} IPO GMP Today`],
+        3: [`${name} IPO Subscription Day ${s.day} | ${s.total}x Subscribed`,
+            `${name} IPO Subscription Status — Should You Wait?`,
+            `${name} IPO Subscription Day ${s.day}`],
+        4: [`${name} IPO — Apply Or Not? Honest Analysis`,
+            `${name} IPO Review | Financials, Valuation & Red Flags`,
+            `${name} IPO — Apply Or Skip?`],
+        5: [`${name} IPO Final Verdict | Score ${score}/10`,
+            `${name} IPO — My Final Take Before It Closes`,
+            `${name} IPO Verdict`],
+        6: [`${name} IPO Allotment Status | How To Check In 10 Seconds`,
+            `${name} IPO Allotment & Listing — What To Expect`,
+            `${name} IPO Allotment Status`],
+      },
+      hi: {
+        1: [`${name} IPO पूरी जानकारी | Price Band, Lot Size, Details`,
+            `${name} IPO — Apply करने से पहले ये जान लीजिए`,
+            `${name} IPO पूरी जानकारी`],
+        2: [`${name} IPO GMP Today ${gmpTxt} | ${pctTxt} Listing Gain?`,
+            `${name} IPO GMP ${gmpTxt} — क्या Grey Market सही है?`,
+            `${name} IPO GMP आज`],
+        3: [`${name} IPO Subscription Day ${s.day} | ${s.total}x Subscribe`,
+            `${name} IPO Subscription — क्या Last Day तक रुकें?`,
+            `${name} IPO Subscription Day ${s.day}`],
+        4: [`${name} IPO — Apply करें या नहीं? पूरा Analysis`,
+            `${name} IPO Review | Financials, Valuation और Red Flags`,
+            `${name} IPO — Apply या Skip?`],
+        5: [`${name} IPO Final Verdict | Score ${score}/10`,
+            `${name} IPO — Closing से पहले मेरी आखिरी राय`,
+            `${name} IPO Verdict`],
+        6: [`${name} IPO Allotment Status कैसे Check करें | 10 Second`,
+            `${name} IPO Allotment और Listing — क्या उम्मीद रखें`,
+            `${name} IPO Allotment Status`],
+      },
+      // Telugu titles are written in LATIN script with "in Telugu" appended
+      // as a keyword, which looks wrong and is not. Every Telugu IPO channel
+      // that actually ranks does it this way — "Timescan Logistics IPO Review
+      // In Telugu", "nykaa ipo gmp in telugu" — and Telugu script is
+      // essentially absent from their titles. The audience types the query in
+      // Latin, so a beautifully localised తెలుగు title is one nobody searches
+      // for. The spoken script stays Telugu; only the packaging is Latin.
+      te: {
+        1: [`${name} IPO Review in Telugu | ${name} IPO Details Telugu | Price Band, Lot Size`,
+            `${name} IPO Full Details in Telugu | Apply Cheyyala Redda?`,
+            `${name} IPO Details in Telugu`],
+        2: [`${name} IPO GMP Today in Telugu ${gmpTxt} | ${pctTxt} Listing Gain?`,
+            `${name} IPO GMP in Telugu | Grey Market Premium Today`,
+            `${name} IPO GMP Today Telugu`],
+        3: [`${name} IPO Subscription Day ${s.day} in Telugu | ${s.total}x Subscribed`,
+            `${name} IPO Subscription Status in Telugu | Last Day Varaku Aagala?`,
+            `${name} IPO Subscription Telugu`],
+        4: [`${name} IPO Apply or Not in Telugu | ${name} IPO Analysis Telugu`,
+            `${name} IPO Review in Telugu | Financials, Valuation, Red Flags`,
+            `${name} IPO Apply or Not Telugu`],
+        5: [`${name} IPO Final Verdict in Telugu | Score ${score}/10`,
+            `${name} IPO Review Telugu | Apply Cheyyala Vadda?`,
+            `${name} IPO Verdict Telugu`],
+        6: [`${name} IPO Allotment Status in Telugu | How to Check`,
+            `${name} IPO Allotment & Listing in Telugu | Expected Listing Price`,
+            `${name} IPO Allotment Status Telugu`],
+      },
+    };
+    const set = (T[lang] || T.en)[n] || [];
+    // A GMP-less or subscription-less IPO would otherwise title itself
+    // "GMP Today ₹ | %" or "Day 0 | 0x".
+    return set.filter((t) => !/₹\s*\||\s\|\s%|Day\s0\b|\b0x\b|\s{2,}\|/.test(t))
+      .map((t) => t.replace(/\s+\|\s*$/, '').replace(/\s{2,}/g, ' ').trim());
+  },
+
+  get ytTitle() { return this.ytTitles[0] || ''; },
+
+  /* Hashtags, kept few on purpose.
+   *
+   * YouTube's documented limit is 60 across title and description together,
+   * past which it ignores every one of them — so the cap is not the
+   * constraint people assume. The real reason to stay small is that
+   * hashtags link to a browse page and are not a documented search-ranking
+   * signal; the description TEXT is what search matches against. YouTube
+   * also picks which three appear above the title itself, by "most
+   * engaging", so stuffing the list buys nothing and reads as spam.
+   *
+   * Six well-aimed tags, therefore, not thirty. */
+  get ytHashtags() {
+    if (!this.ipo) return [];
+    const tag = this.voTagName;
+    const byLang = {
+      // Latin script across all three. Indian finance search runs on English
+      // terms even among Hindi and Telugu speakers — the language tag is what
+      // carries the audience signal, not a translated noun.
+      en: ['#IPOReview', '#StockMarketIndia'],
+      hi: ['#IPOHindi', '#ShareMarketHindi'],
+      te: ['#IPOTelugu', '#StockMarketTelugu'],
+    };
+    return ['#IPO', '#IPOGMP', tag ? `#${tag}IPO` : '',
+            ...(byLang[this.lang] || byLang.en)].filter(Boolean);
+  },
+
+  /* The legal line. Not boilerplate to skim past: in India, publishing a
+   * specific "apply / avoid" call on a named security is the activity SEBI
+   * regulates, and this channel's whole output is exactly that shape. This
+   * wording frames the video as education and opinion and says plainly that
+   * it is not advice — which is the minimum, not a shield. See
+   * docs/YOUTUBE-PLAYBOOK.md, which explains why the framing of the video
+   * matters more than the disclaimer under it. */
+  get ytDisclaimer() {
+    const D = {
+      en: `DISCLAIMER: This video is for education and information only. It is NOT investment advice and NOT a recommendation to buy or sell any security. I am not a SEBI-registered investment adviser or research analyst. Grey Market Premium (GMP) is unofficial, unregulated data from the informal market — it is not published by NSE, BSE or SEBI, it cannot be verified, and it changes daily. Do not make an investment decision based on GMP. Investments in securities are subject to market risks; read all offer documents carefully. Please consult a SEBI-registered adviser before investing. I hold no position in this IPO unless stated.`,
+      hi: `डिस्क्लेमर: यह वीडियो केवल शिक्षा और जानकारी के लिए है। यह निवेश सलाह नहीं है और किसी भी शेयर को खरीदने या बेचने की सिफारिश नहीं है। मैं SEBI-पंजीकृत निवेश सलाहकार या रिसर्च एनालिस्ट नहीं हूँ। GMP (ग्रे मार्केट प्रीमियम) अनऑफिशियल और अनियमित डेटा है — इसे NSE, BSE या SEBI प्रकाशित नहीं करते, इसे सत्यापित नहीं किया जा सकता, और यह रोज़ बदलता है। GMP के आधार पर निवेश का फैसला न लें। शेयर बाज़ार में निवेश जोखिमों के अधीन है; सभी दस्तावेज़ ध्यान से पढ़ें। निवेश से पहले SEBI-पंजीकृत सलाहकार से सलाह लें।`,
+      te: `డిస్‌క్లెయిమర్: ఈ వీడియో కేవలం విద్య మరియు సమాచారం కోసం మాత్రమే. ఇది పెట్టుబడి సలహా కాదు, ఏ షేర్‌ను కొనమని లేదా అమ్మమని సిఫారసు కాదు. నేను SEBI-రిజిస్టర్డ్ ఇన్వెస్ట్‌మెంట్ అడ్వైజర్ లేదా రీసెర్చ్ అనలిస్ట్ కాదు. GMP (గ్రే మార్కెట్ ప్రీమియం) అనధికారిక, నియంత్రణ లేని డేటా — దీన్ని NSE, BSE లేదా SEBI ప్రచురించవు, ధృవీకరించలేము, ప్రతిరోజూ మారుతుంది. GMP ఆధారంగా పెట్టుబడి నిర్ణయం తీసుకోవద్దు. మార్కెట్ పెట్టుబడులు రిస్క్‌కు లోబడి ఉంటాయి; అన్ని పత్రాలను జాగ్రత్తగా చదవండి. పెట్టుబడికి ముందు SEBI-రిజిస్టర్డ్ సలహాదారుని సంప్రదించండి.`,
+    };
+    return D[this.lang] || D.en;
+  },
+
+  get ytDescription() {
+    if (!this.ipo || !this.d) return '';
+    const ipo = this.ipo, d = this.d, iss = ipo.issue, g = d.gmp, s = d.subscription;
+    const name = this.voShortName;
+    const dt = (x) => this.fmtDate(x, true);
+    const H = {
+      en: { facts: 'KEY DETAILS', band: 'Price band', lot: 'Lot size', size: 'Issue size',
+            win: 'Open / Close', list: 'Listing', gmp: 'GMP today', sub: 'Subscription',
+            chapters: 'CHAPTERS', more: 'Daily IPO updates — subscribe for the allotment alert.' },
+      hi: { facts: 'ज़रूरी जानकारी', band: 'Price Band', lot: 'Lot Size', size: 'Issue Size',
+            win: 'Open / Close', list: 'Listing', gmp: 'आज का GMP', sub: 'Subscription',
+            chapters: 'CHAPTERS', more: 'रोज़ाना IPO अपडेट — allotment alert के लिए subscribe करें।' },
+      te: { facts: 'ముఖ్య వివరాలు', band: 'Price Band', lot: 'Lot Size', size: 'Issue Size',
+            win: 'Open / Close', list: 'Listing', gmp: 'నేటి GMP', sub: 'Subscription',
+            chapters: 'CHAPTERS', more: 'రోజువారీ IPO అప్‌డేట్‌లు — allotment alert కోసం subscribe చేయండి.' },
+    };
+    const L = H[this.lang] || H.en;
+
+    // The first two lines are the only ones shown before "...more", so the
+    // number that makes someone click has to live there.
+    const hook = g.has_data
+      ? `${name} IPO — GMP ₹${g.gmp} (${g.pct}%), estimated listing ₹${this.fmt(g.est_listing)}.`
+      : `${name} IPO — full review, terms and dates.`;
+    const second = s.has_data
+      ? `Subscribed ${s.total}x on day ${s.day}. Closes ${dt(ipo.dates.close)}.`
+      : `Opens ${dt(ipo.dates.open)}, closes ${dt(ipo.dates.close)}.`;
+
+    const facts = [
+      `${L.band}: ₹${iss.price_low} – ₹${iss.price_high}`,
+      iss.lot_size ? `${L.lot}: ${iss.lot_size} shares (₹${this.fmt(d.issue.min_investment)} minimum)` : '',
+      d.issue.total_cr ? `${L.size}: ₹${this.fmt(d.issue.total_cr)} crore` : '',
+      `${L.win}: ${dt(ipo.dates.open)} – ${dt(ipo.dates.close)}`,
+      `${L.list}: ${dt(ipo.dates.listing)}`,
+      g.has_data ? `${L.gmp}: ₹${g.gmp} (${g.pct}%)` : '',
+      s.has_data ? `${L.sub}: ${s.total}x (day ${s.day})` : '',
+      iss.registrar ? `Registrar: ${iss.registrar}` : '',
+    ].filter(Boolean);
+
+    return [
+      hook, second, '',
+      `📊 ${L.facts}`, ...facts, '',
+      `⏱️ ${L.chapters}`,
+      '00:00 — (fill in after editing)', '',
+      L.more, '',
+      `⚠️ ${this.ytDisclaimer}`, '',
+      this.ytHashtags.join(' '),
+    ].join('\n');
+  },
+
+  /* Kept: the Copy caption button and anything else still calling it. */
   get caption() {
     if (!this.ipo || !this.d) return '';
-    const ipo = this.ipo, d = this.d;
-    const topic = this.t(this.reel.key);
-    const title = `${ipo.company} IPO — ${topic} | GMP ₹${d.gmp.gmp} (${d.gmp.pct}%)`;
-    const tags = ['#IPO', '#IPOPulse', `#${this.slugify(ipo.company).replace(/-/g, '')}IPO`,
-      '#GMP', '#GreyMarketPremium', '#StockMarketIndia', '#IPOAlert', '#ShareMarket',
-      '#Investing', '#IPOReview', '#Allotment', '#Nifty'];
-    return `TITLE:\n${title}\n\nDESCRIPTION:\n${ipo.company} IPO — price band ₹${ipo.issue.price_low}–₹${ipo.issue.price_high}, lot ${ipo.issue.lot_size} shares (₹${this.fmt(d.issue.min_investment)}). Today's GMP ₹${d.gmp.gmp} (${d.gmp.pct}%), estimated listing ₹${this.fmt(d.gmp.est_listing)}.${d.subscription.has_data ? ` Subscribed ${d.subscription.total}x on day ${d.subscription.day}.` : ''} Verdict: ${this.verdictText}. Closes ${this.fmtDate(ipo.dates.close, true)}, lists ${this.fmtDate(ipo.dates.listing, true)}.\n\nGMP is unofficial grey-market data. Not investment advice — do your own research or speak to a SEBI-registered adviser.\n\n${tags.join(' ')}`;
+    return `TITLE:\n${this.ytTitles.join('\n')}\n\nDESCRIPTION:\n${this.ytDescription}`;
+  },
+
+  /* ── thumbnail brief for an image model ───────────────────────────────
+   *
+   * A prompt to paste into Gemini's image model (the one nicknamed Nano
+   * Banana), not an image — a static page cannot hold an API key, and this
+   * is the one step where a human should look at the result anyway.
+   *
+   * Built around what actually earns a click on a phone: one number, three
+   * words, and a colour that tells you the direction before you have read
+   * anything. The number is pulled from the data so the thumbnail cannot
+   * promise something the video does not say — a thumbnail that overstates
+   * the premium is both a YouTube policy problem and, for financial
+   * content, a much worse one.
+   */
+  get thumbnailPrompt() {
+    if (!this.ipo || !this.d) return '';
+    const d = this.d, g = d.gmp, s = d.subscription, n = this.reel.n;
+    const name = this.voShortName.toUpperCase();
+    const up = !g.has_data || Number(g.pct) >= 0;
+
+    // One hook per reel: the single figure this video is about.
+    let big = '', small = '';
+    if (n === 3 && s.has_data) { big = `${s.total}x`; small = `DAY ${s.day} SUBSCRIPTION`; }
+    else if (n === 5) { big = `${Number(d.score.effective || 0).toFixed(1)}/10`; small = 'FINAL VERDICT'; }
+    else if (n === 6) { big = 'ALLOTMENT'; small = 'HOW TO CHECK'; }
+    else if (g.has_data) { big = `₹${g.gmp}`; small = `GMP · ${g.pct}%`; }
+    else { big = 'IPO REVIEW'; small = 'FULL DETAILS'; }
+
+    const mood = up
+      ? 'confident and optimistic; accent colour emerald green (#22C55E); a subtle upward arrow motif'
+      : 'cautious and serious; accent colour red (#EF4444); a subtle downward arrow motif';
+
+    // Written as narrative sentences rather than a keyword list, and naming
+    // a font STYLE rather than a font, which is what Google's own prompting
+    // guide for this model asks for. Set the ratio with the model's
+    // aspect-ratio control (16:9, 2K) rather than trusting the words —
+    // it defaults to square otherwise.
+    return [
+`Create a high-contrast YouTube thumbnail for an Indian stock-market channel, in a modern financial-media style, designed to stay legible at small size on a phone.`,
+``,
+`The subject is an IPO video about ${this.ipo.company}. The design should be clean and premium rather than cartoonish — a deep navy, near-black background with a subtle gradient, ${mood}.`,
+``,
+`Render this text exactly as written, and no other text anywhere in the image:`,
+`  · the headline "${big}", very large, dominating the right two-thirds of the frame`,
+`  · beneath it, smaller, "${small}"`,
+`  · in the top-left corner, small, "${name}"`,
+`Set all of it in a clean, heavy, geometric sans-serif, bright white with a strong drop shadow or thin dark outline so it holds up against the dark background.`,
+``,
+`Leave the left third visually simple and slightly darker, as clear space for a presenter cut-out to be composited in later. Keep every important element inside the middle 75% of the frame, away from the edges where the player's UI and duration badge sit.`,
+``,
+`Constraints: it must still read at 320 pixels wide, so nothing small or fine. Do not invent any number, percentage, date or currency figure that is not in the text above, and do not draw a chart implying a specific return. Do not use the words "guaranteed", "sure shot", "profit" or "multibagger". No stock-photo watermark.`,
+``,
+`— Use the aspect-ratio control to set 16:9 at 2K, not the prompt text. Attach your last thumbnail as a reference image to hold the palette and logo position steady across uploads.`,
+      ].join('\n');
+  },
+
+  /* Everything needed to publish one video, in one copy. */
+  get packaging() {
+    if (!this.ipo || !this.d) return '';
+    const bar = (s) => `\n${'─'.repeat(58)}\n${s}\n${'─'.repeat(58)}`;
+    return [
+`IPO PULSE — publishing pack`,
+`${this.ipo.company} · reel ${this.reel.n} (${this.t(this.reel.key)}) · ${this.lang.toUpperCase()}`,
+bar('TITLE — pick one'),
+this.ytTitles.map((t, i) => `${i + 1}. ${t}   [${t.length} chars]`).join('\n'),
+bar('DESCRIPTION'),
+this.ytDescription,
+bar('HASHTAGS (first 3 show above the title)'),
+this.ytHashtags.join(' '),
+bar('THUMBNAIL PROMPT — paste into the Gemini image model'),
+this.thumbnailPrompt,
+bar('VOICEOVER SCRIPT'),
+this.script,
+    ].join('\n');
   },
 
   // ── CSV report ───────────────────────────────────────────────────────

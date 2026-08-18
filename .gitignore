@@ -41,3 +41,21 @@ desktop.ini
 # in the deployed site — the browser has to have it — but it stays out of the
 # repo, and a fork points at its own sheet without editing tracked files.
 frontend/js/config.js
+
+# ── Notes and documentation ───────────────────────────────────────────────
+#
+# Working notes stay local. README.md is the one exception — it is the page
+# anyone landing on the repo reads first, so it is tracked deliberately. The
+# negation must come after the pattern that hides it; reversed, it does
+# nothing.
+*.md
+!README.md
+
+# Everything in docs/ is a working document, including the .docx builds and
+# whatever else gets generated beside them.
+#
+# Written as `docs/*` rather than `docs/` on purpose: git does not descend
+# into an excluded *directory*, so a bare `docs/` would make any later
+# `!docs/…` line dead on arrival. Excluding the contents instead keeps that
+# escape hatch open for the day one file in here does need tracking.
+docs/*

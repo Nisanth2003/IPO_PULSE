@@ -29,6 +29,7 @@ Gemini runs once per data change instead of once per build. Pass
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -870,6 +871,22 @@ def cmd_sources(args) -> int:
     return 0
 
 
+def _investorgain_covers(slug: str, company: str = "") -> bool:
+    """Is this IPO one InvestorGain carries?
+
+    Answers "is the desk covering this company", not "has it quoted a premium
+    today" — the second question is the desk's to answer, including when the
+    answer is silence. Unreachable counts as *not* covered, so a bad morning
+    on InvestorGain lets the model fall back rather than blanking the GMP for
+    every IPO at once.
+    """
+    try:
+        from .providers import investorgain as ig
+        return ig.resolve(slug, company) is not None
+    except Exception:
+        return False
+
+
 def cmd_refresh(args) -> int:
     """The daily loop: re-read GMP (+ subscription), then republish."""
     from .providers.research import ResearchProvider
@@ -907,6 +924,29 @@ def cmd_refresh(args) -> int:
             covered += 1
             continue
 
+        # Stronger version of the same rule: if InvestorGain carries this IPO
+        # at all, the model has no business writing its GMP — not today, not
+        # any day.
+        #
+        # The check above only skips an IPO the free desk has *already priced
+        # today*, which quietly let the model answer for one InvestorGain
+        # covers but has not quoted. That is not a gap. InvestorGain opens a
+        # GMP row the day an issue is announced and leaves the premium at 0
+        # until a dealer actually prices it, and `history()` trims that run of
+        # leading zeros deliberately — "not quoted" is an absence, and an
+        # absence is not a number. The model, asked the same question, does
+        # not return an absence: it returns 0. Fascinate Textiles and
+        # Pramodini Medicare each carried a fortnight of ₹0 "quotes" written
+        # this way, and every one of them read as a real premium of zero on
+        # the card and in the trail.
+        #
+        # So the desk's silence counts as its answer. The model is left with
+        # the one job it is actually needed for: an IPO InvestorGain does not
+        # carry.
+        if not args.all and _investorgain_covers(slug, ipo.company or ""):
+            covered += 1
+            continue
+
         print(f"\n── {ipo.company or slug} ({status})")
         try:
             points = provider.fetch_gmp(slug, company=ipo.company,
@@ -923,7 +963,22 @@ def cmd_refresh(args) -> int:
             if p.get("needs_review"):
                 print(f"    {p['review_reason']}")
                 flagged.append(slug)
-            if not p.get("needs_review") or args.force:
+            # A model's ₹0 is "I could not find a quote", not "the premium is
+            # zero", and the two are written identically. Refuse it.
+            #
+            # A real zero exists — an issue whose premium collapses to par
+            # after trading has begun genuinely is 0, and Optimystix has four
+            # such days. But those arrive from InvestorGain, which distinguishes
+            # a quoted par from an unquoted row by omitting the latter. A
+            # grounded lookup has no such vocabulary: it returns 0 for "no
+            # premium found on the page", and merge_series then files it as a
+            # reading. This is the guard `tables.py` describes as its own rule
+            # — "absence is not zero; a written 0 invents a fact" — applied at
+            # the one door that was not enforcing it.
+            if not p.get("needs_review") and float(p.get("gmp") or 0) == 0:
+                print("    ₹0 from a model reads as 'no quote found', not "
+                      "'quoted at par' — not written")
+            elif not p.get("needs_review") or args.force:
                 raw = store.load(slug).to_dict()
                 clean = {k: p[k] for k in ("date", "gmp", "kostak", "source") if k in p}
                 raw["gmp_history"] = merge_series(raw.get("gmp_history", []), [clean])
@@ -1696,6 +1751,60 @@ def cmd_enrich(args) -> int:
     return 0
 
 
+def cmd_verify(args) -> int:
+    """Does every tracked IPO actually exist? Ask NSE and BSE.
+
+    Separate from `doctor` on purpose. Doctor answers "what is missing from
+    this record"; this answers "should this record be here at all", and the
+    second question is the one nothing was asking. The sheet carried Meridian
+    Logistics as a ₹720 crore mainboard issue open for bidding, and every
+    check in the pipeline was busy grading how complete its data was.
+    """
+    from . import roster
+
+    ipos = store.load_all()
+    rows = roster.check(ipos)
+    by_slug = {i.slug: i for i in ipos}
+
+    reachable = rows[0]["reachable"] if rows else []
+    print(f"Exchange feeds answering: {', '.join(reachable) or 'NONE'}")
+    if not reachable:
+        print("\nNeither NSE nor BSE answered, so nothing was verified. This is")
+        print("not a finding about the data — try again when the feeds are up.")
+        return 0 if not args.strict else 1
+
+    order = {"suspect": 0, "unchecked": 1, "corroborated": 2, "confirmed": 3}
+    stamped = 0
+    for r in sorted(rows, key=lambda x: (order.get(x["verdict"], 9), x["slug"])):
+        mark = {"suspect": "!", "unchecked": "?",
+                "corroborated": "·", "confirmed": "+"}[r["verdict"]]
+        print(f"  {mark} {r['verdict']:<13}{r['slug']:<34}{r['why']}")
+
+        # Stamp a fresh confirmation so it survives the issue listing and
+        # dropping off both feeds. Only when the exchange answered *this* run
+        # — re-writing an existing stamp would be a no-op write per IPO.
+        if args.write and r["stamp"] and not (by_slug[r["slug"]].sources or {}).get("exchange"):
+            fresh = store.load(r["slug"])
+            fresh.sources["exchange"] = r["stamp"]
+            store.save(fresh)
+            stamped += 1
+
+    suspects = [r for r in rows if r["verdict"] == "suspect"]
+    print()
+    if stamped:
+        print(f"{stamped} exchange confirmation(s) stamped onto the sheet.")
+    if suspects:
+        print(f"! {len(suspects)} IPO(s) no exchange can account for:")
+        for r in suspects:
+            print(f"    {r['slug']:<34}{r['company']}")
+        print("  Check by hand before recording anything about them. If the")
+        print("  company is not real:  ipopulse remove <slug> --yes")
+    else:
+        print("Every tracked IPO is accounted for by an exchange or by "
+              "InvestorGain's catalogue.")
+    return 1 if (suspects and args.strict) else 0
+
+
 def cmd_doctor(args) -> int:
     """What is missing, what it breaks, and what can be repaired from here."""
     from . import doctor
@@ -1837,6 +1946,7 @@ def write_frontend_config() -> Path:
     from . import sheets
     sid = sheets.sheet_id()
     api = (os.getenv("IPOPULSE_TRIGGER_API") or "").strip().rstrip("/")
+    gate_hash, gate_iter = _site_gate(sid)
     dest = store.BACKEND_ROOT.parent / "frontend" / "js" / "config.js"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(
@@ -1847,11 +1957,46 @@ def write_frontend_config() -> Path:
         ' * The sheet must be shared as "Anyone with the link can view" or the\n'
         ' * site cannot read it. API_BASE, when set, must be an https:// origin\n'
         ' * that lists this site in IPOPULSE_ALLOWED_ORIGINS.\n'
+        ' *\n'
+        ' * SITE_GATE_HASH is PBKDF2-SHA256 over IPOPULSE_TRIGGER_PASSWORD,\n'
+        ' * salted with the sheet id. The password itself is never written here.\n'
+        ' * Read js/gate.js before relying on it — it says plainly what this\n'
+        ' * does and does not protect.\n'
         ' */\n'
         f'const SHEET_ID = "{sid}";\n'
-        f'const API_BASE = "{api}";\n',
+        f'const API_BASE = "{api}";\n'
+        f'const SITE_GATE_HASH = "{gate_hash}";\n'
+        f'const SITE_GATE_ITER = {gate_iter};\n',
         encoding="utf-8")
     return dest
+
+
+# Deliberately high: this hash ships to every visitor, so the only thing
+# standing between a leaked config.js and the password is how long each guess
+# costs. 310k is the OWASP figure for PBKDF2-SHA256 and lands around 150-300ms
+# in a browser — unnoticeable once, ruinous a billion times.
+GATE_ITERATIONS = 310_000
+
+
+def _site_gate(sheet_id: str) -> tuple[str, int]:
+    """Hash IPOPULSE_TRIGGER_PASSWORD for the front-door gate.
+
+    Returns ("", 0) when no password is set, which leaves the gate off. That
+    is safe locally and is NOT safe on a published site, so `gate.js` refuses
+    to open on any host other than localhost when the hash is empty — a
+    missing secret in CI must fail closed, not quietly publish the studio.
+
+    The salt is the sheet id: stable across regenerations (so a redeploy does
+    not invalidate anything), unique to this deployment (so no shared rainbow
+    table helps), and not secret, which is all a salt has to be.
+    """
+    password = (os.getenv("IPOPULSE_TRIGGER_PASSWORD") or "").strip()
+    if not password or not sheet_id:
+        return "", 0
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), sheet_id.encode("utf-8"),
+        GATE_ITERATIONS, dklen=32)
+    return digest.hex(), GATE_ITERATIONS
 
 
 def cmd_config(args) -> int:
@@ -2124,6 +2269,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--retry", action="store_true",
                     help="ignore the attempt log and run every planned step")
     sp.set_defaults(func=cmd_enrich)
+
+    sp = sub.add_parser("verify", help="does every tracked IPO exist? ask NSE and BSE")
+    sp.add_argument("--write", action="store_true",
+                    help="stamp each exchange confirmation onto the sheet")
+    sp.add_argument("--strict", action="store_true",
+                    help="exit 1 if any IPO is unaccounted for (for a pre-record gate)")
+    sp.set_defaults(func=cmd_verify)
 
     sp = sub.add_parser("doctor", help="what is missing, and repair what is derivable")
     sp.add_argument("slug", nargs="?", help="just this one; default is every IPO")

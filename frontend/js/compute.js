@@ -122,6 +122,18 @@ function gmpMetrics(ipo, now = new Date()) {
     : null;
 
   return {
+    // Is there a quote at all? Every field below defaults to 0 when the trail
+    // is empty, and 0 is a real premium — an issue trading at par — so
+    // without this flag "nobody has quoted it" and "quoted at exactly par"
+    // render identically as ₹0, and reel 2 reads a premium of zero aloud as
+    // though a desk had said so.
+    //
+    // Not hypothetical: Fascinate Textiles and Pramodini Medicare each carried
+    // a fortnight of model-written ₹0 rows for exactly this reason. Those were
+    // removed from the sheet, and InvestorGain — which omits an unquoted day
+    // rather than zeroing it — leaves both with no trail at all. That absence
+    // is the honest answer, and this is what lets the card say so.
+    has_data: series.length > 0,
     gmp, prev: prevGmp, delta: round(gmp - prevGmp, 2),
     pct: round(pct(gmp, band), 2),
     est_listing: round(band + gmp, 2),

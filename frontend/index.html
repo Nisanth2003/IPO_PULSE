@@ -6,6 +6,16 @@
 <title>IPO Pulse Studio</title>
 <meta name="description" content="Scene-based reel studio for the IPO Pulse channel.">
 
+<!-- Keep the studio out of search results. Costs nothing, and it removes the
+     commonest way a private URL stops being private: somebody finds it
+     without looking for it. This is not access control — see js/gate.js. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+
+<!-- Hide the page until js/gate.js unlocks it. Inline and above every other
+     stylesheet on purpose: a rule that arrives with the CSS file would let
+     the studio paint for a moment first, and "briefly visible" is visible. -->
+<style>html:not(.gate-open) body{visibility:hidden}</style>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;600;700;800&family=Noto+Sans+Telugu:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -44,6 +54,9 @@
      never committed); sheet.js reads the tabs as CSV with no key. Both must
      load before data.js, which uses SHEET_ID and SHEET. -->
 <script src="js/config.js"></script>
+<!-- Straight after config.js, which is where the hash comes from, and before
+     anything that reads the sheet or renders. -->
+<script src="js/gate.js"></script>
 <script src="js/sheet.js"></script>
 <script src="js/data.js"></script>
 <script src="js/reels.js"></script>
@@ -1914,9 +1927,38 @@
         <textarea class="inp" rows="9" readonly x-text="script"></textarea>
         <button class="btn w-full mt-1.5" @click="copy(script,'s')">⧉ Copy script</button>
       </div>
+      <!-- Everything YouTube needs for one upload, in the language currently
+           selected: titles are not translations of each other, and neither
+           are hashtags — see OUTPUT's packaging block. -->
       <div class="row">
-        <label class="fld">Title + description + hashtags</label>
-        <button class="btn w-full" @click="copy(caption,'c')">⧉ Copy caption</button>
+        <label class="fld">YouTube title — <span x-text="lang.toUpperCase()"></span>
+          (pick one)</label>
+        <template x-for="(t, i) in ytTitles" :key="i">
+          <button class="btn w-full mb-1 !justify-start !text-left"
+                  @click="copy(t,'y'+i)" x-text="t"></button>
+        </template>
+      </div>
+      <div class="row">
+        <label class="fld">Description + hashtags</label>
+        <textarea class="inp" rows="6" readonly x-text="ytDescription"></textarea>
+        <button class="btn w-full mt-1.5" @click="copy(ytDescription,'c')">⧉ Copy description</button>
+      </div>
+      <div class="row">
+        <label class="fld">Thumbnail prompt — for the Gemini image model</label>
+        <textarea class="inp" rows="5" readonly x-text="thumbnailPrompt"></textarea>
+        <button class="btn w-full mt-1.5" @click="copy(thumbnailPrompt,'n')">⧉ Copy thumbnail prompt</button>
+      </div>
+      <div class="row">
+        <button class="btn w-full !bg-emerald-600/20 !border-emerald-500/40"
+                @click="copy(packaging,'p')">⧉ Copy the whole publishing pack</button>
+      </div>
+      <!-- Across every IPO on the board, not just the selected one: the
+           community is choosing between this week's issues with one wallet,
+           and a per-company script can never say that. -->
+      <div class="row">
+        <label class="fld">Weekly strategy — all IPOs</label>
+        <textarea class="inp" rows="6" readonly x-text="strategyScript"></textarea>
+        <button class="btn w-full mt-1.5" @click="copy(strategyScript,'t')">⧉ Copy strategy</button>
       </div>
       <div class="text-[9.5px] text-emerald-400" x-show="copied" x-transition>✓ Copied</div>
     </div></details>

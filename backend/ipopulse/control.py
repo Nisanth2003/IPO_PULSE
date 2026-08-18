@@ -101,6 +101,16 @@ JOBS: dict[str, dict[str, Any]] = {
         "argv": ["enrich", "--max-ai", "6"],
         "schedule": "part of daily",
     },
+    "verify": {
+        "label": "Verify against the exchanges",
+        "detail": "Asks NSE and BSE whether each tracked IPO exists at all, "
+                  "and stamps the confirmation so a listed issue dropping off "
+                  "both feeds is not mistaken for a fabricated one. Free, "
+                  "keyless, no AI. GMP still comes from InvestorGain — the "
+                  "exchanges publish no grey-market data and never will.",
+        "argv": ["verify", "--write"],
+        "schedule": "part of daily",
+    },
     "doctor": {
         "label": "Check & repair",
         "detail": "Lists what is missing and which scene it blanks; repairs "
@@ -157,7 +167,12 @@ JOBS: dict[str, dict[str, Any]] = {
 # Its budget is small (6 calls) precisely because the chain runs twice a day:
 # the work spreads across runs instead of exhausting the free tier in one.
 CHAINS = {
-    "daily": ["sync", "enrich", "doctor", "build"],
+    # `verify` runs immediately after `sync`, which is the step that discovers
+    # new IPOs — so a row invented by a discovery source is challenged in the
+    # same run that created it, before `enrich` spends model budget writing an
+    # analysis of a company that does not exist. It cannot break the chain: it
+    # exits non-zero only under --strict, which the job does not pass.
+    "daily": ["sync", "verify", "enrich", "doctor", "build"],
     # gmp-sync runs BEFORE the model-based refresh: it is free, keyless and
     # deterministic, so anything it can supply should not cost a Gemini call
     # or need vetting. `gmp` then fills only what InvestorGain did not cover.

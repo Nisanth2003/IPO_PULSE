@@ -70,9 +70,19 @@ jobs:
           # published JS anyway) once the backend is hosted, and the site's
           # run button drives that API instead of GitHub Actions.
           IPOPULSE_TRIGGER_API: ${{ vars.IPOPULSE_TRIGGER_API }}
+          # The site's front-door password. Only a PBKDF2 hash of it reaches
+          # the published JS — the password itself never leaves this step.
+          IPOPULSE_TRIGGER_PASSWORD: ${{ secrets.IPOPULSE_TRIGGER_PASSWORD }}
         run: |
           if [ -z "$GOOGLE_SHEETS_ID" ]; then
             echo "::error::GOOGLE_SHEETS_ID is not set - the site would load with no data."
+            exit 1
+          fi
+          # Fail here rather than shipping an open studio. gate.js also
+          # refuses to open without a hash, so a miss would deploy a site
+          # nobody can use - better to stop while someone is watching.
+          if [ -z "$IPOPULSE_TRIGGER_PASSWORD" ]; then
+            echo "::error::IPOPULSE_TRIGGER_PASSWORD is not set - the site would deploy with no access gate. Add it under Settings > Secrets > Actions."
             exit 1
           fi
           cd backend && python -m ipopulse.cli config

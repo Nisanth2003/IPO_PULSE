@@ -179,6 +179,11 @@ def gmp_metrics(ipo: Ipo, now: datetime | None = None) -> dict[str, Any]:
     age = (today - latest.date).days if (latest and latest.date) else None
 
     return {
+        # Mirror of compute.js. Is there a quote at all? Every field here
+        # defaults to 0 on an empty trail, and 0 is a real premium — an issue
+        # trading at par — so without this flag "nobody has quoted it" and
+        # "quoted at exactly par" are indistinguishable, and both read as ₹0.
+        "has_data": len(series) > 0,
         "gmp": gmp,
         "prev": prev_gmp,
         "delta": _round(delta, 2),

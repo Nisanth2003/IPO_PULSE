@@ -514,9 +514,21 @@ YouTube Shorts channel called IPO Pulse. Translate the values below into
 {LANG_NAMES.get(lang, lang)}.
 
 Rules:
-- Keep it short, spoken, and punchy. These appear as on-screen captions.
-- Keep these terms in English exactly as written: {', '.join(KEEP_VERBATIM)}.
-- Keep all numbers, currency symbols and percentages exactly as they appear.
+- Keep it short, spoken, and punchy. These appear as on-screen captions AND
+  are read aloud by a text-to-speech voice, so every word must be in the
+  target script or the voice will mispronounce it.
+- Keep these terms in Latin script exactly as written: {', '.join(KEEP_VERBATIM)}.
+  Keep company, brand and product names in Latin script too.
+- EVERY OTHER WORD must be written in the target script — no exceptions.
+  Ordinary finance vocabulary is the trap here: words like revenue, margin,
+  crore, percent, times, ratio, working capital, net worth, fresh issue,
+  growth, debt and subscription must NOT be left in Latin script. Write them
+  in the target script, transliterating where that is the natural way to say
+  them (Telugu: రెవెన్యూ, మార్జిన్, కోట్లు, శాతం, రెట్లు — Hindi: रेवेन्यू,
+  मार्जिन, करोड़, प्रतिशत, गुना). Be consistent: the same English word must
+  get the same rendering every time it appears.
+- Keep digits, currency symbols and the % sign exactly as they appear. This
+  does NOT extend to the English words "percent" or "times" — translate those.
 - Do not add, remove, explain or embellish anything.
 - Preserve the JSON shape exactly: a string stays a string, a list of N items
   returns a list of N items in the same order.
