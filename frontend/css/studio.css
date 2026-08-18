@@ -17,8 +17,22 @@ html, body { height: 100%; }
 body {
   background: #070B14;
   color: #E2E8F0;
-  font-family: 'Inter', 'Segoe UI', 'Nirmala UI',
-               'Noto Sans Devanagari', 'Noto Sans Telugu', system-ui, sans-serif;
+  /* Noto ahead of the OS UI fonts, which is not the obvious order and is the
+   * one that matters.
+   *
+   * A browser walks this list per CHARACTER, not per element. Inter carries
+   * no Telugu or Devanagari glyphs, so Indic text fell through to the next
+   * font that did — on Windows that is Nirmala UI, which shipped with the OS
+   * and quietly won over the Noto faces the page actually loads. Nirmala
+   * renders lighter and visually smaller than Noto Sans Telugu at the same
+   * pixel size, which is most of why Telugu read as fainter than English.
+   *
+   * Putting Noto first for the Indic ranges also makes the PNG export
+   * deterministic: a machine without Nirmala UI was rendering different
+   * shapes at a different weight than the machine that designed the card.
+   * Latin is unaffected — Inter is still first and still has those glyphs. */
+  font-family: 'Inter', 'Noto Sans Telugu', 'Noto Sans Devanagari',
+               'Segoe UI', 'Nirmala UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 .tnum { font-variant-numeric: tabular-nums; }

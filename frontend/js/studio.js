@@ -524,6 +524,29 @@ function studio() {
       const availW = s.clientWidth - 56;
       this.scale = Math.max(0.3, Math.min(1.8, availH / this.P.h, availW / this.P.w));
     },
+    /* How much bigger this script has to be set to read as the same size.
+     *
+     * Point size is not perceived size. Telugu and Devanagari carry vowel
+     * signs above and below the base line, so the base glyph gets a smaller
+     * share of the em than a Latin letter does, and the whole run looks
+     * smaller and lighter set at an identical px value. Latin's own x-height
+     * is unusually generous by comparison.
+     *
+     * So the card is set larger for those scripts rather than asking the
+     * viewer to squint. Telugu needs the most; Devanagari's shirorekha (the
+     * connecting top bar) gives it more visual weight already, so it needs
+     * less.
+     *
+     * Applied to `--fs`, which every size on the card derives from, so this
+     * is one multiplier rather than a per-element override — and it lands in
+     * the PNG export too, since html2canvas renders the computed pixel value.
+     * The auto-shrink search still runs afterwards, so a dense scene shrinks
+     * to fit exactly as before; this only decides how large it starts.
+     */
+    get scriptScale() {
+      return { te: 1.12, hi: 1.05 }[this.lang] || 1;
+    },
+
     /** Shrink text until the scene fits; synchronous so hidden tabs still work. */
     check() {
       // Measuring before the record has loaded gives a meaningless "overflow"
@@ -532,7 +555,8 @@ function studio() {
       this.$nextTick(() => {
         const el = this.$refs.body, card = document.getElementById('capture');
         if (!el || !card) return;
-        const setFs = (v) => card.style.setProperty('--fs', this.P.fs * v + 'px');
+        const setFs = (v) =>
+          card.style.setProperty('--fs', this.P.fs * this.scriptScale * v + 'px');
         const fits = () => el.scrollHeight <= el.clientHeight + 2;
 
         // Freeze the entrance animation for the duration of the measurement,
