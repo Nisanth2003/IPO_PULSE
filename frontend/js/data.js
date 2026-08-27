@@ -205,6 +205,19 @@ const DATA = {
         slug: r.slug, company: r.company, initials: r.initials,
         board: r.board, status: r.status,
         ready: r.ready, ready_count: r.ready_count, urgent: r.urgent,
+        /* The calendar, because the dropdown judges more than status.
+         *
+         * `status` alone cannot answer "does this shut tonight" — an issue open
+         * until Friday and one closing in three hours are both 'open'. The
+         * studio's applyState() reads `open` and `close` to tell them apart,
+         * and with these absent it silently took the not-urgent branch for
+         * every row: the ⏳ LAST DAY badge never appeared and no option ever
+         * said LAST DAY, on a day when six issues were closing.
+         *
+         * Nothing errored, which is what made it invisible — `undefined ===
+         * today` is simply false. Keep these in step with what applyState
+         * reads. */
+        open: r.open, close: r.close, listing: r.listing,
       })),
     };
   },
@@ -355,6 +368,31 @@ function normalise(r) {
       // floors (₹2 lakh and ₹10 lakh worth) and nothing else implies them.
       min_shni_qty: _f(issue.min_shni_qty),
       min_bhni_qty: _f(issue.min_bhni_qty),
+      /* ── the reservation split, in SHARES ────────────────────────────
+       *
+       * This normaliser is the browser's half of the models.py schema, and a
+       * field absent HERE does not exist in the studio no matter how correctly
+       * the backend wrote it. That is exactly what happened: the columns were
+       * added to models.py, tables.py, compute.py, compute.js, readiness.py and
+       * readiness.js, the sheet was backfilled — and reel 1's reservation scene
+       * still never appeared, because this map dropped every value on the way
+       * in. compute.js then read undefined, reported has_data:false, and
+       * `scenesFor` correctly hid a scene that had nothing to show.
+       *
+       * A silent one, too: no error anywhere, just a scene that never rendered.
+       * If you add a field to Issue in models.py, add it here in the same
+       * commit.
+       *
+       * shares_qib INCLUDES the anchor book; shares_anchor is a subset of it
+       * and is never summed with the others. See compute.js reservation().
+       */
+      shares_qib: _f(issue.shares_qib),
+      shares_nii: _f(issue.shares_nii),
+      shares_retail: _f(issue.shares_retail),
+      shares_employee: _f(issue.shares_employee),
+      shares_shareholders: _f(issue.shares_shareholders),
+      shares_total: _f(issue.shares_total),
+      shares_anchor: _f(issue.shares_anchor),
       registrar: _s(issue.registrar),
       registrar_url: _s(issue.registrar_url),
       exchanges: exchanges.length ? exchanges : ['BSE', 'NSE'],
