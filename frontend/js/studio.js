@@ -154,6 +154,10 @@ function studio() {
              from: { en: '', hi: '', te: '' },
              busy: '', msg: '', ok: true, left: null },
     cap: { rec: null, blob: null, url: '', msg: '', ok: true },
+    /* Does pressing Play also speak? On by default — hearing the voice against
+       the picture is the point of a preview. Off is for checking visual timing
+       repeatedly without the same read twenty times. */
+    previewVoice: true,
     /* The three languages, in one place.
      *
      * There were two lists — this one for the voice panel and a literal
@@ -206,7 +210,7 @@ function studio() {
         .forEach((k) => this.$watch(k, () => { this.savePrefs(); this.check(); }));
       ['scale', 'autoFit', 'bg', 'rounded', 'speed', 'handle',
        'theme', 'showGif', 'gifSize', 'timingMode', 'reelTarget',
-       'defaultGif', 'themePerReel']
+       'defaultGif', 'themePerReel', 'previewVoice']
         .forEach((k) => this.$watch(k, () => this.savePrefs()));
 
       this.probeBackend();
@@ -520,6 +524,12 @@ function studio() {
       if (!code || code === this.lang) return;
       this.lang = code;
       this.recompute();
+      /* Swap the narration too. Pressing L mid-playback otherwise leaves the
+         previous language still speaking over cards that have changed, which
+         is a confusing enough thing to hear that it reads as a bug. Restarting
+         from the top is the honest option — the two reads are different
+         lengths, so there is no position in one that maps onto the other. */
+      if (this.playing) this.startPreview();
     },
 
     /* Cycle EN → हिं → తె, wrapping.
@@ -552,6 +562,7 @@ function studio() {
           showGif: this.showGif, gifSize: this.gifSize,
           timingMode: this.timingMode, reelTarget: this.reelTarget,
           defaultGif: this.defaultGif, themePerReel: this.themePerReel,
+          previewVoice: this.previewVoice,
         }));
       } catch (e) { /* private mode */ }
     },
@@ -856,13 +867,52 @@ function studio() {
     startPlay() {
       this.playing = true; this.go(this.reelIndex, 0);
       clearInterval(this._timer);
+      this.startPreview();
       this._timer = setInterval(() => {
         this.sceneProg += 100 / (this.holdSeconds * 20);
         if (this.sceneProg >= 100) { this.sceneProg = 0; this.nextScene(); }
       }, 50);
     },
+
+    /* ── narration alongside the reel ────────────────────────────────────
+     *
+     * Play used to be silent: a setInterval advancing scenes, and nothing
+     * else. The narration existed but only came out of the panel's own audio
+     * controls, or mixed into a recording — so the first time anyone heard the
+     * voice against the picture was in the finished take, which is the most
+     * expensive possible moment to discover they drift.
+     *
+     * Its own Audio object, deliberately NOT the panel's <audio> element:
+     * that one has controls a person may be scrubbing, and driving it from
+     * here would fight them. Same reason capture.js makes its own.
+     *
+     * Skipped while a capture is running. capture.js is already playing this
+     * narration through WebAudio to get it into the recording, and starting a
+     * second copy here would put two overlapping voices in the room and one of
+     * them in the file. */
+    startPreview() {
+      this.stopPreview();
+      if (!this.previewVoice || this.cap.rec) return;
+      const url = this.voice.urls[this.lang];
+      if (!url) return;
+      try {
+        this._preview = new Audio(url);
+        this._preview.currentTime = 0;
+        // Rejects if the browser withholds autoplay. Space and a click are
+        // both gestures so it normally resolves, and a silent reel is a far
+        // better failure than an unhandled rejection in the console.
+        this._preview.play().catch(() => {});
+      } catch (e) { this._preview = null; }
+    },
+    stopPreview() {
+      if (!this._preview) return;
+      try { this._preview.pause(); } catch (e) {}
+      this._preview = null;
+    },
+
     stopPlay() {
       this.playing = false; this.sceneProg = 0; clearInterval(this._timer);
+      this.stopPreview();
       /* A reel ending IS the end of the video — nextScene() calls this when it
          runs off the last scene. So the recorder stops itself, and a take is
          exactly one reel with no trailing frames of a paused card. */

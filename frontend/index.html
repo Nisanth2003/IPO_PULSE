@@ -2311,6 +2311,24 @@
                 x-text="playing?'⏸ Pause':'▶ Play reel'"></button>
         <button class="btn" @click="replay()">↻ Replay scene</button>
       </div>
+      <!-- Play was silent until now: the narration existed but was only heard
+           in the finished take, which is the worst moment to find a drift. -->
+      <div class="row mt-1.5">
+        <button class="btn w-full" :class="previewVoice?'btn-on':''"
+                @click="previewVoice = !previewVoice"
+                x-text="(previewVoice ? '🔊' : '🔇') + ' Speak the narration while it plays'"></button>
+        <div class="text-[9.5px] text-slate-500 mt-1" x-show="previewVoice && !voiceReady">
+          No <span x-text="lang.toUpperCase()"></span> narration generated yet —
+          playback will be silent. Generate it in <b class="text-slate-300">Voice
+          &amp; bundle</b> below.
+        </div>
+        <div class="text-[9.5px] text-slate-500 mt-1" x-show="previewVoice && voiceReady">
+          Plays the <span x-text="lang.toUpperCase()"></span> read from the top,
+          in step with the reel. Under <b class="text-slate-300">Script</b> timing
+          the holds come from this same text, so a drift here is a drift in the
+          finished video — worth fixing before you record.
+        </div>
+      </div>
       <div class="text-[9.5px] text-slate-500 mt-2">
         Press <b class="text-slate-300">F</b> for focus mode, start your recorder,
         then <b class="text-slate-300">Space</b>. The reel plays its

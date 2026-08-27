@@ -597,7 +597,7 @@ already refuses to deploy any `frontend/` file containing a raw `github_pat_`.
 | `↑` `↓` | previous / next reel |
 | `,` `.` | previous / next **IPO** — or `Shift`+`↑` `↓` |
 | `L` | cycle language EN → हिं → తె (`Shift`+`L` goes back) |
-| `Space` | play the reel |
+| `Space` | play the reel — **and speak the narration**, if it exists for the current language |
 | `F` / `Esc` | focus mode on / off |
 | `G` | Shorts safe-zone overlay |
 | `B` | cycle backdrop (incl. green screen) |
