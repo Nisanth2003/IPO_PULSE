@@ -595,12 +595,48 @@ already refuses to deploy any `frontend/` file containing a raw `github_pat_`.
 | `1`–`6` | jump to reel |
 | `←` `→` | previous / next scene |
 | `↑` `↓` | previous / next reel |
+| `,` `.` | previous / next **IPO** — or `Shift`+`↑` `↓` |
+| `L` | cycle language EN → हिं → తె (`Shift`+`L` goes back) |
 | `Space` | play the reel |
 | `F` / `Esc` | focus mode on / off |
 | `G` | Shorts safe-zone overlay |
 | `B` | cycle backdrop (incl. green screen) |
 | `E` | export PNG |
 | `[` `]` | text scale |
+
+Three levels, one nesting: `←→` moves scene, `↑↓` moves reel, and `,`/`.` (or
+`Shift`+`↑↓`) moves IPO. The IPO order is the dropdown's own — open first, then
+upcoming, closed, allotment, listed, by GMP within each — so stepping through it
+walks the board most-actionable first, which is the order to review it in at 9am.
+
+`L` works **mid-reel and mid-playback**: the reel keeps running and the card
+re-renders in place. Under *Script* timing the hold per scene comes from how long
+that language's narration takes to read, so switching mid-scene re-scales the
+time remaining rather than jumping — progress already earned is kept and only the
+rate changes. Useful for checking a Devanagari or Telugu card actually fits before
+you commit to a take.
+
+The three languages live in one list, `LANGS` in `studio.js`. Its **order is
+load-bearing**: it is the `L` cycle order and it must match `LANG_INDEX` in
+`i18n.js`, which maps `en`/`hi`/`te` onto positions 0/1/2 of every translated
+tuple. Reordering one without the other would hand a Telugu card Hindi text and
+throw nothing.
+
+### The last-day marker
+
+An issue whose bidding shuts **tonight** is called out in three places, because
+it is the one thing on the screen that expires today:
+
+- the dropdown row reads `⏳ ●4  Company · SME · LAST DAY` instead of `open`,
+  in amber and bold
+- a blinking **`⏳ N LAST DAY`** button sits beside the picker, so a closing
+  issue is visible without opening a list of twenty-odd rows
+- clicking it jumps to the next one, cycling if several close the same day
+
+The rule comes from `applyState()`, the same function the reel cards use, rather
+than a second `close === today` comparison — bidding stops at the close-day
+cut-off, so "closes today" and "open until tomorrow" are genuinely different
+situations and two copies of that test would eventually disagree.
 
 ---
 

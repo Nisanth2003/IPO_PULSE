@@ -23,6 +23,16 @@ const REELS = [
       // reel rather than holding on a blank frame for 5 seconds.
       { id: 'background', hold: 5 },   // who they are, in context
       { id: 'split',   hold: 5 },   // fresh vs OFS — the money question
+      // Who the issue is actually FOR. Sits next to `split` because both
+      // answer "how is this structured", and before `terms` because knowing
+      // retail gets a tenth of the book changes how you read the minimum
+      // investment that follows.
+      //
+      // Skipped when shares_total is missing — see `scenesFor`. That is the
+      // same treatment `background` gets: a reservation scene with no
+      // denominator can only draw bars that mean nothing, and a 5-second hold
+      // on three empty tracks is worse than a 6-scene reel.
+      { id: 'reservation', hold: 5 },
       { id: 'terms',   hold: 4 },   // price band, lot, minimum
       { id: 'dates',   hold: 4 },   // when it opens/closes/lists
     ],
@@ -111,8 +121,18 @@ function scenesFor(reel, gmpMode, ipo) {
   // property instead of the number.
   if (gmpMode === 'board' && reel.boardScenes) return reel.boardScenes;
   if (reel.n === 1 && ipo) {
+    const drop = new Set();
     const bg = (ipo.analysis && ipo.analysis.background) || [];
-    if (!bg.length) return reel.scenes.filter((s) => s.id !== 'background');
+    if (!bg.length) drop.add('background');
+    /* Reservation needs its denominator. Checked on the raw field rather than
+       through issueMetrics because this runs for the scene-count label too,
+       where no derived record has been built yet. Same field the compute
+       mirrors gate on, so the scene cannot appear with nothing in it. */
+    const iss = ipo.issue || {};
+    const hasSlices = (Number(iss.shares_qib) || 0) + (Number(iss.shares_nii) || 0)
+                    + (Number(iss.shares_retail) || 0) + (Number(iss.shares_employee) || 0);
+    if (!(Number(iss.shares_total) > 0 && hasSlices > 0)) drop.add('reservation');
+    if (drop.size) return reel.scenes.filter((s) => !drop.has(s.id));
   }
   return reel.scenes;
 }

@@ -98,30 +98,46 @@
          anyone who cannot separate the greens from the ambers. `catalogue` is
          already sorted liveliest-first (see data.js _rows), so the actionable
          ones are at the top regardless. -->
-    <!-- A native <option> cannot hold an element, so the readiness signal has
-         to travel as text: "●3" means three of the six reels are recordable
-         right now, "○" means none are. The blinking dot lives outside the
-         select, on the current pick, where an element is allowed. Both read
-         the same `ready_count` off the catalogue row (data.js index). -->
+    <!-- A native <option> cannot hold an element, so every signal in the list
+         travels as text: "●3" means three of the six reels are recordable right
+         now, "○" means none are, and "⏳ … LAST DAY" marks an issue whose
+         bidding shuts tonight. The blinking dot lives outside the select, on
+         the current pick, where an element is allowed. See optionLabel(). -->
     <div class="relative flex items-center gap-1.5">
       <span class="w-2 h-2 rounded-full shrink-0"
             :class="ready && ready.urgent ? 'dot-blink' : ''"
             :style="`background:${readyTone(ready && ready.ready_count ? 'ready' : 'blocked').dot}`"
             :title="ready ? ready.ready_count + ' of 6 reels ready to record' : ''"></span>
       <select class="inp !w-auto !py-1.5 font-bold" :value="slug" :style="selectStyle"
-              @change="select($event.target.value)">
+              @change="select($event.target.value)"
+              title="Shift+↑ / Shift+↓ or , / . to step through this list">
         <template x-for="c in catalogue" :key="c.slug">
           <option :value="c.slug" :style="optionStyle(c)"
-                  x-text="(c.ready_count ? '●'+c.ready_count : '○') + '  ' + c.company + '  ·  ' + c.board + '  ·  ' + (c.status || '')"></option>
+                  x-text="optionLabel(c)"></option>
         </template>
       </select>
+
+      <!-- The count, so a closing issue is visible WITHOUT opening the list.
+           A last day is the one thing on this screen that expires today, and
+           finding it should not require reading 23 rows. Clicking jumps to the
+           first one. -->
+      <button x-show="lastDayCount" x-cloak @click="hopToLastDay()"
+              class="shrink-0 rounded-md px-2 py-1 text-[10px] font-black tracking-[.08em]
+                     border border-amber-400/50 bg-amber-400/10 text-amber-300
+                     hover:bg-amber-400/20 transition dot-blink"
+              :title="lastDayCount + ' issue(s) close today — click to jump to the first'"
+              x-text="'⏳ ' + lastDayCount + ' LAST DAY'"></button>
     </div>
 
     <div class="flex items-center gap-1 rounded-lg bg-white/5 p-1 border border-white/10">
-      <template x-for="l in [['en','EN'],['hi','हिं'],['te','తె']]" :key="l[0]">
+      <!-- LANGS, not a literal list: the cycle order for the `L` shortcut and
+           the slot order in i18n.js LANG_INDEX have to be the same order, and
+           they cannot be if this is a second copy of it. -->
+      <template x-for="l in LANGS" :key="l.code">
         <button class="rounded-md px-2.5 py-1 text-[11.5px] font-bold transition"
-                :class="lang===l[0] ? 'bg-pulse text-black' : 'text-slate-400 hover:text-white hover:bg-white/10'"
-                @click="lang=l[0]; recompute()" x-text="l[1]"></button>
+                :class="lang===l.code ? 'bg-pulse text-black' : 'text-slate-400 hover:text-white hover:bg-white/10'"
+                @click="setLang(l.code)" x-text="l.short"
+                :title="l.label + ' — press L to cycle'"></button>
       </template>
     </div>
 
@@ -781,6 +797,71 @@
                        x-text="'⚠️ '+t('ofsSub')"></div>
                 </div>
               </div>
+            </div>
+
+            <!-- WHO the issue is for. Reservation, not subscription: how big
+                 each slice IS, not how many times it was bid for. The scene is
+                 dropped entirely when shares_total is missing (see scenesFor),
+                 so everything below can assume a real denominator. -->
+            <div x-show="at(1,'reservation')" class="scene">
+              <div class="text-center">
+                <div class="lbl" x-text="t('reservation')"></div>
+                <div class="font-black text-3xl tnum"
+                     x-text="fmt(ipo.issue.shares_total)+' '+t('shares')"></div>
+              </div>
+
+              <!-- One stacked track, because the question is proportional. Three
+                   separate bars would invite comparing each against the frame
+                   rather than against each other. -->
+              <div class="flex h-[16px] rounded-full overflow-hidden bg-white/10">
+                <template x-for="r in d.issue.reservation.rows" :key="r.key">
+                  <div class="bar-fill h-full"
+                       :style="`background:${resTone(r.key).bar};width:${mounted ? r.pct : 0}%`"
+                       :title="t(r.key)+' '+r.pct+'%'"></div>
+                </template>
+              </div>
+
+              <div class="space-y-1.5">
+                <template x-for="r in d.issue.reservation.rows" :key="r.key">
+                  <div class="glass p-2.5 flex items-center gap-2.5">
+                    <span class="w-2 h-2 rounded-full shrink-0"
+                          :style="`background:${resTone(r.key).dot}`"></span>
+                    <span class="font-black flex-1 leading-tight"
+                          style="font-size:calc(var(--fs)*0.95)"
+                          x-text="t(r.key)"></span>
+                    <span class="text-2xs opacity-60 tnum"
+                          x-text="fmt(r.shares)"></span>
+                    <span class="font-black tnum" style="font-size:calc(var(--fs)*1.15)"
+                          :style="`color:${resTone(r.key).dot}`"
+                          x-text="r.pct+'%'"></span>
+                  </div>
+                </template>
+              </div>
+
+              <!-- The line that makes it matter to one viewer rather than being
+                   trivia. Retail's slice is the one they are applying into. -->
+              <div class="glass p-3 text-center"
+                   :class="d.issue.reservation.retail_pct >= 30 ? 'glass-g' : 'glass-a'"
+                   x-show="d.issue.reservation.retail_pct">
+                <div class="font-extrabold leading-tight"
+                     style="font-size:calc(var(--fs)*1.05)"
+                     x-text="t('retailSliceNote').replace('{pct}', d.issue.reservation.retail_pct)"></div>
+              </div>
+
+              <!-- Anchor is a slice OF the QIB slice, so it is a caption under
+                   the split rather than a fourth bar. Drawn as its own row it
+                   would double-count 30% of a mainboard issue. -->
+              <div class="text-2xs text-slate-400 font-semibold text-center"
+                   x-show="d.issue.reservation.anchor_pct"
+                   x-text="t('anchorNote').replace('{pct}', d.issue.reservation.anchor_pct)"></div>
+
+              <!-- Only when the named slices do not fill the issue. Silence here
+                   would have three bars stopping short of the end of the track
+                   with nothing saying why. -->
+              <div class="text-2xs text-slate-400 font-semibold text-center"
+                   x-show="d.issue.reservation.accounted_pct < 99"
+                   x-text="t('resUnaccounted').replace('{pct}',
+                           (100 - d.issue.reservation.accounted_pct).toFixed(1))"></div>
             </div>
 
             <div x-show="at(1,'terms')" class="scene">
@@ -2244,16 +2325,34 @@
          is the workflow this replaces. -->
     <details class="sect" open><summary>Voice &amp; bundle</summary><div class="body">
 
-      <!-- 1. narration -->
+      <!-- 1. narration, all three languages in one pass -->
       <div class="row">
-        <label class="fld">1 · Narration for this reel</label>
-        <button class="btn btn-acc w-full" @click="genVoice()" :disabled="voice.busy"
-                x-text="voice.busy ? 'Generating…'
-                        : (voiceReady ? '↻ Re-generate voice' : '🎙 Generate voice')"></button>
-        <template x-if="voiceReady">
-          <audio class="w-full mt-1.5 h-8" controls :src="voice.url"></audio>
+        <label class="fld">1 · Narration
+          <span class="opacity-60" x-show="voiceCount"
+                x-text="'· '+voiceCount+'/3 ready'"></span></label>
+        <button class="btn btn-acc w-full" @click="genVoice()"
+                :disabled="!!voice.busy"
+                x-text="voice.busy ? 'Generating '+voice.busy.toUpperCase()+'…'
+                        : (voiceCount===3 ? '↻ Re-generate all three'
+                                          : '🎙 Generate all three languages')"></button>
+        <!-- Per language: play it, or render just this one. Listening is not
+             optional — an unsupported language comes back as confident
+             nonsense rather than an error, so a 200 proves nothing. -->
+        <template x-for="l in LANGS" :key="l.code">
+          <div class="flex items-center gap-1.5 mt-1.5">
+            <span class="w-1.5 h-1.5 rounded-full shrink-0"
+                  :style="`background:${voice[l.code] ? '#22C55E' : '#334155'}`"></span>
+            <span class="text-[10px] font-bold w-12 shrink-0" x-text="l.label"></span>
+            <template x-if="voice.urls[l.code]">
+              <audio class="flex-1 h-7 min-w-0" controls :src="voice.urls[l.code]"></audio>
+            </template>
+            <template x-if="!voice.urls[l.code]">
+              <button class="btn flex-1 !py-0.5 text-[9.5px]" :disabled="!!voice.busy"
+                      @click="genVoice(l.code)">Generate just this one</button>
+            </template>
+          </div>
         </template>
-        <div class="text-[9.5px] mt-1" x-show="voice.msg"
+        <div class="text-[9.5px] mt-1.5" x-show="voice.msg"
              :class="voice.ok ? 'text-slate-500' : 'text-red-300'" x-text="voice.msg"></div>
         <div class="text-[9.5px] text-slate-500 mt-1" x-show="!voice.msg">
           Billed per character, and cached — re-generating an unchanged script
@@ -2263,7 +2362,8 @@
 
       <!-- 2. capture -->
       <div class="row mt-2">
-        <label class="fld">2 · Record reel + voice → one file</label>
+        <label class="fld">2 · Record reel + <span x-text="lang.toUpperCase()"></span>
+          voice → one file</label>
         <div class="grid grid-cols-2 gap-1.5">
           <button class="btn" :class="cap.rec?'btn-on':''"
                   @click="cap.rec ? stopCapture() : startCapture()"
@@ -2278,8 +2378,18 @@
           switches on by itself — the capture takes the whole tab, panels
           included. Stops when the reel ends.
         </div>
+        <!-- The thing everybody expects to work and cannot: the card text is
+             localised, so the video is language-specific even though all three
+             mp3s exist. Said here rather than discovered later. -->
+        <div class="text-[9.5px] text-slate-500 mt-1">
+          Records the language <b class="text-slate-300"
+          x-text="lang.toUpperCase()"></b> currently on screen. The card text is
+          localised too, so each language needs its own take — switch language
+          above and record again.
+        </div>
         <div class="text-[9.5px] text-amber-300/80 mt-1" x-show="!voiceReady">
-          No narration yet — recording now gives you a silent video.
+          No <span x-text="lang.toUpperCase()"></span> narration yet — recording
+          now gives you a silent video.
         </div>
       </div>
 
@@ -2287,15 +2397,15 @@
       <div class="row mt-2">
         <label class="fld">3 · Everything for this upload</label>
         <button class="btn btn-acc w-full" @click="downloadBundle()"
-                :class="(cap.blob || voice.blob) ? '' : 'opacity-40'">⤓ Download bundle (.zip)</button>
-        <div class="text-[9.5px] text-slate-500 mt-1">
-          <span class="font-mono">reel.webm</span> ·
-          <span class="font-mono">voice.mp3</span> ·
-          <span class="font-mono">publishing-pack.txt</span> ·
-          <span class="font-mono">thumbnail-prompt.txt</span> ·
-          <span class="font-mono">script.txt</span>.
-          The mp3 rides along untranscoded, so a re-edit never starts from the
-          video's audio.
+                :class="(cap.blob || voiceCount) ? '' : 'opacity-40'">⤓ Download bundle (.zip)</button>
+        <div class="text-[9.5px] text-slate-500 mt-1 leading-relaxed">
+          <span class="font-mono">video/</span> the recorded reel ·
+          <span class="font-mono">audio/</span> all three mp3s, untranscoded ·
+          <span class="font-mono">script/</span> ·
+          <span class="font-mono">pack/</span> titles and description per
+          language · <span class="font-mono">thumbnail-prompt.txt</span> ·
+          <span class="font-mono">README.txt</span> listing what is still
+          manual.
         </div>
       </div>
     </div></details>

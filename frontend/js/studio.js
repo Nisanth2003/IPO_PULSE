@@ -133,8 +133,45 @@ function studio() {
      * <video> element has something to point at. Both are dropped together in
      * setVoice/startCapture, because a URL outliving its blob is a player that
      * silently plays nothing. */
-    voice: { blob: null, url: '', busy: false, msg: '', ok: true },
+    /* Narration, keyed by language.
+     *
+     * Three entries rather than one, because all three ship in the bundle and
+     * the point is to generate them in one pass. `lang` (the studio's own
+     * selector) still decides which one the capture mixes in — the card text
+     * is localised too, so one video cannot serve three languages. Three
+     * languages means three recordings, and that is not a limitation to work
+     * around; it is what the audience needs.
+     *
+     * blob is truth, url exists only for an <audio> to point at, and they are
+     * always replaced together — a url outliving its blob is a player that
+     * silently plays nothing. */
+    voice: { en: null, hi: null, te: null,
+             urls: { en: '', hi: '', te: '' },
+             /* Which provider spoke, and in what container. Gemini returns wav
+                and ElevenLabs mp3, so the bundle cannot hardcode an extension
+                and a listener comparing takes needs to know which is which. */
+             fmt: { en: 'mp3', hi: 'mp3', te: 'mp3' },
+             from: { en: '', hi: '', te: '' },
+             busy: '', msg: '', ok: true, left: null },
     cap: { rec: null, blob: null, url: '', msg: '', ok: true },
+    /* The three languages, in one place.
+     *
+     * There were two lists — this one for the voice panel and a literal
+     * `[['en','EN'],['hi','हिं'],['te','తె']]` inline in the language switcher —
+     * plus LANG_INDEX in i18n.js, which is the one that decides which slot a
+     * translated string comes out of. Three copies of an ordered set that must
+     * agree, and the `L` shortcut needed a fourth to cycle through.
+     *
+     * `short` is the switcher's keycap-sized label, `label` the voice panel's.
+     * The ORDER is load-bearing: it is the cycle order for `L` and it must match
+     * i18n.js LANG_INDEX, because that maps en/hi/te to positions 0/1/2 in every
+     * translated tuple. Reordering here without reordering there would silently
+     * hand Hindi text to a Telugu card. */
+    LANGS: [
+      { code: 'en', short: 'EN', label: 'English' },
+      { code: 'hi', short: 'हिं', label: 'हिन्दी' },
+      { code: 'te', short: 'తె', label: 'తెలుగు' },
+    ],
     /* Must match control.CHAINS. The `push` steps these used to name were
        removed with the local store — the sheet IS the store now, so there is
        nothing left to push it to. */
@@ -464,6 +501,35 @@ function studio() {
       } catch (err) {
         this.loadError = `Could not load ${slug}: ${err.message}`;
       }
+    },
+
+    /* Switch language. One implementation, because `lang` alone is not enough.
+     *
+     * The $watch on `lang` saves prefs and re-fits the card, but the localised
+     * strings come out of DATA.localized(ipo, lang) and that only runs inside
+     * recompute(). Assigning `lang` on its own therefore highlights the new
+     * language and leaves the card showing the old one — which is why the
+     * EN/हिं/తె buttons always called both, and why the `L` shortcut routes
+     * through here instead of repeating that pair a third time.
+     *
+     * Safe mid-reel, including mid-playback. `holdSeconds` is read fresh on
+     * every 50ms tick, so when Script timing gives Telugu a longer hold than
+     * English the remaining time re-scales smoothly instead of jumping — the
+     * progress already earned is kept and only the rate changes. */
+    setLang(code) {
+      if (!code || code === this.lang) return;
+      this.lang = code;
+      this.recompute();
+    },
+
+    /* Cycle EN → हिं → తె, wrapping.
+     *
+     * One key rather than three: with three languages every one is at most two
+     * presses away, and digit keys are spoken for by the 1–6 reel jumps. */
+    cycleLang(dir = 1) {
+      const n = this.LANGS.length;
+      const at = this.LANGS.findIndex((l) => l.code === this.lang);
+      this.setLang(this.LANGS[((at < 0 ? 0 : at) + dir + n) % n].code);
     },
 
     /** Re-derive everything after a live edit. */
@@ -822,7 +888,39 @@ function studio() {
      *
      * Which is also why this needs the trigger token: the same sign-in as
      * running a job, because this one spends per call. */
-    async genVoice() {
+    /* Every reel's script in every language, without the studio changing
+       under you.
+     *
+       The script getters read `this.lang` directly, so the only way to get all
+       three is to swap it, read, and put it back. Safe because the getters are
+       pure and synchronous, and because Alpine's watchers are queued rather
+       than immediate — setting lang three times in one tick fires the
+       savePrefs/check watcher once, with the restored value. Doing this across
+       an await would NOT be safe: the UI would paint mid-swap. */
+    scriptsByLang() {
+      const original = this.lang;
+      const out = {};
+      try {
+        for (const { code } of this.LANGS) {
+          this.lang = code;
+          out[code] = (this.script || '').trim();
+        }
+      } finally {
+        this.lang = original;
+      }
+      return out;
+    },
+
+    /* Narration for one language, or for all three.
+     *
+     * Sends `lang` rather than a voice id: which voice reads Telugu is a
+     * policy decision, and it lives in voice.py where one file owns it. If
+     * this page picked the voice, that mapping would exist twice.
+     *
+     * Sequential, not parallel. Three concurrent requests would each pass the
+     * budget check against the same pre-call balance and could jointly
+     * overspend the cap they each individually cleared. */
+    async genVoice(only = '') {
       if (!this.api) {
         this.voice.msg = 'Voice needs a backend — this is the static site. '
           + 'Run `ipopulse serve`, or set IPOPULSE_TRIGGER_API to a hosted one.';
@@ -837,47 +935,76 @@ function studio() {
         this.voice.ok = false;
         return;
       }
-      const text = (this.script || '').trim();
-      if (!text) { this.voice.msg = 'This reel has no script.'; this.voice.ok = false; return; }
 
-      this.voice.busy = true; this.voice.ok = true;
-      this.voice.msg = 'Generating…';
-      try {
-        const r = await fetch(`${this.api}/api/voice`, {
-          method: 'POST', cache: 'no-store',
-          headers: { 'Content-Type': 'application/json', 'X-Token': this.run.token },
-          body: JSON.stringify({ text }),
-        });
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error(body.error || `HTTP ${r.status}`);
+      const scripts = this.scriptsByLang();
+      const wanted = only ? [only] : this.LANGS.map((l) => l.code);
+      const done = [];
+      let billed = 0;
+      this.voice.ok = true;
+
+      for (const code of wanted) {
+        const text = scripts[code];
+        if (!text) { continue; }
+        this.voice.busy = code;
+        this.voice.msg = `Generating ${code.toUpperCase()}…`;
+        try {
+          const r = await fetch(`${this.api}/api/voice`, {
+            method: 'POST', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json',
+                       'X-Token': this.run.token },
+            body: JSON.stringify({ text, lang: code }),
+          });
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            throw new Error(body.error || `HTTP ${r.status}`);
+          }
+          billed += Number(r.headers.get('X-Voice-Chars') || 0);
+          this.voice.left = Number(r.headers.get('X-Voice-Left') || 0);
+          this.voice.fmt[code] = r.headers.get('X-Voice-Format') || 'mp3';
+          this.voice.from[code] = r.headers.get('X-Voice-Provider') || '';
+          this.setVoice(code, await r.blob());
+          done.push(code.toUpperCase());
+        } catch (err) {
+          this.voice.ok = false;
+          this.voice.busy = '';
+          // Stop rather than press on: the usual cause is the key, the budget
+          // or a missing voice id, and all three would fail the rest too —
+          // three identical errors is worse than one.
+          this.voice.msg = `${code.toUpperCase()}: ${err.message}`
+            + (done.length ? ` (${done.join(', ')} did work)` : '');
+          return;
         }
-        const cached = r.headers.get('X-Voice-Cached') === '1';
-        const chars = Number(r.headers.get('X-Voice-Chars') || 0);
-        const left = Number(r.headers.get('X-Voice-Left') || 0);
-        const blob = await r.blob();
-        this.setVoice(blob);
-        this.voice.ok = true;
-        this.voice.msg = cached
-          ? 'From the cache — this cost nothing.'
-          : `${chars.toLocaleString()} characters billed · `
-            + `${left.toLocaleString()} left this month.`;
-      } catch (err) {
+      }
+
+      this.voice.busy = '';
+      if (!done.length) {
         this.voice.ok = false;
-        this.voice.msg = err.message;
-      } finally { this.voice.busy = false; }
+        this.voice.msg = 'No script to narrate for this reel.';
+        return;
+      }
+      this.voice.ok = true;
+      this.voice.msg = `${done.join(', ')} ready · `
+        + (billed ? `${billed.toLocaleString()} characters billed`
+                  : 'all from cache, nothing billed')
+        + (this.voice.left != null
+            ? ` · ${this.voice.left.toLocaleString()} left this month` : '');
     },
 
-    /* One object URL at a time. Every blob: URL pins its blob in memory until
-       revoked, and re-rendering a long script twenty times while tuning a
-       number would otherwise leak all twenty. */
-    setVoice(blob) {
-      if (this.voice.url) URL.revokeObjectURL(this.voice.url);
-      this.voice.blob = blob;
-      this.voice.url = blob ? URL.createObjectURL(blob) : '';
+    /* One object URL per language at a time. Every blob: URL pins its blob in
+       memory until revoked, and re-rendering while tuning a number would
+       otherwise leak one per attempt per language. */
+    setVoice(code, blob) {
+      if (this.voice.urls[code]) URL.revokeObjectURL(this.voice.urls[code]);
+      this.voice[code] = blob || null;
+      this.voice.urls[code] = blob ? URL.createObjectURL(blob) : '';
     },
 
-    get voiceReady() { return !!(this.voice.url && this.voice.blob); },
+    /* The one the capture will mix in: the language on screen, because the
+       card text is in that language too. */
+    get voiceReady() { return !!this.voice[this.lang]; },
+    get voiceCount() {
+      return this.LANGS.filter((l) => this.voice[l.code]).length;
+    },
 
     async startCapture() {
       if (!CAPTURE.supported) {
@@ -893,7 +1020,7 @@ function studio() {
       this.cap.ok = true;
       try {
         this.cap.rec = await CAPTURE.start({
-          voiceUrl: this.voice.url || '',
+          voiceUrl: this.voice.urls[this.lang] || '',
           onState: (m) => { this.cap.msg = m; },
           reset: () => { this.go(this.reelIndex, 0); this.replay(); },
           play: () => this.startPlay(),
@@ -925,21 +1052,85 @@ function studio() {
      * mp3 -> WebAudio -> Opus round trip, and a re-edit should never have to
      * start from the transcoded copy. */
     async downloadBundle() {
-      const stem = [this.slug || 'ipo', `reel${this.reel.n}`, this.lang]
+      const stem = [this.slug || 'ipo', `reel${this.reel.n}`]
         .join('-').replace(/[^a-z0-9-]+/gi, '-').toLowerCase();
-      const zip = await ZIP.fromMixed([
-        { name: 'reel.webm', blob: this.cap.blob },
-        { name: 'voice.mp3', blob: this.voice.blob },
-        { name: 'publishing-pack.txt', text: this.packaging },
+
+      /* The video is named for the language it was recorded in, not left as a
+         bare reel.webm: the card text on screen is localised, so a file that
+         does not say which language it is becomes unidentifiable the moment
+         there are two of them in a folder. */
+      const entries = [
+        { name: `video/reel-${this.lang}.webm`, blob: this.cap.blob },
         { name: 'thumbnail-prompt.txt', text: this.thumbnailPrompt },
-        { name: 'script.txt', text: this.script },
-      ]);
+        { name: 'README.txt', text: this.bundleReadme() },
+      ];
+
+      const scripts = this.scriptsByLang();
+      const originalLang = this.lang;
+      try {
+        for (const { code } of this.LANGS) {
+          // Extension from what the provider actually returned, never assumed:
+          // a wav named .mp3 is a file that fails to open in half of editors.
+          entries.push({ name: `audio/voice-${code}.${this.voice.fmt[code] || 'mp3'}`,
+                         blob: this.voice[code] });
+          entries.push({ name: `script/script-${code}.txt`, text: scripts[code] });
+          // packaging reads this.lang the same way the scripts do, so the
+          // titles and description have to be collected the same way.
+          this.lang = code;
+          entries.push({ name: `pack/publishing-pack-${code}.txt`,
+                         text: this.packaging });
+        }
+      } finally {
+        this.lang = originalLang;
+      }
+
+      const zip = await ZIP.fromMixed(entries);
       if (!zip) {
         this.cap.ok = false;
         this.cap.msg = 'Nothing to bundle yet — generate a voice or record.';
         return;
       }
       this.saveBlob(zip, `${stem}.zip`);
+    },
+
+    /* A bundle that arrives without instructions gets opened once and guessed
+       at. This is the file that says what the folders are and, more
+       importantly, what still has to be done by hand. */
+    bundleReadme() {
+      const have = this.LANGS
+        .filter((l) => this.voice[l.code]).map((l) => l.code.toUpperCase());
+      const missing = this.LANGS
+        .filter((l) => !this.voice[l.code]).map((l) => l.code.toUpperCase());
+      return [
+        `${this.ipo?.company || this.slug} · reel ${this.reel.n} `
+          + `(${this.t(this.reel.key)})`,
+        `Recorded in: ${this.lang.toUpperCase()}`
+          + (this.cap.blob ? '' : '  (NO VIDEO — nothing was recorded)'),
+        `Narration present: ${have.join(', ') || 'none'}`
+          + (missing.length ? `   missing: ${missing.join(', ')}` : ''),
+        `Voice from: ${[...new Set(this.LANGS
+            .map((l) => this.voice.from[l.code]).filter(Boolean))].join(', ')
+            || 'n/a'}`,
+        '',
+        'video/   the reel with its narration already mixed in.',
+        'audio/   the untranscoded narration. Use THESE to re-edit — the video',
+        '         audio has been through a WebAudio -> Opus round trip.',
+        'script/  what the narration says, per language.',
+        'pack/    titles, description and hashtags, per language.',
+        '',
+        'STILL TO DO BY HAND:',
+        '  - Generate the thumbnail from thumbnail-prompt.txt (16:9, 2K).',
+        '  - Tick the altered/synthetic content box at upload if the voice',
+        '    is AI. Disclosure does not block monetisation; skipping it can.',
+        '  - Fill the 00:00 chapter line in the description after editing.',
+        missing.length
+          ? `  - The reel text on screen is in ${this.lang.toUpperCase()}, so `
+            + `${missing.concat(have.filter((h) => h !== this.lang.toUpperCase()))
+                 .join('/')} need their own recording — one video cannot serve `
+            + 'a language it is not written in.'
+          : '  - Each language needs its own recording: the card text is'
+            + ' localised, so one video cannot serve all three.',
+      ].join('\n');
     },
 
     /* Blob -> a file on disk. Revoked on the next tick rather than
@@ -1077,10 +1268,44 @@ function studio() {
     },
 
     // ── keyboard ───────────────────────────────────────────────────────
+    /* Move to the previous / next IPO in the dropdown's own order.
+     *
+     * That order is deliberate, not alphabetical — data.js sorts open first,
+     * then upcoming, closed, allotment, listed, and by GMP within each. So
+     * stepping through it walks the board from most actionable to least, which
+     * is the order you want to review it in at 9am.
+     *
+     * Wraps around: with the list this long, a key that silently does nothing
+     * at one end reads as a broken key rather than as a boundary.
+     *
+     * `_hopping` guards against a held key. `select()` awaits a fetch, and
+     * without the guard three quick presses start three loads that can land
+     * out of order, leaving the card showing an IPO the dropdown does not. */
+    async hopIpo(delta) {
+      if (this._hopping || this.catalogue.length < 2) return;
+      const at = this.catalogue.findIndex((c) => c.slug === this.slug);
+      const n = this.catalogue.length;
+      const next = this.catalogue[((at < 0 ? 0 : at) + delta + n) % n];
+      if (!next || next.slug === this.slug) return;
+      this._hopping = true;
+      // Stop playback first. Changing IPO mid-reel leaves the timer running
+      // over a card that is still loading, which plays scenes of two IPOs.
+      if (this.playing) this.stopPlay();
+      try { await this.select(next.slug); } finally { this._hopping = false; }
+    },
+
     key(e) {
       if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
       const k = e.key;
       if (k >= '1' && k <= '6') { this.go(+k - 1, 0); return; }
+      /* IPO is the level above reel, so Shift+↑/↓ sits one modifier above the
+         plain ↑/↓ that moves reel. Checked before the switch because the
+         unshifted arrows are handled there and would otherwise win. */
+      if (e.shiftKey && (k === 'ArrowDown' || k === 'ArrowUp')) {
+        e.preventDefault();
+        this.hopIpo(k === 'ArrowDown' ? 1 : -1);
+        return;
+      }
       switch (k) {
         case 'ArrowRight': this.nextScene(); break;
         case 'ArrowLeft':  this.prevScene(); break;
@@ -1094,12 +1319,24 @@ function studio() {
         case 'd': case 'D': this.rightOpen = !this.rightOpen; break;
         case 'r': case 'R': this.replay(); break;
         case 'e': case 'E': this.exportScene(); break;
+        /* Lowercase cycles forward, uppercase (Shift) back — the same pairing
+           , / . uses for the IPO list. Works mid-playback: the reel keeps
+           running and the card re-renders in place. */
+        case 'l': this.cycleLang(1); break;
+        case 'L': this.cycleLang(-1); break;
         case 'b': case 'B': {
           const list = ['gradient', 'black', 'green', 'blue', 'checker'];
           this.bg = list[(list.indexOf(this.bg) + 1) % list.length]; break;
         }
         case '[': this.densityBase = Math.max(0.70, +(this.densityBase - 0.02).toFixed(2)); break;
         case ']': this.densityBase = Math.min(1.20, +(this.densityBase + 0.02).toFixed(2)); break;
+        /* The one-handed pair, for walking the board without reaching for a
+           modifier — same adjacent-keys idea as [ and ] for text scale. Both
+           the shifted and unshifted forms, so a caps-happy moment still works
+           and `<`/`>` (which is what the keycaps actually say) is not a dead
+           key. */
+        case ',': case '<': this.hopIpo(-1); break;
+        case '.': case '>': this.hopIpo(1); break;
       }
     },
 
@@ -1497,8 +1734,71 @@ function studio() {
       };
       return INK[status] || '#E2E8F0';
     },
+    /* Is this the last day anyone can apply?
+     *
+     * Delegates to applyState rather than re-testing `close === today` here,
+     * because that rule has a detail worth not duplicating: bidding stops at
+     * the close-day cut-off, so "closes today" and "still open tomorrow" are
+     * genuinely different situations, and two copies of the comparison would
+     * eventually disagree about which. The catalogue row carries the same
+     * status/open/close fields applyState reads off a board row.
+     *
+     * Reads `this.now`, which ticks every second — so an issue crossing
+     * midnight relabels itself without a reload. */
+    isLastDay(c) {
+      return !!c && this.applyState(c).key === 'ap_lastday';
+    },
+
+    /* What a dropdown entry reads as.
+     *
+     * A native <option> can hold no elements, so every signal here has to be a
+     * character — hence "●3" for readiness and the hourglass rather than a
+     * blinking dot. Built in JS instead of concatenated in the template because
+     * the last-day case changes two parts of the string at once, and an inline
+     * expression doing that was already the longest line in index.html. */
+    optionLabel(c) {
+      if (!c) return '';
+      const ready = c.ready_count ? `●${c.ready_count}` : '○';
+      const last = this.isLastDay(c);
+      // The status word carries the urgency, not just the glyph: the list is
+      // colour-coded, and colour alone is no use to anyone who cannot separate
+      // amber from green — the same reason the status word is here at all.
+      const status = last ? 'LAST DAY' : (c.status || '');
+      return `${last ? '⏳ ' : ''}${ready}  ${c.company}  ·  ${c.board}  ·  ${status}`;
+    },
+
     optionStyle(c) {
+      // Amber and bold beats the status colour on a last day. It is the one
+      // row in the list that stops being actionable in a few hours.
+      if (this.isLastDay(c)) {
+        return 'background:#0B1120;color:#FBBF24;font-weight:800';
+      }
       return `background:#0B1120;color:${this.statusInk(c && c.status)}`;
+    },
+
+    /* How many issues close today — for the count beside the picker, so a last
+       day is visible without opening the list at all. */
+    get lastDayCount() {
+      return this.catalogue.filter((c) => this.isLastDay(c)).length;
+    },
+
+    /* Jump to the next issue closing today, cycling if there are several.
+     *
+     * Starts the search AFTER the current position rather than at the top, so
+     * on a day with three closing issues the button walks all three instead of
+     * bouncing back to the first every press. */
+    async hopToLastDay() {
+      const n = this.catalogue.length;
+      if (!n) return;
+      const from = this.catalogue.findIndex((c) => c.slug === this.slug);
+      for (let step = 1; step <= n; step++) {
+        const c = this.catalogue[((from < 0 ? -1 : from) + step + n) % n];
+        if (this.isLastDay(c) && c.slug !== this.slug) {
+          if (this.playing) this.stopPlay();
+          await this.select(c.slug);
+          return;
+        }
+      }
     },
 
     /* The closed control's own colour.
@@ -1689,6 +1989,24 @@ function studio() {
       return rr ? rr.reels[r.n] : null;
     },
     readyTone(state) { return READY_TONE[state] || READY_TONE.blocked; },
+
+    /* Colour per reservation category, fixed rather than positional.
+     *
+     * The rows are sorted biggest-slice-first, so a palette indexed by
+     * position would recolour every category the moment one issue reserved
+     * more for NII than QIB — and the stacked track and the cards under it
+     * would stop agreeing across two IPOs in the same video.
+     *
+     * Retail is emerald on purpose: it is the slice the viewer is applying
+     * into, and it should be the one the eye finds first. */
+    resTone(key) {
+      return ({
+        retail:   { bar: 'linear-gradient(90deg,#22C55E,#4ADE80)', dot: '#22C55E' },
+        qib:      { bar: 'linear-gradient(90deg,#6366F1,#818CF8)', dot: '#818CF8' },
+        nii:      { bar: 'linear-gradient(90deg,#F59E0B,#FBBF24)', dot: '#FBBF24' },
+        employee: { bar: 'linear-gradient(90deg,#0EA5E9,#38BDF8)', dot: '#38BDF8' },
+      })[key] || { bar: 'linear-gradient(90deg,#475569,#64748B)', dot: '#64748B' };
+    },
 
     /* The window, as a sentence you can act on.
      *

@@ -151,6 +151,13 @@ const R_NEEDS = {
     ['Open / close', 'need', (i) => !!((i.dates || {}).open && (i.dates || {}).close)],
     ['Overview bullets', 'need', (i) => rList(i, 'overview') >= 3],
     ['Fresh / OFS split', 'want', (i) => rNum((i.issue || {}).fresh_cr) + rNum((i.issue || {}).ofs_cr) > 0],
+    /* 'want': without it the reservation scene is dropped rather than rendered
+       empty, so the reel is still recordable — one scene shorter and honest.
+       Both halves required: a slice with no total is a number with no
+       denominator. Mirrors readiness.py NEEDS[1]. */
+    ['Reservation split', 'want', (i) => rNum((i.issue || {}).shares_total) > 0
+        && (rNum((i.issue || {}).shares_qib) + rNum((i.issue || {}).shares_nii)
+          + rNum((i.issue || {}).shares_retail) + rNum((i.issue || {}).shares_employee)) > 0],
     ['Company facts', 'want', (i) => rList(i, 'about_facts') > 0],
     ['Sector', 'want', (i) => !!String(i.sector || '').trim()],
     ['Listing date', 'want', (i) => !!(i.dates || {}).listing],

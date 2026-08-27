@@ -81,6 +81,18 @@ SCALARS: list[tuple[str, tuple[str, ...], str]] = [
     ("allotment.listing_low",       ("allotment", "listing_low"),       "num"),
     ("allotment.listing_high",      ("allotment", "listing_high"),      "num"),
     ("notes",                       ("notes",),                         "text"),
+    # Reservation, appended for the same reason nii_small/nii_big were: _dicts
+    # keys by header text so position carries no meaning, and appending leaves
+    # every existing cell exactly where a human last saw it. Putting these
+    # beside the other issue.* columns would read better and would visually
+    # shuffle every row of a tab somebody edits by hand.
+    ("issue.shares_qib",            ("issue", "shares_qib"),            "num"),
+    ("issue.shares_nii",            ("issue", "shares_nii"),            "num"),
+    ("issue.shares_retail",         ("issue", "shares_retail"),         "num"),
+    ("issue.shares_employee",       ("issue", "shares_employee"),       "num"),
+    ("issue.shares_total",          ("issue", "shares_total"),          "num"),
+    ("issue.shares_shareholders",   ("issue", "shares_shareholders"),   "num"),
+    ("issue.shares_anchor",         ("issue", "shares_anchor"),         "num"),
 ]
 
 FIN_METRICS = ["revenue", "ebitda", "pat", "net_worth", "total_debt"]

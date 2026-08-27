@@ -1737,6 +1737,7 @@ def cmd_enrich(args) -> int:
 
     spent = ran = failed = 0
     skipped: list[str] = []
+    failures: list[str] = []
     for ipo, (label, argv, cost) in todo:
         if spent + cost > args.max_ai:
             skipped.append(f"{ipo.slug}: {label}")
@@ -1753,10 +1754,25 @@ def cmd_enrich(args) -> int:
             rc = 1
         spent += cost
         ran += 1
-        _record_attempt(log, ipo.slug, label)
+        # ── record the attempt ONLY when the step actually completed ───────
+        #
+        # The backoff exists for a real case: Dhoot's prospectus prints no peer
+        # P/E, so that step would re-run forever and spend the day's quota
+        # learning the same thing. But "ran fine, the field is genuinely not
+        # available" and "crashed" are not the same outcome, and recording both
+        # meant one bug bought itself a week of silence.
+        #
+        # That is exactly what happened: draft_analysis hit an
+        # AttributeError on every IPO, each crash was filed as an attempt, and
+        # `doctor` reported 54 blank fields for a week while `enrich` politely
+        # declined to look again. A failure now retries on the next run, where
+        # the budget cap bounds the cost and the summary below makes it loud.
         if rc:
             failed += 1
-            print(f"   ! exited {rc} — continuing")
+            failures.append(f"{ipo.slug}: {label}  ($ ipopulse {' '.join(argv)})")
+            print(f"   ! exited {rc} — will retry next run")
+        else:
+            _record_attempt(log, ipo.slug, label)
 
     print()
     if skipped:
@@ -1768,13 +1784,30 @@ def cmd_enrich(args) -> int:
             print(f"   … and {len(skipped) - 8} more")
     print(f"{ran} step(s) run, {failed} failed, {spent} AI call(s) used.")
 
+    # Loud, and with the command to reproduce it. A step failing the same way
+    # on every IPO is a bug in this code rather than a gap in the data, and the
+    # only way to tell is to run one by hand and read the traceback — so the
+    # summary hands over the exact command.
+    if failures:
+        print(f"\n✗ {len(failures)} step(s) FAILED and were not recorded, so "
+              f"they retry next run.")
+        print("  If they keep failing, run one by hand to see the real error:")
+        for line in failures[:8]:
+            print(f"   {line}")
+        if len(failures) > 8:
+            print(f"   … and {len(failures) - 8} more")
+
     if not args.dry_run and ran:
         # doctor picks up what the new figures make derivable — post-issue
         # shares from PAT/EPS, a total from its parts — then republish.
         main(["doctor", "--fix"])
         publish(store.load_all())
         print("Saved to the sheet — the site shows it on the next reload.")
-    return 0
+    # 0 by default even with failures, because this runs mid-chain: `doctor`,
+    # `build` and `validate` come after it and must still run — a publish
+    # blocked by one bad analysis is worse than the missing analysis.
+    # --strict is for a human or a gate that wants the non-zero.
+    return 1 if (failures and args.strict) else 0
 
 
 def cmd_facts(args) -> int:
@@ -1852,6 +1885,23 @@ def cmd_facts(args) -> int:
         cats = ig.categories(row)
         issue = raw.setdefault("issue", {})
         for key in ("lot_size", "min_shni_qty", "min_bhni_qty"):
+            if cats.get(key) and (not issue.get(key) or args.force):
+                issue[key] = cats[key]
+                wrote.append(key)
+
+        # ── the reservation split
+        #
+        # `categories()` has always returned these and nothing stored them, so
+        # every run fetched the reservation block and dropped it. They are the
+        # share counts behind reel 1's reservation scene; the percentages are
+        # derived in compute, never stored.
+        #
+        # Keyed by the provider's own names (`shares_qib`) rather than renamed,
+        # so a value that looks wrong on the sheet can be traced back to the
+        # field it came from without reading this loop.
+        for key in ("shares_qib", "shares_nii", "shares_retail",
+                    "shares_employee", "shares_shareholders", "shares_total",
+                    "shares_anchor"):
             if cats.get(key) and (not issue.get(key) or args.force):
                 issue[key] = cats[key]
                 wrote.append(key)
@@ -2031,11 +2081,92 @@ def cmd_voice(args) -> int:
             print(f"  {v['id']}  {v['name']:<24}{v['category']}{mark}")
         return 0
 
-    b = tts.budget()
+    if args.plan:
+        order = tts.providers()
+        print("providers, in order:")
+        for name in order:
+            ok = tts.available(name)
+            mark = "ready" if ok else "not configured"
+            extra = ""
+            if name == "elevenlabs" and ok:
+                keys = tts.api_keys()
+                extra = (f"  {len(keys)} key(s): "
+                         f"{', '.join(tts.key_label(k) for k in keys)}")
+            if name == "gemini":
+                extra = "  free tier is licensed for commercial use"
+            print(f"  {name:<12}{mark}{extra}")
+        if not any(tts.available(n) for n in order):
+            print("\n  Nothing configured. Set GEMINI_API_KEY (free, and its "
+                  "output\n  may be used commercially) or ELEVENLABS_API_KEY "
+                  "(needs a PAID plan\n  for a monetised channel — the free "
+                  "plan grants no commercial licence).")
+        b = tts.budget()
+        print(f"\nElevenLabs spend {b['used']:,} / {b['cap']:,} characters this "
+              f"month ({b['per_key_cap']:,} per key)")
+        print()
+        print(f"{'lang':<6}{'provider':<13}{'voice':<26}{'model':<30}"
+              f"{'limit':>8}  ok")
+        rows = tts.plan()
+        for code, row in rows.items():
+            ok = "yes" if row["speaks"] else "NO"
+            cap = f"{row['limit']:,}" if row["limit"] else "—"
+            print(f"  {code:<4}{row['provider']:<13}{row['voice'] or '(unset)':<26}"
+                  f"{row['model']:<30}{cap:>8}  {ok}")
+        bad = [c for c, r in rows.items() if not r["speaks"]]
+        if bad:
+            print()
+            print(f"  {', '.join(bad)} is on a model that cannot speak it.")
+            print("  On ElevenLabs, Telugu needs eleven_v3 — multilingual_v2 has")
+            print("  Hindi and Tamil but no Telugu. Set ELEVENLABS_MODEL_TE=eleven_v3")
+        print()
+        print("Compare the providers by ear before committing to one:")
+        print("  ipopulse voice --compare --lang te \"ఇది ఒక పరీక్ష\"")
+        return 0
+
+    if args.compare:
+        text = (args.text or "").strip()
+        if args.text_file:
+            text = Path(args.text_file).read_text(encoding="utf-8")
+        if not text:
+            print("Give some text to compare, or --text-file.", file=sys.stderr)
+            return 1
+        outdir = Path(args.out or "voice-compare")
+        outdir.mkdir(parents=True, exist_ok=True)
+        lang = args.lang or "en"
+        any_ok = False
+        # Every provider, same text, same language, side by side. The point is
+        # a listen, so the files are named for what made them.
+        for name in ("gemini", "elevenlabs"):
+            if not tts.available(name):
+                print(f"  {name:<12}skipped — not configured")
+                continue
+            try:
+                audio, hit, used, fmt = tts.synthesize(
+                    text, lang=lang, provider=name, force=args.force)
+            except tts.VoiceError as err:
+                print(f"  {name:<12}failed — {err}")
+                continue
+            dest = outdir / f"{lang}-{name}.{fmt}"
+            dest.write_bytes(audio)
+            any_ok = True
+            print(f"  {name:<12}{'cached' if hit else 'generated'}  "
+                  f"{len(audio):,} bytes  ->  {dest}")
+        if any_ok:
+            print(f"\nListen to both in {outdir}. Things to judge:")
+            print("  - number and company-name pronunciation (where TTS breaks)")
+            print("  - whether it sounds like a person reading, or a machine")
+            print("  - Telugu and Hindi especially: accent and stress")
+        return 0 if any_ok else 1
+
     if args.budget:
-        print(f"{b['used']} of {b['cap']} characters used this month "
-              f"({b['left']} left). Cap is advisory and local — set "
-              f"ELEVENLABS_MONTHLY_CHAR_CAP to change it.")
+        b = tts.budget()
+        print(f"{b['used']:,} of {b['cap']:,} characters used this month "
+              f"({b['left']:,} left) across {b['keys']} key(s).")
+        for k in tts.api_keys():
+            per = tts.budget(k)
+            print(f"  {tts.key_label(k)}  {per['used']:,} / {per['cap']:,}")
+        print("Local and advisory — it counts what this machine sent, not your "
+              "real balance. ELEVENLABS_MONTHLY_CHAR_CAP is the per-key cap.")
         return 0
 
     if args.text_file:
@@ -2046,22 +2177,33 @@ def cmd_voice(args) -> int:
         text = sys.stdin.read()
 
     try:
-        audio, hit = tts.synthesize(text, vid=args.voice or "",
-                                    force=args.force)
+        audio, hit, used, fmt = tts.synthesize(
+            text, vid=args.voice or "", lang=args.lang or "",
+            provider=args.provider or "", force=args.force)
     except tts.VoiceError as err:
         print(err, file=sys.stderr)
         return 1
 
-    out = Path(args.out) if args.out else tts.cached_path(text.strip())
     if args.out:
+        out = Path(args.out)
+        # An explicit --out with the wrong extension would lie about the
+        # contents: Gemini returns wav and ElevenLabs mp3.
+        if out.suffix.lstrip(".").lower() != fmt:
+            out = out.with_suffix(f".{fmt}")
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(audio)
+    else:
+        out = tts.cached_path(text.strip(), lang=args.lang or "",
+                              provider=used).with_suffix(f".{fmt}")
 
-    chars = 0 if hit else len(text.strip())
-    print(f"{'cached' if hit else 'generated'}  {len(audio):,} bytes  "
-          f"{chars} characters billed  ->  {out}")
-    if not hit:
-        print(f"{tts.budget()['left']} characters left this month.")
+    print(f"{'cached' if hit else 'generated'}  via {used}  "
+          f"{len(audio):,} bytes  {fmt}  ->  {out}")
+    if not hit and used == "elevenlabs":
+        print(f"{len(text.strip())} characters billed, "
+              f"{tts.budget()['left']:,} left this month.")
+    elif not hit:
+        print("Free tier — nothing billed. Note that unpaid Gemini quota means "
+              "the prompt and output may be used to improve Google's products.")
     return 0
 
 
@@ -2655,6 +2797,9 @@ def build_parser() -> argparse.ArgumentParser:
                          "attempted again (default 7)")
     sp.add_argument("--retry", action="store_true",
                     help="ignore the attempt log and run every planned step")
+    sp.add_argument("--strict", action="store_true",
+                    help="exit 1 if any step failed (the chain does not pass "
+                         "this — build and validate must still run)")
     sp.set_defaults(func=cmd_enrich)
 
     sp = sub.add_parser("facts", help="financials + valuation KPIs from "
@@ -2700,8 +2845,18 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--text-file", help="read the script from a file instead")
     sp.add_argument("--out", help="write the mp3 here as well as to the cache")
     sp.add_argument("--voice", help="voice id, default ELEVENLABS_VOICE_ID")
+    sp.add_argument("--lang", choices=["en", "hi", "te"],
+                    help="pick the voice and model configured for this "
+                         "language (ELEVENLABS_VOICE_ID_TE etc.)")
     sp.add_argument("--voices", action="store_true",
                     help="list the voices this key can use, and exit")
+    sp.add_argument("--plan", action="store_true",
+                    help="show which provider, voice and model each language uses")
+    sp.add_argument("--provider", choices=["gemini", "elevenlabs"],
+                    help="force one provider instead of the configured order")
+    sp.add_argument("--compare", action="store_true",
+                    help="render the same text through every configured "
+                         "provider, side by side, so you can pick by ear")
     sp.add_argument("--budget", action="store_true",
                     help="show this month's character spend, and exit")
     sp.add_argument("--force", action="store_true",

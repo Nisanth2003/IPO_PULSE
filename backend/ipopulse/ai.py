@@ -539,9 +539,11 @@ Return ONLY a JSON object with the same keys.
 
 {json.dumps(fields, ensure_ascii=False, indent=2)}"""
 
-        out = self._generate_json(prompt)
-        if not isinstance(out, dict):
-            raise AiUnavailable("Translation did not return a JSON object")
+        # Was `if not isinstance(out, dict): raise`, which failed cleanly but
+        # still failed on `[{...}]` — the same array-wrapping that crashed
+        # draft_analysis. Salvaging it here means a translation survives the
+        # model being sloppy about its container.
+        out = _as_object(self._generate_json(prompt), "translation")
 
         safe: dict[str, Any] = {}
         for name, original in fields.items():
@@ -630,7 +632,7 @@ FACTS:
         if not self.available():
             raise AiUnavailable("Gemini not configured; cannot draft analysis.")
 
-        out = self._generate_json(prompt)
+        out = _as_object(self._generate_json(prompt), "the analysis draft")
         # The cap is per key, not shared. It was one `[:3]` for every list with
         # `overview` then trimmed to `[:2]`, so raising the overview count in
         # the prompt above silently did nothing — the model returned four and
@@ -1065,6 +1067,45 @@ Return ONLY JSON:
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
+
+def _as_object(value: Any, what: str) -> dict:
+    """Coerce a parsed JSON payload to the dict the caller expects.
+
+    Why this exists: `_parse_json` returns whatever the model emitted, and two
+    callers immediately do `out.get(...)`. When Gemini wrapped its answer in a
+    top-level ARRAY — `[{"overview": [...], ...}]`, which it does intermittently
+    however firmly the prompt asks for an object — that became
+
+        AttributeError: 'list' object has no attribute 'get'
+
+    and every `analyse` call died. The visible symptom was nothing to do with
+    JSON: overview bullets, green/red flags and the peer P/E stayed blank on
+    every tracked IPO, `doctor` reported 54 empty fields, and `enrich` recorded
+    the crashed step as "attempted" and then declined to retry it for a week.
+
+    Two shapes are accepted because both are the model being sloppy rather than
+    wrong: a single-element array around the object, and the answer split
+    across several objects in one array. Merging is safe — the keys are
+    disjoint field names, and a later duplicate winning is no worse than the
+    arbitrary choice any other rule would make.
+
+    Anything else raises, deliberately. A string or a number here means the
+    model answered a different question, and inventing an empty dict from it
+    would write a blank analysis over a real one.
+    """
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, list):
+        merged: dict = {}
+        for item in value:
+            if isinstance(item, dict):
+                merged.update(item)
+        if merged:
+            return merged
+    raise AiUnavailable(
+        f"Gemini returned a {type(value).__name__} where {what} needed an "
+        f"object: {str(value)[:160]}")
+
 
 def _parse_json(text: str, default: Any = None) -> Any:
     text = (text or "").strip()

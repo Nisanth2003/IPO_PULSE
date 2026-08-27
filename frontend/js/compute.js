@@ -81,6 +81,74 @@ function issueMetrics(ipo) {
     ofs_pct: round(pct(num(i.ofs_cr), split), 1),
     min_investment: Math.round(num(i.lot_size) * num(i.price_high)),
     is_fresh_heavy: num(i.fresh_cr) >= num(i.ofs_cr),
+    reservation: reservation(ipo),
+  };
+}
+
+/* How the issue is carved up between QIB, NII, retail and employees.
+ * Mirrors compute.py reservation() — change one, change the other.
+ *
+ * Not the Subscription tab's qib/nii/retail, which is a different quantity:
+ * this is how big each slice IS, that is how many times it was BID for. An
+ * issue can reserve 35% for retail and have retail bid it 40x.
+ *
+ * Two rules, both about not inventing numbers:
+ *  - the denominator is shares_total, always. Missing it, nothing is computed,
+ *    because normalising against the slices that happen to be present would
+ *    report a 50% QIB tranche as 100% on a record still missing its retail row.
+ *  - no standard split is assumed for a missing slice. Employee and
+ *    shareholder quotas move everything, and SME issues do not follow the
+ *    mainboard pattern at all.
+ */
+function reservation(ipo) {
+  const i = ipo.issue || {};
+  const total = num(i.shares_total);
+  /* shares_anchor is deliberately NOT a slice here: it is a subset of
+     shares_qib, and listing it would double-count 30% of a mainboard issue and
+     push accounted_pct past 100. Reported separately as anchor_pct. */
+  const parts = [
+    ['qib', num(i.shares_qib)],
+    ['nii', num(i.shares_nii)],
+    ['retail', num(i.shares_retail)],
+    ['employee', num(i.shares_employee)],
+    ['shareholders', num(i.shares_shareholders)],
+  ].filter(([, v]) => v > 0);
+
+  if (total <= 0 || !parts.length) {
+    return { has_data: false, rows: [], accounted_pct: 0, retail_pct: 0,
+             institutional_pct: 0, anchor_pct: 0, has_employee: false, tilt: '' };
+  }
+
+  const find = (key) => (parts.find(([k]) => k === key) || [, 0])[1];
+  const rows = parts
+    .map(([key, shares]) => ({ key, shares, pct: round(pct(shares, total), 1) }))
+    // Biggest slice first: the story is "who gets most of this", and a fixed
+    // QIB/NII/retail order buries that when an issue is unusual.
+    .sort((a, b) => b.shares - a.shares);
+
+  const retailPct = round(pct(find('retail'), total), 1);
+  const sum = parts.reduce((acc, [, v]) => acc + v, 0);
+
+  return {
+    has_data: true,
+    rows,
+    /* Makes a gap visible instead of silent. The named slices normally sum to
+       the total; when they do not, something is carved out that this record
+       does not name, and the scene says so rather than drawing bars that
+       quietly fail to fill the row. */
+    accounted_pct: round(pct(sum, total), 1),
+    retail_pct: retailPct,
+    institutional_pct: round(pct(find('qib'), total), 1),
+    /* Share of the WHOLE issue placed with anchors before bidding opened.
+       Inside institutional_pct, not additional to it. */
+    anchor_pct: round(pct(num(i.shares_anchor), total), 1),
+    has_employee: find('employee') > 0,
+    /* What the split means to the viewer — arithmetic on these numbers, not a
+       claim about which regulation produced them. Someone deciding whether to
+       apply cares that a 10% retail slice is thin, not which clause set it. */
+    tilt: retailPct >= 50 ? 'retail_led'
+        : retailPct >= 30 ? 'balanced'
+        : retailPct > 0 ? 'institution_led' : '',
   };
 }
 

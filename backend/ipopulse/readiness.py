@@ -252,6 +252,14 @@ NEEDS: dict[int, list[tuple[str, str, str, Any]]] = {
         ("dates",     "Open / close",   "need", lambda i: bool(i.dates.open and i.dates.close)),
         ("overview",  "Overview bullets", "need", lambda i: len(i.analysis.overview) >= 3),
         ("split",     "Fresh / OFS split", "want", lambda i: (i.issue.fresh_cr + i.issue.ofs_cr) > 0),
+        # "want", not "need": without it the reservation scene is dropped from
+        # the reel rather than rendering empty, so the video is still
+        # recordable — one scene shorter and honest. Both halves are required,
+        # because a slice with no total is a number with no denominator.
+        ("reservation", "Reservation split", "want",
+         lambda i: i.issue.shares_total > 0 and any(
+             (i.issue.shares_qib, i.issue.shares_nii,
+              i.issue.shares_retail, i.issue.shares_employee))),
         ("about",     "Company facts",  "want", lambda i: len(i.analysis.about_facts) > 0),
         ("sector",    "Sector",         "want", lambda i: bool(i.sector.strip())),
         ("listing",   "Listing date",   "want", lambda i: bool(i.dates.listing)),

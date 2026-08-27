@@ -472,15 +472,54 @@ def categories(row_or_url: Any) -> dict[str, Any]:
     if not d:
         return {}
     out: dict[str, Any] = {}
-    for key, field in (("qib", "shares_offered_qib"), ("nii", "shares_offered_nii"),
+    # ── the QIB field is a trap, and picking the wrong one is silent ──────
+    #
+    # `shares_offered_qib` is QIB **excluding the anchor book** — the desk's own
+    # `shares_offered_qib_ex_anchor` holds the identical value. The anchor
+    # portion is carved out OF the QIB reservation, not beside it, so the number
+    # that means "half this issue is set aside for institutions" is
+    # `shares_offered_qib_with_anchor`.
+    #
+    # Reading the ex-anchor field made a standard mainboard issue look like
+    # QIB 20 / NII 15 / retail 35 — a 70% book, with 30% unexplained. Symbiotec
+    # says "Not more than 50% of the Net Offer" for QIB and its
+    # with-anchor figure is exactly 50%. Verified across both shapes:
+    #
+    #   qib_with_anchor + nii + rii + emp + shareholders == shares_offered_total
+    #
+    # to the individual share on Symbiotec, Hy-Tech, Madhur and ABH. The market
+    # maker sits OUTSIDE that total on SME issues — it is a market-making
+    # reservation rather than part of the net offer — which is why it is not
+    # summed in and not stored here.
+    for key, field in (("qib", "shares_offered_qib_with_anchor"),
+                       ("nii", "shares_offered_nii"),
                        ("nii_small", "shares_offered_small_nii"),
                        ("nii_big", "shares_offered_big_nii"),
                        ("retail", "shares_offered_rii"),
                        ("employee", "shares_offered_emp"),
+                       # A real SEBI category, not padding: issues with a listed
+                       # parent carve out a shareholder quota, and without it
+                       # those records would report an unexplained gap.
+                       ("shareholders", "shares_offered_shareholders"),
                        ("total", "shares_offered_total")):
         val = _num(d.get(field))
         if val:
             out[f"shares_{key}"] = val
+
+    # Fallback for a record that carries only the plain field. Better a QIB
+    # slice that understates the anchor than no QIB slice at all.
+    if not out.get("shares_qib"):
+        val = _num(d.get("shares_offered_qib"))
+        if val:
+            out["shares_qib"] = val
+
+    # Informational, and a SUBSET of shares_qib — never summed with it. Worth
+    # storing because "thirty percent of this issue went to anchor investors
+    # before bidding even opened, and it is locked in" is a real thing to say
+    # about an issue, and it cannot be recovered from the other fields.
+    anchor = _num(d.get("shares_offered_anchor_investor"))
+    if anchor:
+        out["shares_anchor"] = anchor
     # '700 shares (14 lots)' — the share count is what the odds arithmetic
     # needs, and the lot count is already derivable from it.
     for key, field in (("min_shni_qty", "min_hni_qty"),

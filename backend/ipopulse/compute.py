@@ -141,6 +141,84 @@ def issue_metrics(ipo: Ipo) -> dict[str, Any]:
         "min_investment": _round(iss.lot_size * iss.price_high),
         # a fresh-heavy issue funds the company; an OFS-heavy one cashes out
         "is_fresh_heavy": iss.fresh_cr >= iss.ofs_cr,
+        "reservation": reservation(ipo),
+    }
+
+
+def reservation(ipo: Ipo) -> dict[str, Any]:
+    """How the issue is carved up between QIB, NII, retail and employees.
+
+    Different question from the Subscription tab, and the pair is easy to
+    confuse: this is how big each slice IS, that is how many times each slice
+    was BID for. Retail can be reserved 35% of an issue and subscribe it 40x.
+
+    Two rules keep this honest:
+
+    * **The denominator is `shares_total`, always.** With it missing, nothing
+      is computed. Normalising against the slices that happen to be present
+      would report a 50% QIB tranche as 100% on a record whose retail row has
+      not arrived yet — a confident wrong number, which is worse than a blank.
+
+    * **No standard split is assumed.** It is tempting to fill a missing NII
+      slice from the regulated shapes, and it would be inventing data: an issue
+      can carry an employee or shareholder quota that moves everything, and
+      SME issues do not follow the mainboard pattern at all.
+
+    `accounted_pct` is what makes a gap visible rather than silent. The named
+    slices normally sum to the total; when they do not, something is carved out
+    that this record does not name, and a scene can say so instead of drawing
+    three bars that quietly fail to fill the row.
+    """
+    iss = ipo.issue
+    total = iss.shares_total
+    # `shares_anchor` is deliberately absent: it is a subset of shares_qib, and
+    # listing it as a fourth slice would double-count 30% of a mainboard issue
+    # and push accounted_pct past 100. It is reported separately below.
+    parts = (("qib", iss.shares_qib), ("nii", iss.shares_nii),
+             ("retail", iss.shares_retail), ("employee", iss.shares_employee),
+             ("shareholders", iss.shares_shareholders))
+    known = {name: value for name, value in parts if value}
+
+    if total <= 0 or not known:
+        return {"has_data": False, "rows": [], "accounted_pct": 0.0,
+                "retail_pct": 0.0, "institutional_pct": 0.0,
+                "anchor_pct": 0.0, "tilt": ""}
+
+    rows = [{"key": name,
+             "shares": value,
+             "pct": _round(_pct(value, total), 1)}
+            for name, value in known.items()]
+    # Biggest slice first: the reservation story is "who gets most of this",
+    # and a fixed QIB/NII/retail order buries that when an issue is unusual.
+    rows.sort(key=lambda r: r["shares"], reverse=True)
+
+    retail_pct = _round(_pct(known.get("retail", 0.0), total), 1)
+    inst_pct = _round(_pct(known.get("qib", 0.0), total), 1)
+
+    # What the split MEANS to the person watching, which is arithmetic on these
+    # numbers and not a claim about which regulation produced them. A viewer
+    # deciding whether to apply cares that a 10% retail slice is a thin slice,
+    # not which ICDR clause set it.
+    if retail_pct >= 50:
+        tilt = "retail_led"
+    elif retail_pct >= 30:
+        tilt = "balanced"
+    elif retail_pct > 0:
+        tilt = "institution_led"
+    else:
+        tilt = ""
+
+    return {
+        "has_data": True,
+        "rows": rows,
+        "accounted_pct": _round(_pct(sum(known.values()), total), 1),
+        "retail_pct": retail_pct,
+        "institutional_pct": inst_pct,
+        # Share of the WHOLE issue that went to anchors before bidding opened.
+        # Inside institutional_pct, not additional to it.
+        "anchor_pct": _round(_pct(iss.shares_anchor, total), 1),
+        "has_employee": bool(known.get("employee")),
+        "tilt": tilt,
     }
 
 

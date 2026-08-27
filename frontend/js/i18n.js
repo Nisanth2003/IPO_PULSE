@@ -139,6 +139,31 @@ const LABELS = {
                 'सब्सक्रिप्शन दिन भर बदलता है — आखिरी आंकड़ा ही मायने रखता है।',
                 'సబ్‌స్క్రిప్షన్ రోజంతా మారుతుంది — చివరి సంఖ్యే ముఖ్యం.'],
 
+  // reservation — how the issue is CARVED UP, reusing the qib/nii/retail
+  // labels below. Deliberately shares them: the categories are the same
+  // categories, and a second set would drift in translation.
+  reservation: ['Issue Reservation', 'इश्यू रिज़र्वेशन', 'ఇష్యూ రిజర్వేషన్'],
+  // {pct} is substituted, not concatenated: Hindi and Telugu put the number in
+  // a different place in the sentence than English does.
+  retailSliceNote: [
+    '{pct}% of this issue is set aside for retail',
+    'इस इश्यू का {pct}% हिस्सा रिटेल के लिए रखा गया है',
+    'ఈ ఇష్యూలో {pct}% రిటైల్ కోసం కేటాయించారు',
+  ],
+  resUnaccounted: [
+    '{pct}% is reserved for categories not listed here',
+    '{pct}% हिस्सा यहाँ न दिखाई गई कैटेगरी के लिए है',
+    '{pct}% ఇక్కడ చూపని కేటగిరీల కోసం',
+  ],
+  shareholders: ['SHAREHOLDERS', 'शेयरहोल्डर', 'షేర్‌హోల్డర్'],
+  // Anchor sits INSIDE the QIB slice, so the wording says "of which" rather
+  // than naming it as another category — the bars would not add up otherwise.
+  anchorNote: [
+    'of which {pct}% went to anchor investors before bidding opened',
+    'इसमें से {pct}% एंकर निवेशकों को बिडिंग शुरू होने से पहले दिया गया',
+    'వీటిలో {pct}% బిడ్డింగ్ ప్రారంభానికి ముందే యాంకర్ ఇన్వెస్టర్లకు',
+  ],
+
   // subscription
   subDay:      ['Subscription Day', 'सब्सक्रिप्शन डे', 'సబ్‌స్క్రిప్షన్ డే'],
   qib:         ['QIB', 'QIB', 'QIB'],

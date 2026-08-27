@@ -69,6 +69,39 @@ class Issue:
     # for a week, and a viewer deciding between tranches needs both numbers.
     min_shni_qty: float = 0.0
     min_bhni_qty: float = 0.0
+
+    # ── how the issue is carved up, in SHARES ──────────────────────────
+    #
+    # InvestorGain's "IPO Reservation" block. Stored as share counts and never
+    # as percentages: the counts are what the desk publishes, and percentages
+    # are one division away in compute — storing both would be two versions of
+    # the same fact that can disagree after a hand edit.
+    #
+    # Not to be confused with the Subscription tab's qib/nii/retail, which are
+    # a different quantity entirely. These say how big each slice IS; those say
+    # how many times each slice was BID for. An issue can reserve 35% for
+    # retail and have retail bid it 40x.
+    #
+    # `shares_total` is the denominator and the reason this is safe: with it
+    # absent, no percentage is computed at all rather than normalising against
+    # whichever slices happen to be known — which would show a 50% QIB slice as
+    # 100% on a record that is only missing its retail row.
+    # `shares_qib` is QIB **including the anchor book**, which is the number
+    # that means "half the issue is set aside for institutions". InvestorGain's
+    # plain `shares_offered_qib` excludes it and made a standard mainboard issue
+    # read as a 70% book with 30% unexplained — see providers/investorgain.py.
+    shares_qib: float = 0.0
+    shares_nii: float = 0.0
+    shares_retail: float = 0.0
+    shares_employee: float = 0.0
+    # A shareholder quota, for issues with a listed parent. Usually 0.
+    shares_shareholders: float = 0.0
+    shares_total: float = 0.0
+    # A SUBSET of shares_qib, never added to it. Kept because "thirty percent
+    # went to anchor investors before bidding opened, and it is locked in" is
+    # worth saying and cannot be derived from anything else here.
+    shares_anchor: float = 0.0
+
     registrar: str = ""
     registrar_url: str = ""
     exchanges: list[str] = field(default_factory=lambda: ["BSE", "NSE"])
@@ -86,6 +119,13 @@ class Issue:
             shares_post_issue_cr=_f(d.get("shares_post_issue_cr")),
             min_shni_qty=_f(d.get("min_shni_qty")),
             min_bhni_qty=_f(d.get("min_bhni_qty")),
+            shares_qib=_f(d.get("shares_qib")),
+            shares_nii=_f(d.get("shares_nii")),
+            shares_retail=_f(d.get("shares_retail")),
+            shares_employee=_f(d.get("shares_employee")),
+            shares_shareholders=_f(d.get("shares_shareholders")),
+            shares_total=_f(d.get("shares_total")),
+            shares_anchor=_f(d.get("shares_anchor")),
             registrar=d.get("registrar", "") or "",
             registrar_url=d.get("registrar_url", "") or "",
             exchanges=_list(d.get("exchanges")) or ["BSE", "NSE"],

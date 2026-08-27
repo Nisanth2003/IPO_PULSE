@@ -501,8 +501,16 @@ def handle(handler, method: str) -> bool:
 
         body = _body(handler)
         try:
-            audio, hit = tts.synthesize(
+            audio, hit, used, fmt = tts.synthesize(
                 str(body.get("text", "")),
+                # Lets the studio's compare button pin one provider; omitted,
+                # the configured order decides.
+                provider=str(body.get("provider", "") or ""),
+                # `lang` selects the voice and the model server-side. Sending
+                # the language rather than a resolved voice id keeps the
+                # "which voice reads Telugu" policy in one file instead of
+                # mirrored into studio.js, where it would drift.
+                lang=str(body.get("lang", "") or ""),
                 vid=str(body.get("voice_id", "") or ""),
                 mdl=str(body.get("model", "") or ""),
                 settings=body.get("settings") if isinstance(
@@ -516,12 +524,20 @@ def handle(handler, method: str) -> bool:
             return True
 
         left = tts.budget()
-        _bytes(handler, 200, audio, "audio/mpeg", {
+        # Gemini returns wav, ElevenLabs mp3 — so the content type is whatever
+        # actually came back, and the studio is told the extension separately so
+        # it can name a download correctly.
+        ctype = "audio/wav" if fmt == "wav" else "audio/mpeg"
+        _bytes(handler, 200, audio, ctype, {
             "X-Voice-Cached": "1" if hit else "0",
             # 0 on a cache hit, because a hit is not billed. The studio shows
-            # this so a re-render visibly costs nothing.
+            # this so a re-render visibly costs nothing. Gemini also bills
+            # nothing, but its characters still count against a daily free
+            # quota, so they are reported rather than zeroed.
             "X-Voice-Chars": "0" if hit else str(len(str(body.get("text", "")))),
             "X-Voice-Left": str(left["left"]),
+            "X-Voice-Provider": used,
+            "X-Voice-Format": fmt,
         })
         return True
 
@@ -530,9 +546,14 @@ def handle(handler, method: str) -> bool:
 
         _json(handler, 200, {
             "configured": tts.configured(),
-            "model": tts.model(),
             "budget": tts.budget(),
-            "max_chars": tts.MAX_CHARS,
+            # Key COUNT, never the keys. The studio only needs to know whether
+            # a rotation exists to explain a fallback in its status line.
+            "keys": len(tts.api_keys()),
+            # Per language, so the studio can show which voice and model each
+            # one will actually use rather than implying they share — and, more
+            # importantly, whether that model can speak that language at all.
+            "plan": tts.plan(),
         })
         return True
 
@@ -620,8 +641,10 @@ def _cors(handler) -> None:
         # CORS-safelist unless it is named here. /api/voice reports the cache
         # hit and the spend in headers, so the studio would show "0 characters,
         # not cached" for every render and quietly look broken.
-        handler.send_header("Access-Control-Expose-Headers",
-                            "X-Voice-Cached, X-Voice-Chars, X-Voice-Left")
+        handler.send_header(
+            "Access-Control-Expose-Headers",
+            "X-Voice-Cached, X-Voice-Chars, X-Voice-Left, "
+            "X-Voice-Provider, X-Voice-Format")
 
 
 def _send(handler, code: int, text: str, ctype: str) -> None:

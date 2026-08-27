@@ -121,6 +121,67 @@ const OUTPUT = {
     return "More than half of this is existing shareholders selling to you. That isn't automatically bad — early backers are entitled to an exit — but be clear that most of your money is not going into the business.";
   },
 
+  /* Reel 1's reservation scene, spoken.
+   *
+   * The scene is skipped without a denominator, so this is only reached with
+   * real data — but it returns '' on the same condition anyway, because the
+   * script is also copied on its own by the publishing pack and a caption that
+   * describes bars nobody saw is worse than a shorter caption.
+   *
+   * What it deliberately does NOT say: which regulation produced the split. A
+   * 75/15/10 book is the shape SEBI requires in some cases and issuers land on
+   * it for other reasons too, and reading a rule off a ratio is exactly the
+   * kind of confident wrong claim §3.3 warns about. So it reports the numbers
+   * and then the ONE consequence that is pure arithmetic: a thinner retail
+   * slice is longer odds for the person listening.
+   */
+  voReservation() {
+    const r = this.d.issue.reservation;
+    if (!r || !r.has_data) return '';
+    const name = { qib: 'institutional investors', nii: 'high net worth investors',
+                   retail: 'retail investors', employee: 'employees',
+                   shareholders: 'existing shareholders' };
+    const parts = r.rows
+      .map((row) => `${this.voPct(row.pct)} to ${name[row.key] || row.key}`);
+
+    const lines = [
+      `Here's how the issue is actually divided up, because it decides your `
+      + `odds before you apply. ${parts.join(', ')}.`,
+    ];
+
+    if (r.tilt === 'institution_led') {
+      lines.push(`So the retail slice is the small one here. That means the `
+        + `institutions largely decide whether this issue gets covered, and it `
+        + `also means retail applications are competing for a narrower pool — `
+        + `if this one gets subscribed heavily, allotment is a lottery.`);
+    } else if (r.tilt === 'retail_led') {
+      lines.push(`Retail is getting the biggest share of this one, which is `
+        + `unusual and it works in your favour on allotment — more shares in `
+        + `the retail pool means more applications get filled.`);
+    } else if (r.tilt === 'balanced') {
+      lines.push(`That's a fairly standard split, and the retail portion here `
+        + `is the pool your application would be drawn from.`);
+    }
+
+    /* Said after the tilt line, because it explains something the viewer can
+       otherwise misread: a big institutional slice that was largely spoken for
+       before bidding even started. Phrased as "of that" — the anchor book is
+       carved out of the QIB portion, not added to it. */
+    if (r.anchor_pct) {
+      lines.push(`One thing worth knowing: of that institutional portion, `
+        + `${this.voPct(r.anchor_pct)} of the whole issue was placed with `
+        + `anchor investors before bidding opened. That money is committed and `
+        + `locked in for a period after listing, so it is not part of the `
+        + `demand you see building on the subscription numbers.`);
+    }
+
+    if (r.has_employee) {
+      lines.push(`There's an employee quota carved out too, which is normal and `
+        + `does not affect what retail is bidding into.`);
+    }
+    return lines.join(' ');
+  },
+
   voTakeGmp() {
     const g = this.d.gmp;
     if (!g.has_data) return "Nobody is quoting a premium on this one yet. That's not a bad sign — it just means the grey market hasn't priced it. I'd rather tell you that than invent a number for you.";
@@ -296,6 +357,7 @@ split: [Number(iss.ofs_cr)
   ? `Now the part most people scroll past. The issue is ${this.voCrore(d.issue.total_cr)}. Of that, ${this.voCrore(iss.fresh_cr)} is a fresh issue — new money going into the company. ${this.voCrore(iss.ofs_cr)} is an offer for sale, which is existing shareholders selling their stake to you. So ${this.voPct(d.issue.fresh_pct)} of it is fresh.`
   : `Now the part most people scroll past. The whole ${this.voCrore(d.issue.total_cr)} is a fresh issue — every rupee goes into the company. There's no offer for sale here, so nobody is using this listing to cash out.`,
   this.voTakeStructure()].filter(Boolean).join(' '),
+reservation: this.voReservation(),
 terms: `${band} ${lot}${sme}`,
 // Closing line points at the long-form cut of the same IPO. Reel 1 is the
 // one people find first — it is the "what is this company" search — so it
