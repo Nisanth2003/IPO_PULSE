@@ -2200,6 +2200,7 @@ def write_frontend_config() -> Path:
     sid = sheets.sheet_id()
     api = (os.getenv("IPOPULSE_TRIGGER_API") or "").strip().rstrip("/")
     gate_hash, gate_iter = _site_gate(sid)
+    pat = _sealed_pat()
     dest = store.BACKEND_ROOT.parent / "frontend" / "js" / "config.js"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(
@@ -2215,11 +2216,20 @@ def write_frontend_config() -> Path:
         ' * salted with the sheet id. The password itself is never written here.\n'
         ' * Read js/gate.js before relying on it — it says plainly what this\n'
         ' * does and does not protect.\n'
+        ' *\n'
+        ' * GH_PAT_* is the Actions-dispatch token, AES-GCM sealed under that\n'
+        ' * same password with an independent random salt. Ciphertext only, so\n'
+        ' * it is safe to publish and the leak scan in publish.yml has nothing\n'
+        ' * to trip on. Empty unless GH_DISPATCH_PAT was set at build time.\n'
+        ' * See _sealed_pat() for why that salt must NOT be the sheet id.\n'
         ' */\n'
         f'const SHEET_ID = "{sid}";\n'
         f'const API_BASE = "{api}";\n'
         f'const SITE_GATE_HASH = "{gate_hash}";\n'
-        f'const SITE_GATE_ITER = {gate_iter};\n',
+        f'const SITE_GATE_ITER = {gate_iter};\n'
+        f'const GH_PAT_CIPHER = "{pat["cipher"]}";\n'
+        f'const GH_PAT_SALT = "{pat["salt"]}";\n'
+        f'const GH_PAT_IV = "{pat["iv"]}";\n',
         encoding="utf-8")
     return dest
 
@@ -2250,6 +2260,69 @@ def _site_gate(sheet_id: str) -> tuple[str, int]:
         "sha256", password.encode("utf-8"), sheet_id.encode("utf-8"),
         GATE_ITERATIONS, dklen=32)
     return digest.hex(), GATE_ITERATIONS
+
+
+EMPTY_PAT = {"cipher": "", "salt": "", "iv": ""}
+
+
+def _sealed_pat() -> dict[str, str]:
+    """Seal GH_DISPATCH_PAT so config.js can carry it in public.
+
+    The problem this solves, stated exactly, because the obvious shortcut is
+    wrong and looks right:
+
+    The site gate ships a one-way HASH of the password, which is safe to
+    publish precisely because nobody can turn it back into the password. A
+    GitHub token cannot work that way. The browser does not *check* it, it
+    *replays* it to api.github.com — so the original bytes have to come back,
+    and anything config.js can recover on its own, a visitor can recover too.
+    Writing the token in straight from a secret would publish it verbatim from
+    a public repo. (The leak scan in publish.yml greps frontend/ for
+    `github_pat_` and refuses to deploy, so that mistake fails loudly rather
+    than quietly — worth keeping that scan exactly as it is.)
+
+    So the token is encrypted under the password the owner already types at the
+    front door: AES-256-GCM, key from PBKDF2-SHA256. Public ciphertext,
+    recoverable only by someone who supplies the password.
+
+    **The salt is random per build and NOT the sheet id, and that is the whole
+    security of this.** `_site_gate` publishes PBKDF2(password, salt=sheet id)
+    as the gate hash. Deriving the AES key the same way would make that
+    published hash *be* the key — the ciphertext would decrypt with a value
+    printed two lines above it in the same file. An independent salt breaks the
+    link: the gate hash then says nothing at all about the key.
+
+    What this does NOT do, so nobody over-trusts it: the password is now worth
+    more than it was. Someone who learns it gets the studio *and* a token that
+    can run Actions on this repo, and they can attack it offline from the
+    published ciphertext at PBKDF2 cost per guess. So the password must be long
+    and random, and the token scoped to Actions:write on this one repo with a
+    short expiry — then the worst case stays "can run the same jobs the cron
+    already runs".
+
+    Returns empty strings when either half is unset, which leaves the feature
+    off and manual paste as the studio's only route.
+    """
+    password = (os.getenv("IPOPULSE_TRIGGER_PASSWORD") or "").strip()
+    token = (os.getenv("GH_DISPATCH_PAT") or "").strip()
+    if not password or not token:
+        return dict(EMPTY_PAT)
+
+    import base64
+    import secrets as randbytes
+
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    salt = randbytes.token_bytes(16)
+    iv = randbytes.token_bytes(12)         # 96 bits, the standard GCM nonce
+    key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt,
+                              GATE_ITERATIONS, dklen=32)
+    sealed = AESGCM(key).encrypt(iv, token.encode("utf-8"), None)
+
+    def b64(raw: bytes) -> str:
+        return base64.b64encode(raw).decode("ascii")
+
+    return {"cipher": b64(sealed), "salt": b64(salt), "iv": b64(iv)}
 
 
 def cmd_config(args) -> int:

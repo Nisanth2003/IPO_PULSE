@@ -73,6 +73,12 @@ jobs:
           # The site's front-door password. Only a PBKDF2 hash of it reaches
           # the published JS — the password itself never leaves this step.
           IPOPULSE_TRIGGER_PASSWORD: ${{ secrets.IPOPULSE_TRIGGER_PASSWORD }}
+          # Optional. The fine-grained PAT that lets the studio's Run job panel
+          # dispatch schedule.yml. AES-GCM sealed under the password above
+          # before it reaches config.js — never written in the clear, which the
+          # leak scan below independently enforces. Unset simply means the panel
+          # asks for a token by hand instead. See cli.py, _sealed_pat.
+          GH_DISPATCH_PAT: ${{ secrets.GH_DISPATCH_PAT }}
         run: |
           if [ -z "$GOOGLE_SHEETS_ID" ]; then
             echo "::error::GOOGLE_SHEETS_ID is not set - the site would load with no data."
@@ -120,7 +126,7 @@ jobs:
       # browser cannot fetch the sheet without it.
       - name: Fail if a secret leaked into the frontend
         run: |
-          SECRETS='AIza[0-9A-Za-z_-]{20,}|AQ\.[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|(GEMINI_API_KEY|IPOPULSE_TRIGGER_PASSWORD|GOOGLE_SHEETS_KEY)[[:space:]]*[:=][[:space:]]*[^[:space:]]+|iam\.gserviceaccount\.com|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{30,}'
+          SECRETS='AIza[0-9A-Za-z_-]{20,}|AQ\.[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|(GEMINI_API_KEY|IPOPULSE_TRIGGER_PASSWORD|GOOGLE_SHEETS_KEY|GH_DISPATCH_PAT)[[:space:]]*[:=][[:space:]]*[^[:space:]]+|iam\.gserviceaccount\.com|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{30,}'
           if grep -rIn --include=*.js --include=*.html --include=*.json --include=*.css --include=*.md -E "$SECRETS" frontend/; then
             echo "::error::Possible secret in frontend/ - refusing to publish."
             exit 1

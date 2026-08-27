@@ -158,7 +158,10 @@
     <button x-show="hasBackend && api" x-cloak class="btn btn-acc"
             @click="run.open=true"
             title="Run a job on the hosted backend">⚡ Run job</button>
-    <button x-show="!hasBackend" x-cloak class="btn btn-acc" @click="gh.open=true"
+    <!-- ghOpen(), not gh.open=true: the sealed token arrives from gate.js when
+         the password is typed, which is AFTER Alpine has initialised. Adopting
+         it on open is what makes "nothing to paste" true on a fresh load. -->
+    <button x-show="!hasBackend" x-cloak class="btn btn-acc" @click="ghOpen()"
             title="Run a job on GitHub Actions">⚡ Run job</button>
   </div>
 
@@ -264,7 +267,30 @@
 
       <div class="text-2xs text-slate-300 mb-2" x-text="`Repository: ${gh.owner}/${gh.repo}`"></div>
 
-      <template x-if="!gh.token">
+      <!-- The deployment ships a sealed token, but the password is not in this
+           page — i.e. the gate opened from its session flag after a reload.
+           One field and it is back; nothing was ever stored to find. -->
+      <template x-if="!gh.token && gh.sealed">
+        <div class="rounded-xl p-3 mb-3" style="background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.4)">
+          <div class="text-xs font-black text-emerald-300 mb-1">Unlock the stored token</div>
+          <div class="text-2xs text-emerald-100/80 leading-relaxed mb-2">
+            This deployment carries the Actions token, encrypted under the site
+            password. Enter that password — the same one you use at the front
+            door — and it is unsealed here in memory. Nothing to create, nothing
+            to paste, and nothing saved to this machine.
+          </div>
+          <div class="flex gap-2">
+            <input type="password" class="inp flex-1" placeholder="Site password"
+                   autocomplete="current-password"
+                   x-model="gh.pw" @keydown.enter="unsealToken()">
+            <button class="btn btn-acc" @click="unsealToken()"
+                    :disabled="gh.busy || !gh.pw"
+                    x-text="gh.busy ? 'Unsealing…' : 'Unlock'"></button>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="!gh.token && !gh.sealed">
         <div class="rounded-xl p-3 mb-3" style="background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.4)">
           <div class="text-xs font-black text-amber-300 mb-1">One-time setup</div>
           <ol class="text-2xs text-amber-100/90 leading-relaxed list-decimal ml-4 space-y-0.5">
@@ -272,11 +298,33 @@
               create a <b>fine-grained</b> token.</li>
             <li>Repository access: <b>only</b> <span class="font-mono" x-text="gh.repo"></span>.</li>
             <li>Permissions: <b>Actions → Read and write</b>. Nothing else.</li>
+            <li>Expiration: the shortest that covers your session.</li>
             <li>Paste it below — it starts <span class="font-mono">github_pat_</span>.
-              It is stored only in this browser
-              (<span class="font-mono">localStorage</span>), is never sent anywhere
-              except api.github.com, and is never committed to the repo.</li>
+              It is held <b>in this tab only</b>, sent nowhere except
+              api.github.com, and written to neither the repo nor this machine.
+              Reloading the tab forgets it, so expect to paste it again.</li>
           </ol>
+          <!-- Asked every time this panel is opened on a second device: why
+               type a token at all when the trigger password comes from a
+               secret? It can come from one — just not in the clear. The long
+               version is in js/studio.js above `gh` and in cli.py's
+               _sealed_pat. -->
+          <div class="text-2xs text-amber-100/70 mt-2 pt-2 border-t border-amber-300/20">
+            <b>Stop pasting this:</b> add the token as the
+            <span class="font-mono">GH_DISPATCH_PAT</span> repository secret and
+            redeploy. The publish workflow seals it under the site password and
+            ships the ciphertext, so the front door unlocks it for you and this
+            box never appears again. It cannot be shipped in the clear the way
+            <span class="font-mono">SHEET_ID</span> is — a token has to be
+            replayed to api.github.com, so it cannot be a one-way hash the way
+            <span class="font-mono">IPOPULSE_TRIGGER_PASSWORD</span> is.
+          </div>
+          <div class="text-2xs text-amber-100/70 mt-2 pt-2 border-t border-amber-300/20">
+            <b>Or no token at all:</b> open
+            <span class="font-mono">Actions → schedule.yml → Run workflow</span>
+            on github.com and your normal GitHub session authorises it. Best
+            choice on a machine that is not yours.
+          </div>
           <!-- The two credentials in this project are easy to mix up: both are
                "the password that runs jobs". GitHub answers the wrong one with
                a bare 401 that names neither. -->
@@ -293,6 +341,12 @@
                x-model="gh.draft" @keydown.enter="saveToken()">
         <button class="btn btn-acc" @click="saveToken()" x-show="gh.draft">Save</button>
         <button class="btn" @click="forgetToken()" x-show="gh.token">Forget</button>
+      </div>
+
+      <div class="text-3xs text-slate-500 mb-3" x-show="gh.token">
+        Held in memory for this tab. Nothing is saved to this machine, so
+        switching devices needs a fresh paste — or revoke and re-issue the
+        token, which is the safer habit if you move around.
       </div>
 
       <div class="grid grid-cols-2 gap-2" :class="gh.token ? '' : 'opacity-40 pointer-events-none'">

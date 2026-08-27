@@ -10,6 +10,11 @@
 # openpyxl 3.1.5, genai 2.17.0.
 google-api-python-client>=2.100,<3
 google-auth>=2.23,<3
+# Pinned explicitly, not left to google-auth to drag in: `ipopulse config`
+# imports AESGCM directly to seal GH_DISPATCH_PAT into config.js, and a
+# transitive dependency that a future google-auth release drops would break
+# the publish workflow rather than a test.
+cryptography>=42,<47
 
 # Local .xlsx snapshots (store.backup) and the formatted report.
 openpyxl>=3.1,<4

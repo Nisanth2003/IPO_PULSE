@@ -34,6 +34,28 @@
  * 310k iterations is what makes the shipped hash expensive to attack
  * offline — which is the whole reason it is a derived hash and not a plain
  * SHA-256 of the password.
+ *
+ * ── The second job: unsealing the Actions token ───────────────────────────
+ *
+ * config.js may also carry GH_PAT_CIPHER — the GitHub PAT that dispatches
+ * schedule.yml, AES-GCM encrypted at build time under this same password
+ * (backend/ipopulse/cli.py, _sealed_pat). The studio's Run job panel needs the
+ * token itself, so it cannot work from a hash; a correct password is the only
+ * thing that can produce one.
+ *
+ * Which is why the unseal lives HERE and not in studio.js: this is the only
+ * file the password ever passes through, and it should stay that way.
+ *
+ * Note the salts differ on purpose. The gate hash is salted with the sheet id
+ * and is PUBLIC; the token key is salted with GH_PAT_SALT, random per build.
+ * Reusing one salt for both would publish the decryption key next to the
+ * ciphertext it opens.
+ *
+ * The unsealed token is handed to the page in memory (window.GH_PAT) and
+ * written to no storage at all — not localStorage, not sessionStorage. So a
+ * reload inside an already-unlocked session has no token, and the Run job
+ * panel asks for the password again at that point rather than keeping a
+ * credential lying around for the tab's lifetime.
  */
 
 (function () {
@@ -49,6 +71,61 @@
                 host === '' || host === '[::1]';
 
   function open() { document.documentElement.classList.add('gate-open'); }
+
+  /* ── the sealed Actions token ─────────────────────────────────────────── */
+
+  var patCipher = (typeof GH_PAT_CIPHER !== 'undefined' && GH_PAT_CIPHER) || '';
+  var patSalt = (typeof GH_PAT_SALT !== 'undefined' && GH_PAT_SALT) || '';
+  var patIv = (typeof GH_PAT_IV !== 'undefined' && GH_PAT_IV) || '';
+
+  function fromB64(b64) {
+    var bin = atob(b64);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  /* password -> the PAT, or a rejection. Deliberately returns nothing at all
+     rather than a partial result: AES-GCM authenticates, so a wrong password
+     fails to decrypt instead of yielding plausible garbage that would reach
+     api.github.com as a bad credential. */
+  async function unsealPat(password) {
+    if (!patCipher || !patSalt || !patIv) return '';
+    var enc = new TextEncoder();
+    var base = await crypto.subtle.importKey(
+      'raw', enc.encode(password), { name: 'PBKDF2' }, false, ['deriveKey']);
+    var key = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: fromB64(patSalt),
+        iterations: iterations, hash: 'SHA-256' },
+      base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    var plain = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: fromB64(patIv) }, key, fromB64(patCipher));
+    return new TextDecoder().decode(plain);
+  }
+
+  /* What the studio talks to. `sealed` lets the Run job panel decide between
+     "ask for the site password" and "ask for a token to paste" without
+     knowing anything about how the seal works. */
+  window.IPO_GATE = {
+    sealed: !!(patCipher && patSalt && patIv),
+    unseal: unsealPat,
+  };
+
+  /* Called on every successful password entry. Failure is non-fatal and
+     silent-ish: the seal is optional, an older config.js has no cipher, and a
+     studio that refused to open because a token could not be unwrapped would
+     be trading the whole tool for one convenience button. */
+  async function adoptPat(password) {
+    if (!window.IPO_GATE.sealed) return;
+    try {
+      window.GH_PAT = await unsealPat(password);
+    } catch (err) {
+      window.GH_PAT = '';
+      window.IPO_GATE.error = 'The stored Actions token could not be '
+        + 'unsealed with this password — it was probably sealed under a '
+        + 'different one. Redeploy, or paste a token by hand.';
+    }
+  }
 
   /* No password configured.
    *
@@ -153,6 +230,11 @@
         var got = await derive(input.value);
         if (got === hash) {
           sessionStorage.setItem(KEY, hash);
+          /* Before the password goes out of scope — this is the only moment
+             it exists in the page, and the token cannot be recovered later
+             without it. Awaited so the studio never reads window.GH_PAT
+             during the gap. */
+          await adoptPat(input.value);
           wrap.remove();
           open();
           return;

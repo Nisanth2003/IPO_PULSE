@@ -537,6 +537,55 @@ Two requirements for that to work:
 Paths are relative, so it works under `https://<user>.github.io/<repo>/`
 without configuration.
 
+### What goes in Settings → Secrets and variables → Actions
+
+| Name | Kind | Read by |
+|---|---|---|
+| `GOOGLE_SHEETS_ID` | secret | both workflows — `publish.yml` writes it into `config.js`, `schedule.yml` reads the sheet |
+| `GOOGLE_SHEETS_KEY` | secret | the service-account JSON, pasted whole (the code takes contents or a path) |
+| `IPOPULSE_TRIGGER_PASSWORD` | secret | `publish.yml`. Only a PBKDF2 hash of it reaches the published JS |
+| `GEMINI_API_KEY` | secret | `schedule.yml` — `enrich`, `research`, `translate` |
+| `GH_DISPATCH_PAT` | secret, optional | `publish.yml`. Sealed, not shipped — see below |
+| `GEMINI_MODEL` | **variable** | model id |
+| `GOOGLE_SHEETS_TAB` | **variable** | tab name |
+| `IPOPULSE_TRIGGER_API` | **variable**, optional | the hosted backend, once there is one |
+
+The last three are variables rather than secrets deliberately:
+`IPOPULSE_TRIGGER_API` ends up in the published JS anyway, so hiding it would
+be theatre.
+
+### The one that cannot be shipped in the clear
+
+`GH_DISPATCH_PAT` is a fine-grained PAT (Actions → Read and write, this repo
+only) that lets the studio's **⚡ Run job** panel dispatch `schedule.yml`
+without pasting a token every session.
+
+It cannot be substituted into `config.js` the way `SHEET_ID` is. The browser
+does not *check* a token, it *replays* it to `api.github.com`, so the original
+bytes have to come back — and anything the page can recover, a visitor can
+recover too, from a public repo's published output. That is a different problem
+from the password, which only ever has to be *compared*, and therefore ships as
+a one-way hash.
+
+So `ipopulse config` encrypts it: **AES-256-GCM, key from PBKDF2-SHA256 over
+`IPOPULSE_TRIGGER_PASSWORD` with its own random salt**, and only the ciphertext
+reaches `config.js`. `gate.js` unseals it the moment you type the site password
+at the front door, in memory, and writes it to no storage at all. Leave the
+secret unset and the panel falls back to asking for a token by hand.
+
+Two things this costs, worth knowing before you enable it:
+
+- **The site password is now load-bearing.** Whoever learns it gets the studio
+  *and* a token that can run Actions here, attackable offline from the
+  published ciphertext at PBKDF2 cost per guess. Use a long random one.
+- **Scope the token tightly** — Actions:write, one repo, short expiry. Then the
+  worst case stays "can run the same jobs the cron already runs".
+
+The salt is random per build and **not** the sheet id, which is the salt the
+gate hash uses. Sharing one salt would publish the decryption key next to the
+ciphertext it opens; `publish.yml`'s leak scan is the independent backstop and
+already refuses to deploy any `frontend/` file containing a raw `github_pat_`.
+
 ---
 
 ## Keyboard

@@ -65,15 +65,67 @@ function studio() {
      * which accepts `workflow_dispatch`. So this dispatches that workflow
      * through api.github.com directly from the browser.
      *
-     * On the token: it is the OWNER'S own fine-grained PAT, typed in by them,
-     * kept in this browser's localStorage and sent only to api.github.com. It
-     * is never written to the repo — which is the thing that actually matters,
-     * because the repo is public. A visitor who is not the owner simply has no
-     * token and sees a setup panel. Scope it to Actions:write on this one repo
-     * and the worst case is that someone with access to this browser can run
-     * the same jobs the cron already runs. */
+     * ── On the token, and why it is NOT persisted ────────────────────
+     *
+     * It is the OWNER'S own fine-grained PAT, typed in by them, held in this
+     * object for the life of the tab and sent only to api.github.com. It is
+     * never written to the repo and — since this build — never written to the
+     * machine either. Closing or reloading the tab forgets it.
+     *
+     * Earlier builds kept it in localStorage. That is one plain-text file on
+     * whichever desk you happened to be sitting at, readable by DevTools and
+     * by anything that ever manages to run script on this origin, and it does
+     * not follow you to another device anyway — localStorage is per browser
+     * profile and per origin, and Chrome does not sync it. So it bought a
+     * saved paste and paid for it in a credential left lying around. Gone.
+     * `initRemote` now DELETES the old key, so upgrading actually cleans the
+     * machine rather than orphaning the token on it.
+     *
+     * ── Why it cannot come from a secret, the way the password does ───
+     *
+     * IPOPULSE_TRIGGER_PASSWORD works that way because there is a SERVER on
+     * its side: the secret sits in the host's environment, the browser posts a
+     * typed guess, and the comparison happens where the visitor cannot look.
+     * The site gate does the same trick one-way — config.js ships a PBKDF2
+     * HASH, which is useless to an attacker and still enough to check against.
+     *
+     * A PAT has neither property. GitHub Actions secrets exist only inside a
+     * running workflow, on the runner; GitHub Pages is a file server with no
+     * process to hold one. Baking the PAT into config.js at build time would
+     * publish it verbatim from a public repo — the exact leak this panel is
+     * careful to avoid. And a token cannot be hashed, because unlike a
+     * password it has to be REPLAYED to api.github.com to be of any use.
+     *
+     * ── The normal path: no paste at all ─────────────────────────────
+     *
+     * When GH_DISPATCH_PAT was set at build time, config.js carries the token
+     * AES-GCM sealed under the site password, gate.js unseals it the moment
+     * you type that password at the front door, and this panel finds it in
+     * window.GH_PAT with nothing to type. That is what `sealed` tracks.
+     *
+     * It cannot be a plain build-time substitution the way SHEET_ID is: the
+     * repo and the site are public, and a token has to be REPLAYED to
+     * api.github.com, so it cannot be shipped as a one-way hash the way the
+     * password is. Sealed is the only shape that fits. See _sealed_pat() in
+     * backend/ipopulse/cli.py.
+     *
+     * Nothing is unsealed on a reload, because the gate only asks for the
+     * password once per session — so `unsealToken()` asks for it again here,
+     * which is also the fallback when the seal is absent entirely.
+     *
+     * Two ways to run a job with no credential in this page at all, still
+     * worth preferring on a machine that is not yours:
+     *   - github.com -> Actions -> schedule.yml -> "Run workflow". Your normal
+     *     GitHub session authorises it.
+     *   - Point API_BASE at the hosted backend and use the Run job panel
+     *     above. That one takes the trigger PASSWORD, and the secret it is
+     *     checked against never leaves the host.
+     *
+     * Scope the PAT to Actions:write on this one repo with a short expiry, and
+     * the worst case stays "someone at this keyboard, right now, can run the
+     * same jobs the cron already runs". */
     gh: { open: false, token: '', draft: '', owner: '', repo: '',
-          msg: '', ok: false, runs: [] },
+          msg: '', ok: false, runs: [], sealed: false, pw: '', busy: false },
     /* Must match control.CHAINS. The `push` steps these used to name were
        removed with the local store — the sheet IS the store now, so there is
        nothing left to push it to. */
@@ -220,7 +272,59 @@ function studio() {
       const seg = location.pathname.split('/').filter(Boolean)[0];
       this.gh.owner = host || '';
       this.gh.repo = seg || host || '';
-      try { this.gh.token = localStorage.getItem('ipoPulse.ghToken') || ''; } catch (e) {}
+      /* Deliberately not read back — the token is memory-only, see above.
+         This removes what older builds persisted, so the upgrade takes the
+         credential off the machine instead of leaving it there unread. */
+      try { localStorage.removeItem('ipoPulse.ghToken'); } catch (e) {}
+
+      this.gh.sealed = !!(window.IPO_GATE && window.IPO_GATE.sealed);
+      this.adoptSealed();
+    },
+
+    /* Take the token gate.js unsealed, if it left one.
+     *
+     * Called from init AND from ghOpen, and the second call is the one that
+     * matters. Alpine initialises while the gate overlay is still up — the page
+     * is only hidden, not un-mounted — so at init time the password has usually
+     * not been typed yet and window.GH_PAT does not exist. Adopting once at
+     * startup would therefore ask for the password again on every fresh load,
+     * which is the exact friction the seal exists to remove. */
+    adoptSealed() {
+      if (this.gh.token) return;
+      if (window.GH_PAT) {
+        this.gh.token = window.GH_PAT;
+        this.gh.ok = true;
+        this.gh.msg = 'Token unsealed from this deployment. Nothing to paste.';
+      } else if (window.IPO_GATE && window.IPO_GATE.error) {
+        this.gh.ok = false;
+        this.gh.msg = window.IPO_GATE.error;
+      }
+    },
+    ghOpen() { this.adoptSealed(); this.gh.open = true; },
+
+    /* The reload case, and the only reason this panel still has a password
+       field. gate.js unseals on password entry, but it only asks once per
+       session — so after F5 the studio is unlocked and the token is gone,
+       by design: it is never written to any storage. One field, one derive.
+
+       AES-GCM authenticates, so a wrong password throws here rather than
+       handing api.github.com a corrupt credential and getting a 401 that
+       blames the token. */
+    async unsealToken() {
+      const pw = this.gh.pw;
+      if (!pw || !window.IPO_GATE || !window.IPO_GATE.sealed) return;
+      this.gh.busy = true; this.gh.ok = true; this.gh.msg = 'Unsealing…';
+      try {
+        const token = await window.IPO_GATE.unseal(pw);
+        if (!token) throw new Error('this deployment carries no sealed token');
+        this.gh.token = token; this.gh.pw = '';
+        this.gh.ok = true; this.gh.msg = 'Unsealed. Nothing was stored.';
+        this.ghRuns();
+      } catch (err) {
+        this.gh.ok = false;
+        this.gh.msg = 'Wrong password, or the token was sealed under a '
+          + 'different one. You can also paste a token by hand below.';
+      } finally { this.gh.busy = false; }
     },
     /* Every GitHub token prefix. Checked because the field sits next to a
        panel about running jobs, and the other credential in this project —
@@ -243,14 +347,20 @@ function studio() {
         return;
       }
       this.gh.token = t; this.gh.draft = '';
-      try { localStorage.setItem('ipoPulse.ghToken', t); } catch (e) {}
-      this.gh.ok = true; this.gh.msg = 'Token saved in this browser.';
+      this.gh.ok = true;
+      this.gh.msg = 'Held in this tab only — nothing written to this machine. '
+        + 'Reloading or closing the tab forgets it.';
       this.ghRuns();
     },
     forgetToken() {
-      this.gh.token = ''; this.gh.runs = [];
+      this.gh.token = ''; this.gh.draft = ''; this.gh.runs = [];
+      /* Also drop the copy gate.js handed over, or "Forget" would clear the
+         panel while leaving the token reachable from the console. */
+      try { window.GH_PAT = ''; } catch (e) {}
+      /* Nothing is stored any more, but an upgrade can still meet a key an
+         older build left behind. Cheap to clear twice, expensive to miss. */
       try { localStorage.removeItem('ipoPulse.ghToken'); } catch (e) {}
-      this.gh.ok = true; this.gh.msg = 'Token removed from this browser.';
+      this.gh.ok = true; this.gh.msg = 'Token forgotten.';
     },
     _ghHeaders() {
       return { Accept: 'application/vnd.github+json',
