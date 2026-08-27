@@ -252,6 +252,107 @@ than becoming quiet fabrications that later read as data.
 
 `doctor --fix` runs inside the `daily` chain, between `sync` and `build`.
 
+### Filling reel 4 for free: `facts`
+
+```bash
+ipopulse facts                        # every IPO, gaps only
+ipopulse facts tempsens-instruments-india --dry-run
+ipopulse facts <slug> --force         # replace stored figures, not just gaps
+```
+
+Three years of restated revenue / EBITDA / PAT / net worth / borrowings, plus
+post-issue EPS and the sHNI and bHNI minimum bid sizes — read straight out of
+InvestorGain's detail record, which publishes them as an HTML table. Free,
+keyless, no Gemini request.
+
+This exists because reel 4 is called *Apply or Skip* and its financials and
+valuation scenes were blank on 16 of 19 tracked IPOs. The only filler in the
+pipeline was `rhp`, a model read of a 400-page prospectus PDF that usually came
+back empty and spent a request finding out. `facts` runs before `enrich` in the
+`daily` chain, so by the time the metered step looks, there is nothing left for
+it to do.
+
+Gap-filling by default: a figure you corrected by hand survives it. The one
+case it refuses without `--force` is a **different year axis** — replacing
+FY23–FY25 with FY24–FY26 while keeping a hand-typed series would silently
+re-label FY23's revenue as FY24, so the years and the values only ever move
+together. (Three IPOs were already in exactly that state: correct figures filed
+under scaffold year labels the RHP step never corrected.)
+
+### Can I record this? `validate`
+
+```bash
+ipopulse validate                     # every IPO × every reel
+ipopulse validate -v                  # also the thin scenes and shut windows
+ipopulse validate --strict            # exit 1 if a record contradicts itself
+```
+
+```
+IPO                               STATUS      1  2  3  4  5  6   READY  ISSUES
+Augmont Enterprises               open        ●  ●  ●  ◐  ●  ·   4/6
+Tempsens Instruments (India)      closed      ·  ●  ●  ·  ·  ●   3/6
+
+  ● ready   ◐ recordable but thin or stale   ✗ a required field is missing
+  · outside its window
+```
+
+Two independent judgements, and keeping them apart is the point:
+
+* **the window** — every reel has a shelf life that follows from the issue
+  calendar alone. A subscription reel cannot be shot before bidding opens and
+  is worthless once allotment is out; a GMP reel runs until the listing settles
+  the bet. Pure arithmetic on the dates, no model asked.
+* **the data** — are the fields those particular scenes read present, do they
+  contradict each other, and were the two that move daily read recently enough
+  to still be true.
+
+A reel is green only when both say yes. That is what stops a confident green
+light on an issue that closed last Friday: the data is complete, valid, and
+publishing it would still be misinformation.
+
+`validate` also reports contradictions a record can hold while every `doctor`
+check passes — a listing dated before the close, an EBITDA larger than the
+revenue it came out of, a lot value outside SEBI's ₹10k–₹15k retail minimum, a
+subscription total that went *down* between two days.
+
+The same judgement drives the studio: a coloured dot on each reel tab, a
+`●3`-style count in the company dropdown, and a line under the tabs reading
+*"Valid until Thu, 27 Aug, 17:00 — bidding closes."*
+
+### Is the data still arriving? `monitor`
+
+```bash
+ipopulse monitor                      # the health check
+ipopulse monitor --strict             # exit 1 on anything that should have arrived and did not
+```
+
+The watchdog, and the only scheduled job whose purpose is to go **red**.
+
+Every other job writes something and reports success on exit 0 — which it does
+just as happily when the sheet was already full and nothing new arrived. A
+timer that quietly stopped firing, a slug that stopped matching upstream, an
+expired credential: none of them fail a run. The first visible symptom is a
+reel quoting a three-day-old premium as today's.
+
+`monitor` compares the store against two things:
+
+* **the calendar** — an issue taking bids today *must* have a subscription row
+  dated today and a GMP no older than yesterday. What should have arrived is
+  derivable from the issue's own dates, so a missing row is a finding rather
+  than something to eyeball.
+* **its own last run** — a fingerprint goes to `backend/.cache/monitor.json`
+  every run, so the next one can say what moved. Nothing moving is not
+  automatically wrong (a weekend, no live issues); nothing moving *while an
+  issue is open* always is.
+
+It also catches the same company stored twice, which discovery does when a
+near-miss in the slug matcher scaffolds a second row instead of filling the
+first — both then collect GMP and both appear in the dropdown.
+
+Read-only. It makes no sheet write, so unlike every other job it cannot race
+one. Scheduled at 12:30, 19:30 and 22:30 IST, each slot placed after a writing
+job has had time to finish.
+
 ## Adding an IPO
 
 ```bash

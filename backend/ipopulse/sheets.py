@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -175,6 +176,10 @@ def ensure_tabs(service=None) -> list[str]:
 
 # ── read ───────────────────────────────────────────────────────────────────
 
+# How long to wait before re-reading a store that came back entirely
+# empty. One batchUpdate round trip is the window being stepped over.
+RETRY_PAUSE = 4.0
+
 _cache: dict[str, Any] = {"loaded": False, "records": {}}
 
 
@@ -193,8 +198,37 @@ def _fetch() -> dict[str, list[list]]:
         ).execute()
     except Exception as exc:
         raise _explain(exc) from exc
-    return {name: block.get("values", [])
-            for name, block in zip(wanted, res.get("valueRanges", []))}
+    out = {name: block.get("values", [])
+           for name, block in zip(wanted, res.get("valueRanges", []))}
+
+    # Every tab empty at once is not a state this store can legitimately be
+    # in — it always holds at least a header row. What it actually means is
+    # that `write_records` is between its batchClear and its batchUpdate, and
+    # the reader landed in the gap.
+    #
+    # Found the hard way: a monitor run during a chain's enrich loop read zero
+    # IPOs, reported the entire store as vanished, and wrote a fingerprint of
+    # nothing — which would have made the NEXT run report 131 phantom new rows.
+    # A reader that cannot tell "mid-write" from "wiped" turns a routine
+    # overlap into a false alarm, and a caller that then WRITES what it read
+    # would turn it into real data loss.
+    #
+    # One retry, because the window is a single API round trip wide. If it is
+    # still empty, that is a genuinely empty spreadsheet and the caller should
+    # see it.
+    if wanted and all(not rows for rows in out.values()):
+        time.sleep(RETRY_PAUSE)
+        try:
+            res = service.spreadsheets().values().batchGet(
+                spreadsheetId=sheet_id(),
+                ranges=[_span(name) for name in wanted],
+                valueRenderOption="UNFORMATTED_VALUE",
+            ).execute()
+        except Exception as exc:
+            raise _explain(exc) from exc
+        out = {name: block.get("values", [])
+               for name, block in zip(wanted, res.get("valueRanges", []))}
+    return out
 
 
 def records(force: bool = False) -> dict[str, dict]:

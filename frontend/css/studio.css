@@ -122,6 +122,28 @@ body {
 @keyframes livedot { 0%,100% { opacity:1; transform:scale(1) } 50% { opacity:.35; transform:scale(.82) } }
 .livedot { animation: livedot 1.4s ease-in-out infinite; }
 
+/* The readiness dot, when the reel's validity window shuts within a day.
+ *
+ * Its own keyframe rather than reusing .livedot: that one is a recording
+ * indicator that lives INSIDE an exported card, and this one is studio
+ * furniture that must never appear in a PNG. Keeping them separate means a
+ * change to the export path cannot accidentally start or stop the other.
+ *
+ * A halo rather than a size change — the dot sits inline in a 9px tab label
+ * and scaling it reflows the row every 1.6s, which is genuinely hard to read
+ * next to. Opacity and a ring do not move anything.
+ *
+ * Honours prefers-reduced-motion below: a blinking element is the textbook
+ * trigger, and the colour alone still carries the state. */
+@keyframes readyblink {
+  0%, 100% { opacity: 1;   box-shadow: 0 0 0 0 currentColor }
+  50%      { opacity: .45; box-shadow: 0 0 0 3px rgba(255,255,255,0) }
+}
+.dot-blink { animation: readyblink 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .dot-blink { animation: none; }
+}
+
 @keyframes alertpulse {
   0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.45) }
   50%     { box-shadow: 0 0 0 10px rgba(239,68,68,0) }

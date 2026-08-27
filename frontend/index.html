@@ -50,6 +50,9 @@
 
 
 <script src="js/i18n.js"></script>
+<!-- Before compute.js, not after: dateMetrics now derives `status` from the
+     clock via rStatus/rCloseAt, which live here. -->
+<script src="js/readiness.js"></script>
 <script src="js/compute.js"></script>
 <!-- The store is a live Google Sheet. config.js carries its id (generated,
      never committed); sheet.js reads the tabs as CSV with no key. Both must
@@ -90,13 +93,24 @@
          anyone who cannot separate the greens from the ambers. `catalogue` is
          already sorted liveliest-first (see data.js _rows), so the actionable
          ones are at the top regardless. -->
-    <select class="inp !w-auto !py-1.5 font-bold" :value="slug" :style="selectStyle"
-            @change="select($event.target.value)">
-      <template x-for="c in catalogue" :key="c.slug">
-        <option :value="c.slug" :style="optionStyle(c)"
-                x-text="c.company + '  ·  ' + c.board + '  ·  ' + (c.status || '')"></option>
-      </template>
-    </select>
+    <!-- A native <option> cannot hold an element, so the readiness signal has
+         to travel as text: "●3" means three of the six reels are recordable
+         right now, "○" means none are. The blinking dot lives outside the
+         select, on the current pick, where an element is allowed. Both read
+         the same `ready_count` off the catalogue row (data.js index). -->
+    <div class="relative flex items-center gap-1.5">
+      <span class="w-2 h-2 rounded-full shrink-0"
+            :class="ready && ready.urgent ? 'dot-blink' : ''"
+            :style="`background:${readyTone(ready && ready.ready_count ? 'ready' : 'blocked').dot}`"
+            :title="ready ? ready.ready_count + ' of 6 reels ready to record' : ''"></span>
+      <select class="inp !w-auto !py-1.5 font-bold" :value="slug" :style="selectStyle"
+              @change="select($event.target.value)">
+        <template x-for="c in catalogue" :key="c.slug">
+          <option :value="c.slug" :style="optionStyle(c)"
+                  x-text="(c.ready_count ? '●'+c.ready_count : '○') + '  ' + c.company + '  ·  ' + c.board + '  ·  ' + (c.status || '')"></option>
+        </template>
+      </select>
+    </div>
 
     <div class="flex items-center gap-1 rounded-lg bg-white/5 p-1 border border-white/10">
       <template x-for="l in [['en','EN'],['hi','हिं'],['te','తె']]" :key="l[0]">
@@ -320,6 +334,20 @@
               :class="reelIndex===i ? 'border-transparent text-white' : 'border-white/10 bg-white/[.03] text-slate-400 hover:bg-white/[.08]'"
               :style="reelIndex===i ? `background:linear-gradient(180deg,${reelAcc(r)}33,${reelAcc(r)}12);border-color:${reelAcc(r)}88` : ''">
         <div class="flex items-center gap-1">
+          <!-- Can this one be recorded right now?
+               Green is go, amber is "recordable but a scene will be thin or a
+               number is old", rose is "a field the scenes read is missing",
+               grey is outside its validity window. It blinks only when the
+               window shuts within a day — that is the difference between "you
+               can record this" and "you can record this today and not
+               tomorrow", which is the only reason to check the tabs in the
+               morning. See js/readiness.js. -->
+          <template x-if="reelReady(r)">
+            <span class="w-1.5 h-1.5 rounded-full shrink-0"
+                  :class="reelReady(r).urgent ? 'dot-blink' : ''"
+                  :style="`background:${readyTone(reelReady(r).state).dot}`"
+                  :title="readyTone(reelReady(r).state).label + (reelReady(r).missing.length ? ' — missing ' + reelReady(r).missing.join(', ') : '')"></span>
+          </template>
           <span class="text-[9px] font-black tracking-[.16em] opacity-70" x-text="'REEL 0'+r.n"></span>
           <!-- scenesFor, not r.scenes.length: reel 1 drops its background scene
                when the IPO has none, and a tab promising 6 while the reel plays
@@ -331,6 +359,24 @@
       </button>
     </template>
   </div>
+
+  <!-- From when to when this reel may be recorded, and what it is waiting on.
+       Derived, never asked of a model: every bound is arithmetic on the issue
+       calendar (see js/readiness.js R_WINDOWS). This is the answer to a card
+       that read `open` with a countdown sitting at 00:00 — the status was
+       comparing dates against dates, so an issue stayed "open" for the seven
+       hours between its 17:00 cut-off and midnight. -->
+  <template x-if="readyNote">
+    <div class="mx-3 mb-2 rounded-lg border border-white/10 bg-white/[.03] px-2.5 py-1.5
+                flex items-center gap-2 text-[10.5px] font-bold">
+      <span class="w-1.5 h-1.5 rounded-full shrink-0"
+            :class="reelReady(reel) && reelReady(reel).urgent ? 'dot-blink' : ''"
+            :style="`background:${readyTone(reelReady(reel).state).dot}`"></span>
+      <span class="text-slate-500 uppercase tracking-[.12em] text-[9px] shrink-0"
+            x-text="readyTone(reelReady(reel).state).label"></span>
+      <span :class="readyNote.tone" x-text="readyNote.text"></span>
+    </div>
+  </template>
 
 <div class="flex-1 flex min-h-0">
 
@@ -1587,6 +1633,42 @@
                     </div>
                   </div>
 
+                  <!-- The same question, answered for the categories that are
+                       not retail.
+
+                       This scene used to stop at the retail multiple, which
+                       quietly assumed every viewer applies with ₹15,000. An
+                       HNI gets a different answer on BOTH halves: Tempsens
+                       closed at 61x retail against 281x sHNI and 331x bHNI,
+                       and the sHNI ticket is fourteen lots rather than one.
+                       Rows appear only where the exchange published that
+                       tranche, so an issue with no NII split simply shows the
+                       retail row it always did. -->
+                  <template x-if="oddsRows.length > 1">
+                    <div class="glass p-2 space-y-1">
+                      <div class="lbl text-center" x-text="t('oddsByCat')"></div>
+                      <template x-for="r in oddsRows" :key="r.key">
+                        <div class="flex items-center gap-2 text-2xs font-bold">
+                          <span class="w-1.5 h-1.5 rounded-full shrink-0"
+                                :style="`background:${r.tone}`"></span>
+                          <span class="text-slate-300 shrink-0" x-text="r.label"></span>
+                          <span class="flex-1 border-b border-dotted border-white/15"></span>
+                          <span class="tnum opacity-70" x-show="r.cheque"
+                                x-text="'₹'+fmt(r.cheque)"></span>
+                          <span class="tnum font-black tabular-nums shrink-0"
+                                :class="subTone(r.mult)" x-text="r.odds"></span>
+                        </div>
+                      </template>
+                      <!-- QIB is proportionate and the anchor book is
+                           discretionary. Printing "1 in 303" beside a 302.88x
+                           QIB figure would be a fabricated statistic about a
+                           process that holds no lottery, so it is said in
+                           words and given no number. -->
+                      <div class="text-[8px] font-bold text-slate-500 pt-0.5"
+                           x-show="qibNote" x-text="qibNote"></div>
+                    </div>
+                  </template>
+
                   <div class="glass glass-a p-2.5 text-center">
                     <span class="text-2xs font-extrabold text-amber-200"
                           x-text="t('stakeNote')"></span>
@@ -2065,7 +2147,14 @@
             <div class="flex items-center justify-between text-[10.5px] rounded px-1.5 py-0.5"
                  :class="i===scene ? 'bg-white/10 text-slate-100' : 'text-slate-400'">
               <span x-text="sc.id"></span>
-              <span class="tnum" x-text="finalHolds[sc.id].toFixed(1)+'s'"></span>
+              <!-- `|| 4`, matching holdSeconds / reelSeconds / naturalSeconds.
+                   `scenes` and `finalHolds` are both derived from scenesFor,
+                   but they are evaluated on different Alpine ticks — so while a
+                   record loads, this x-for can still hold reel 1's `background`
+                   chip after finalHolds has already dropped it, and indexing a
+                   missing id threw. Every other reader already had this
+                   fallback; this was the one that did not. -->
+              <span class="tnum" x-text="(finalHolds[sc.id] || 4).toFixed(1)+'s'"></span>
             </div>
           </template>
         </div>

@@ -233,12 +233,18 @@ def _sheet_gmp(wb: Workbook, ipo: Ipo, d: dict) -> None:
 
 def _sheet_subscription(wb: Workbook, ipo: Ipo, d: dict) -> None:
     ws = wb.create_sheet("Subscription")
-    _title(ws, "Day-wise subscription (times)", span=7)
-    _header_row(ws, 3, ["Day", "Date", "QIB", "NII / HNI", "Retail", "Employee", "Total"])
+    # sHNI / bHNI sit next to the NII total they add up to, rather than
+    # replacing it: the blended figure is what every other desk quotes, and the
+    # split is what tells an HNI their own allotment odds. A blank cell is an
+    # exchange that did not publish the split, which is not a zero.
+    _title(ws, "Day-wise subscription (times)", span=9)
+    _header_row(ws, 3, ["Day", "Date", "QIB", "NII / HNI", "sHNI 2-10L",
+                        "bHNI 10L+", "Retail", "Employee", "Total"])
     for i, s in enumerate(d["subscription"].get("days", [])):
         r = 4 + i
-        vals = [s["day"], s["date"], s["qib"], s["nii"], s["retail"],
-                s["employee"], s["total"]]
+        vals = [s["day"], s["date"], s["qib"], s["nii"],
+                s.get("nii_small") or None, s.get("nii_big") or None,
+                s["retail"], s["employee"], s["total"]]
         for c, v in enumerate(vals, start=1):
             cell = ws.cell(row=r, column=c, value=v)
             cell.border = BOX
@@ -246,7 +252,7 @@ def _sheet_subscription(wb: Workbook, ipo: Ipo, d: dict) -> None:
                 cell.number_format = MULT
             if i % 2:
                 cell.fill = FILL_ALT
-        ws.cell(row=r, column=7).font = BOLD
+        ws.cell(row=r, column=9).font = BOLD
     ws.freeze_panes = "A4"
     _autosize(ws)
 

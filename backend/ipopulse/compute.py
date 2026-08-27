@@ -233,6 +233,11 @@ def subscription_metrics(ipo: Ipo) -> dict[str, Any]:
         "nii": last.nii,
         "retail": last.retail,
         "employee": last.employee,
+        # The NII book, split at SEBI's ₹10 lakh line. Passed through rather
+        # than folded into `nii` because each tranche allots its minimum bid
+        # by its own draw, so each has its own odds — see studio.js oddsRows.
+        "nii_small": last.nii_small,
+        "nii_big": last.nii_big,
         "total": total,
         "max_category": max(last.qib, last.nii, last.retail, last.employee, 1.0),
         "sentiment": sentiment,
@@ -247,6 +252,7 @@ def subscription_metrics(ipo: Ipo) -> dict[str, Any]:
                 "date": s.date.isoformat() if s.date else None,
                 "qib": s.qib, "nii": s.nii, "retail": s.retail,
                 "employee": s.employee, "total": s.total,
+                "nii_small": s.nii_small, "nii_big": s.nii_big,
             }
             for s in ipo.subscription
         ],
@@ -292,7 +298,12 @@ def financial_metrics(ipo: Ipo) -> dict[str, Any]:
     span = n - 1
     first, last = rows[0], rows[-1]
     band = ipo.issue.price_high
-    pe = _round(band / f.eps, 1) if f.eps else 0.0
+    # Only a POSITIVE EPS has a price/earnings multiple. Horizon Industrial
+    # Parks posts an EPS of -0.71 against a ₹60 band, which divided out to a
+    # confident "-84.5x" — a number that looks like a valuation, sorts like a
+    # cheap one, and means nothing at all. A loss-making issue has no P/E, and
+    # 0.0 is how every consumer here already spells "not available".
+    pe = _round(band / f.eps, 1) if f.eps > 0 else 0.0
     shares = ipo.issue.shares_post_issue_cr        # crore shares, post-issue
     mcap = _round(band * shares) if (band and shares) else 0.0
 
@@ -365,9 +376,21 @@ def financial_metrics(ipo: Ipo) -> dict[str, Any]:
 # ── dates / countdown ──────────────────────────────────────────────────────
 
 def date_metrics(ipo: Ipo, now: datetime | None = None) -> dict[str, Any]:
+    """The calendar, plus where the clock currently sits in it.
+
+    `status` used to compare dates against dates, which made an issue "open"
+    for the seven hours between its 17:00 cut-off and midnight — the countdown
+    read 00:00 while the card still said apply. It now compares *moments*, so
+    the two agree by construction. The ladder itself lives in readiness.py
+    because the reel-validity windows are built out of the same instants and
+    two copies of "when does bidding actually stop" is one too many.
+    """
+    from . import readiness
+
     now = now or datetime.now()
     d = ipo.dates
-    out: dict[str, Any] = {
+    shut, opens = readiness.close_at(ipo), readiness.open_at(ipo)
+    return {
         "announced": d.announced.isoformat() if d.announced else None,
         "open": d.open.isoformat() if d.open else None,
         "close": d.close.isoformat() if d.close else None,
@@ -375,29 +398,10 @@ def date_metrics(ipo: Ipo, now: datetime | None = None) -> dict[str, Any]:
         "allotment": d.allotment.isoformat() if d.allotment else None,
         "refund": d.refund.isoformat() if d.refund else None,
         "listing": d.listing.isoformat() if d.listing else None,
-        "close_at": None,
-        "status": "upcoming",
+        "open_at": opens.isoformat() if opens else None,
+        "close_at": shut.isoformat() if shut else None,
+        "status": readiness.status(ipo, now),
     }
-    if d.close:
-        hh, _, mm = d.close_time.partition(":")
-        try:
-            close_at = datetime.combine(
-                d.close, datetime.min.time().replace(hour=int(hh), minute=int(mm or 0))
-            )
-        except ValueError:
-            close_at = datetime.combine(d.close, datetime.min.time())
-        out["close_at"] = close_at.isoformat()
-
-    today = now.date()
-    if d.listing and today >= d.listing:
-        out["status"] = "listed"
-    elif d.allotment and today >= d.allotment:
-        out["status"] = "allotment"
-    elif d.close and today > d.close:
-        out["status"] = "closed"
-    elif d.open and today >= d.open:
-        out["status"] = "open"
-    return out
 
 
 # ── listing expectations ───────────────────────────────────────────────────

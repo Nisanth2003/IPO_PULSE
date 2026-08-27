@@ -315,6 +315,193 @@ def _plain(value: Any) -> str:
 _detail_cache: dict[int, dict[str, Any]] = {}
 
 
+def detail(row_or_url: Any) -> dict[str, Any]:
+    """The `ipo-detail-read` record, fetched once per process.
+
+    Three separate readers want this one payload — the business description,
+    the financial statement and the valuation KPIs — and they are called back
+    to back from `enrich`. Sharing the cache turns three round trips into one.
+    """
+    ident = _ipo_id(row_or_url)
+    if not ident:
+        return {}
+    if ident not in _detail_cache:
+        try:
+            payload = _get(f"ipo-detail-read/{ident}")
+        except Exception:
+            return {}                     # not cached — a blip should retry
+        data = payload.get("ipoData")
+        if isinstance(data, list):
+            data = data[0] if data else {}
+        _detail_cache[ident] = data if isinstance(data, dict) else {}
+    return _detail_cache[ident]
+
+
+# ── the financial statement ────────────────────────────────────────────────
+# The single biggest gap in the whole store: reel 4 is called "Apply or Skip"
+# and its financials and valuation scenes were blank for 16 of 19 tracked
+# IPOs, because the only filler was a Gemini read of a 400-page RHP PDF that
+# mostly came back empty and cost a request each time it did.
+#
+# This desk publishes the same restated statement as an HTML table on the
+# detail record — three years of Assets / Total Income / PAT / EBITDA / Net
+# Worth / Reserves / Total Borrowing, in rupees crore, keyed by period end.
+# Free, keyless, deterministic and already fetched for the company brief.
+#
+# Their row labels, mapped to ours. Anything unlisted is skipped rather than
+# guessed: 'Reserves and Surplus' is not net worth and 'Assets' is not revenue.
+FIN_ROWS = {
+    "total income": "revenue",
+    "revenue": "revenue",
+    "revenue from operations": "revenue",
+    "ebitda": "ebitda",
+    "profit after tax": "pat",
+    "net profit": "pat",
+    "net worth": "net_worth",
+    "total borrowing": "total_debt",
+    "total borrowings": "total_debt",
+}
+
+_CELL = re.compile(r"<t([dh])[^>]*>(.*?)</t\1>", re.S | re.I)
+_ROW = re.compile(r"<tr[^>]*>(.*?)</tr>", re.S | re.I)
+
+
+def _fy(period: str) -> str | None:
+    """'31 Mar 2026' -> 'FY26'. Anything that is not a March year-end is
+    dropped: a nine-month stub period stacked beside two full years would read
+    as a collapse in revenue that never happened."""
+    m = re.search(r"(\d{1,2})\s*(\w{3})\w*\s*(\d{4})", period or "")
+    if not m:
+        return None
+    day, mon, year = int(m.group(1)), m.group(2).lower(), int(m.group(3))
+    if mon != "mar" or day < 28:
+        return None
+    return f"FY{year % 100:02d}"
+
+
+def financials(row_or_url: Any) -> dict[str, Any]:
+    """Three years of restated figures, in the store's own column names.
+
+    Returns {} rather than a half-filled shape when the table is absent or
+    unparseable — an empty `years` list written over a hand-typed statement
+    would be a silent deletion.
+    """
+    html_table = (detail(row_or_url) or {}).get("financial") or ""
+    if "<t" not in str(html_table):
+        return {}
+
+    grid: list[list[str]] = []
+    for raw_row in _ROW.findall(str(html_table)):
+        cells = [_plain(c) for _, c in _CELL.findall(raw_row)]
+        if cells:
+            grid.append(cells)
+    if len(grid) < 2:
+        return {}
+
+    # Header: 'Period Ended' then one column per year, newest first.
+    head = grid[0]
+    years, cols = [], []
+    for i, cell in enumerate(head[1:], start=1):
+        fy = _fy(cell)
+        if fy:
+            years.append(fy)
+            cols.append(i)
+    if not years:
+        return {}
+
+    series: dict[str, list[float | None]] = {}
+    for row in grid[1:]:
+        label = FIN_ROWS.get(row[0].strip().lower().rstrip("*").strip())
+        if not label or label in series:
+            continue
+        series[label] = [_num(row[i]) if i < len(row) else None for i in cols]
+    if not series:
+        return {}
+
+    # They print newest-first; the store and every chart read oldest-first.
+    order = sorted(range(len(years)), key=lambda i: years[i])
+    out: dict[str, Any] = {"years": [years[i] for i in order]}
+    for label, vals in series.items():
+        picked = [vals[i] for i in order]
+        # All-absent means the row was there but empty. Absence is not zero.
+        if any(v is not None for v in picked):
+            out[label] = [0.0 if v is None else v for v in picked]
+    return out
+
+
+def valuation(row_or_url: Any) -> dict[str, Any]:
+    """Post-issue EPS and the ratio KPIs behind reel 4's valuation scene.
+
+    Post-issue and not pre-issue EPS, deliberately: the P/E a buyer pays is
+    the band over the earnings per share the company will have AFTER the fresh
+    issue dilutes it. `kpi_eps` is the pre-issue figure and flatters every
+    valuation it touches.
+
+    Peer P/E is NOT here. `peer_group_financial_stmt` comes back empty on every
+    row checked, and a peer average is the one number on that scene that cannot
+    be approximated — so it stays a gap `doctor` reports rather than something
+    filled with the issue's own multiple under a different label.
+    """
+    d = detail(row_or_url) or {}
+    if not d:
+        return {}
+    out: dict[str, Any] = {}
+    for key, field in (("eps", "kpi_eps_post"), ("pe", "post_pe_ratio"),
+                       ("ronw", "kpi_ronw"), ("roce", "kpi_roce"),
+                       ("debt_equity", "kpi_debt_equity"),
+                       ("pat_margin", "kpi_pat_margin"),
+                       ("ebitda_margin", "kpi_ebitda"),
+                       ("nav", "nav"), ("market_cap", "market_cap"),
+                       ("price_to_book", "price_to_book_value")):
+        val = _num(d.get(field))
+        if val is not None:
+            out[key] = val
+    return out
+
+
+def categories(row_or_url: Any) -> dict[str, Any]:
+    """Shares reserved per category, and the minimum bid each one must make.
+
+    What reel 4's `stake` scene needs to quote allotment odds for anyone other
+    than a retail applicant. The sHNI and bHNI tranches have their own minimum
+    application sizes (14 lots and 67 lots on Tempsens), and since 2021 both
+    allot that minimum by draw — so each has its own odds, and neither is the
+    retail number.
+    """
+    d = detail(row_or_url) or {}
+    if not d:
+        return {}
+    out: dict[str, Any] = {}
+    for key, field in (("qib", "shares_offered_qib"), ("nii", "shares_offered_nii"),
+                       ("nii_small", "shares_offered_small_nii"),
+                       ("nii_big", "shares_offered_big_nii"),
+                       ("retail", "shares_offered_rii"),
+                       ("employee", "shares_offered_emp"),
+                       ("total", "shares_offered_total")):
+        val = _num(d.get(field))
+        if val:
+            out[f"shares_{key}"] = val
+    # '700 shares (14 lots)' — the share count is what the odds arithmetic
+    # needs, and the lot count is already derivable from it.
+    for key, field in (("min_shni_qty", "min_hni_qty"),
+                       ("min_bhni_qty", "min_bhni_qty"),
+                       ("max_retail_qty", "max_retail_qty")):
+        val = _num(d.get(field))
+        if val:
+            out[key] = val
+
+    # `market_lot_size`, NOT `minimum_order_quantity`. They differ on SME
+    # issues — Madhur Knit Crafts has a 1200-share lot and a 2400-share retail
+    # minimum, because SME retail must bid two lots — and it is the LOT that
+    # every per-lot figure in this project multiplies by: minimum investment,
+    # gain per lot, the trail's profit column, the allotment draw unit.
+    # Storing the order minimum as the lot would inflate all of them 2×.
+    lot = _num(d.get("market_lot_size"))
+    if lot:
+        out["lot_size"] = int(lot)
+    return out
+
+
 def company_brief(row_or_url: Any) -> dict[str, Any]:
     """What the company actually does, in its own filing's words.
 
@@ -344,19 +531,7 @@ def company_brief(row_or_url: Any) -> dict[str, Any]:
     and `article_ids` is blank, so this desk simply does not carry it. Do not
     add a news key here that quietly holds something else.
     """
-    ident = _ipo_id(row_or_url)
-    if not ident:
-        return {}
-    if ident not in _detail_cache:
-        try:
-            payload = _get(f"ipo-detail-read/{ident}")
-        except Exception:
-            return {}                     # not cached — a blip should retry
-        data = payload.get("ipoData")
-        if isinstance(data, list):
-            data = data[0] if data else {}
-        _detail_cache[ident] = data if isinstance(data, dict) else {}
-    d = _detail_cache[ident]
+    d = detail(row_or_url)
     if not d:
         return {}
 
@@ -411,7 +586,8 @@ def subscription(row_or_url: Any) -> list[dict[str, Any]]:
         if when:
             row["date"] = when
         for field, key in (("qib", "qib"), ("nii", "nii"),
-                           ("retail", "rii"), ("employee", "emp")):
+                           ("retail", "rii"), ("employee", "emp"),
+                           ("nii_small", "nii_small"), ("nii_big", "nii_big")):
             val = _num(r.get(key))
             if val is not None:
                 row[field] = val

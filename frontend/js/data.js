@@ -116,6 +116,12 @@ const DATA = {
         day: _f(row.day, 1), date: _d(row.date), qib: _f(row.qib),
         nii: _f(row.nii), retail: _f(row.retail),
         employee: _f(row.employee), total: _f(row.total),
+        // NII split at the ₹10 lakh line SEBI drew in 2021. Separately
+        // published and routinely 4x apart — Tempsens closed day 1 at 20.75x
+        // sHNI against 8.39x bHNI, and "NII 12.51x" tells neither of them
+        // their own odds. Absent on rows written before the columns existed,
+        // which _f turns into 0 and the scene reads as "not published".
+        nii_small: _f(row.nii_small), nii_big: _f(row.nii_big),
       });
     }
 
@@ -184,7 +190,12 @@ const DATA = {
     return out;
   },
 
-  /** Catalogue for the company dropdown. */
+  /** Catalogue for the company dropdown.
+   *
+   * Carries `ready` and `urgent` so the dropdown can say which companies have
+   * a video waiting in them without opening each one. That was the gap: the
+   * list showed 19 names and the only way to learn that 12 of them were
+   * blocked on a missing field was to click through all 19. */
   async index() {
     const rows = await this._rows();
     return {
@@ -193,6 +204,7 @@ const DATA = {
       ipos: rows.map(r => ({
         slug: r.slug, company: r.company, initials: r.initials,
         board: r.board, status: r.status,
+        ready: r.ready, ready_count: r.ready_count, urgent: r.urgent,
       })),
     };
   },
@@ -220,8 +232,16 @@ const DATA = {
       // not a genuine zero premium, and publishing 0 put "₹0 · 0.00%" on
       // the board for IPOs nobody had a reading for.
       const seen = ipo.gmp_history.length > 0;
+      // Which of the six can actually be shot, judged on the clock as well as
+      // on the data — see readiness.js. Computed here rather than in the
+      // component so the dropdown, the board and the reel tabs all read one
+      // answer instead of three that can disagree.
+      const rr = readinessReport(ipo, d);
       return {
         slug: ipo.slug,
+        ready: rr.ready,
+        ready_count: rr.ready_count,
+        urgent: rr.urgent,
         company: ipo.company || ipo.slug,
         initials: d.initials,
         board: ipo.board,
@@ -330,6 +350,11 @@ function normalise(r) {
       price_high: _f(issue.price_high),
       lot_size: Math.trunc(_f(issue.lot_size)),
       shares_post_issue_cr: _f(issue.shares_post_issue_cr),
+      // Minimum application in SHARES for the two HNI tranches. Retail's
+      // minimum is one lot and needs no field; sHNI and bHNI have their own
+      // floors (₹2 lakh and ₹10 lakh worth) and nothing else implies them.
+      min_shni_qty: _f(issue.min_shni_qty),
+      min_bhni_qty: _f(issue.min_bhni_qty),
       registrar: _s(issue.registrar),
       registrar_url: _s(issue.registrar_url),
       exchanges: exchanges.length ? exchanges : ['BSE', 'NSE'],

@@ -88,11 +88,16 @@ CHECKS: list[Check] = [
     ("Announced date",  lambda i: 1 if i.dates.announced else 0,     "you",      "note",  "reel 1 dates omits the row"),
     ("GMP",             lambda i: len(i.gmp_history),                "research", "blank", "reel 2 entirely, score: grey"),
     ("Subscription",    lambda i: len(i.subscription),               "nse",      "blank", "reel 3 entirely, score: demand"),
-    ("Revenue",         lambda i: len(i.financials.revenue),         "rhp",      "blank", "reel 4 financials, score: fundamentals"),
-    ("EBITDA",          lambda i: len(i.financials.ebitda),          "rhp",      "blank", "reel 4 financials + margins"),
-    ("PAT",             lambda i: len(i.financials.pat),             "rhp",      "blank", "reel 4 financials, PAT margin"),
-    ("Net worth",       lambda i: len(i.financials.net_worth),       "rhp",      "blank", "RoNW and D/E marks"),
-    ("EPS",             lambda i: i.financials.eps,                  "rhp",      "blank", "P/E, reel 4 valuation"),
+    # `facts`, not `rhp`. InvestorGain publishes the same restated statement as
+    # an HTML table on the detail record — free, keyless, deterministic — and
+    # the RHP read is a Gemini pass over a 400-page PDF that usually returned
+    # nothing. Naming the expensive fallback here sent every gap to the wrong
+    # tool, which is why 16 of 19 IPOs had a blank reel 4.
+    ("Revenue",         lambda i: len(i.financials.revenue),         "facts",    "blank", "reel 4 financials, score: fundamentals"),
+    ("EBITDA",          lambda i: len(i.financials.ebitda),          "facts",    "blank", "reel 4 financials + margins"),
+    ("PAT",             lambda i: len(i.financials.pat),             "facts",    "blank", "reel 4 financials, PAT margin"),
+    ("Net worth",       lambda i: len(i.financials.net_worth),       "facts",    "blank", "RoNW and D/E marks"),
+    ("EPS",             lambda i: i.financials.eps,                  "facts",    "blank", "P/E, reel 4 valuation"),
     ("Peer P/E",        lambda i: i.financials.pe_peer_avg,          "you",      "blank", "reel 4 valuation, score: valuation"),
     ("Shares post-issue", lambda i: i.issue.shares_post_issue_cr,    "rhp",      "note",  "market cap on reel 1 terms"),
     ("Sector",          lambda i: 1 if i.sector else 0,              "you",      "note",  "reel 1 hook + company subtitle"),
@@ -112,6 +117,7 @@ CHECKS: list[Check] = [
 # who -> the command that fills it
 FILLERS = {
     "nse":      "ipopulse sync --provider nse",
+    "facts":    "ipopulse facts             (free, keyless, no Gemini request)",
     "research": "ipopulse refresh            (or: ipopulse research <slug> --write)",
     "analyse":  "ipopulse analyse <slug> --write",
     "derived":  "ipopulse doctor <slug> --fix",

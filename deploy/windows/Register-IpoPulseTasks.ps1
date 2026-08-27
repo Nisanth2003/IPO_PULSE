@@ -91,6 +91,34 @@ $Jobs = @(
        # first time instead of being wrong for a day.
        Why  = 'GMP once InvestorGain has settled the day (it revises until ~23:37), then build. 23:45.'
        Triggers = @( @{ Kind = 'Daily'; At = '23:45' } ) },
+    @{ Name = 'monitor'
+       # The watchdog, and the only task here whose job is to go RED.
+       #
+       # Every other entry writes something and reports success if the process
+       # exited 0 - which it does just as happily when the sheet was already
+       # full and nothing new arrived. A timer that quietly stopped firing, a
+       # slug that stopped matching upstream, an expired credential: none of
+       # them fail a run, and the first visible symptom is a reel quoting a
+       # three-day-old premium as today's.
+       #
+       # `monitor --strict` exits 1 when something that SHOULD have arrived
+       # did not - an issue taking bids with no subscription row dated today,
+       # a GMP older than the market is - so the fault appears as a failed
+       # task in this list rather than being found by reading a log.
+       #
+       # Three slots, each placed after a writing job has had time to finish:
+       #   12:30  after the 10:00 daily chain and the 11:15 GMP pull
+       #   19:30  after the 18:35 daily chain, once the exchanges have
+       #          published the day's closing subscription
+       #   22:30  after the 21:15 GMP pull, before the 23:45 grey chain, so a
+       #          day that never got its numbers is caught the same night
+       # Read-only: it makes no sheet write, so it cannot race any of them.
+       Why  = 'Watchdog: did the data actually arrive? Exits non-zero if not. 12:30, 19:30, 22:30.'
+       Triggers = @(
+           @{ Kind = 'Daily'; At = '12:30' },
+           @{ Kind = 'Daily'; At = '19:30' },
+           @{ Kind = 'Daily'; At = '22:30' }
+       ) },
     @{ Name = 'translate'
        Why  = 'Cached 30 days; only changes when the prose does.'
        Triggers = @( @{ Kind = 'Weekly'; At = '03:00'; Day = 'Sunday' } ) },

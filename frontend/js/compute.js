@@ -168,12 +168,17 @@ function subscriptionMetrics(ipo) {
     day: num(last.day),
     qib: num(last.qib), nii: num(last.nii), retail: num(last.retail),
     employee: num(last.employee), total,
+    // The NII book split at SEBI's ₹10 lakh line. Passed through rather than
+    // folded into `nii`: each tranche allots its minimum bid by its own draw,
+    // so each has its own odds. Mirrors compute.py.
+    nii_small: num(last.nii_small), nii_big: num(last.nii_big),
     max_category: Math.max(num(last.qib), num(last.nii), num(last.retail), num(last.employee), 1),
     sentiment,
     leader: cats.reduce((a, b) => (b[1] > a[1] ? b : a))[0],
     days: days.map((s) => ({
       day: num(s.day), date: s.date, qib: num(s.qib), nii: num(s.nii),
       retail: num(s.retail), employee: num(s.employee), total: num(s.total),
+      nii_small: num(s.nii_small), nii_big: num(s.nii_big),
     })),
   };
 }
@@ -214,7 +219,10 @@ function financialMetrics(ipo) {
   const first = rows[0], last = rows[rows.length - 1];
   const band = num(ipo.issue?.price_high);
   const eps = num(f.eps);
-  const pe = eps ? round(band / eps, 1) : 0;
+  // Only a POSITIVE EPS has a price/earnings multiple. A loss-making issue
+  // divided out to a confident negative "multiple" that looks like a
+  // valuation and sorts like a cheap one. Mirrors compute.py.
+  const pe = eps > 0 ? round(band / eps, 1) : 0;
   const peer = num(f.pe_peer_avg);
   const shares = num(ipo.issue?.shares_post_issue_cr);
 
@@ -264,19 +272,25 @@ function financialMetrics(ipo) {
   };
 }
 
+/* The calendar, plus where the clock currently sits in it.
+ *
+ * `status` used to compare dates against dates, which made an issue "open" for
+ * the seven hours between its 17:00 cut-off and midnight — the countdown read
+ * 00:00 while the card still said apply. It now compares MOMENTS, so the two
+ * agree by construction. The ladder itself lives in readiness.js, because the
+ * reel-validity windows are built from the same instants and two copies of
+ * "when does bidding actually stop" is one too many. Mirrors compute.py. */
 function dateMetrics(ipo, now = new Date()) {
   const d = ipo.dates || {};
-  const out = { ...d, close_at: null, status: 'upcoming' };
-  if (d.close) {
-    const [hh, mm] = String(d.close_time || '17:00').split(':');
-    out.close_at = `${d.close}T${String(hh || 17).padStart(2, '0')}:${String(mm || 0).padStart(2, '0')}:00`;
-  }
-  const today = isoDate(now);
-  if (d.listing && today >= d.listing) out.status = 'listed';
-  else if (d.allotment && today >= d.allotment) out.status = 'allotment';
-  else if (d.close && today > d.close) out.status = 'closed';
-  else if (d.open && today >= d.open) out.status = 'open';
-  return out;
+  const shut = rCloseAt(ipo), opens = rOpenAt(ipo);
+  const stamp = (dt) => (dt ? new Date(dt.getTime() - dt.getTimezoneOffset() * 6e4)
+    .toISOString().slice(0, 19) : null);
+  return {
+    ...d,
+    open_at: stamp(opens),
+    close_at: stamp(shut),
+    status: rStatus(ipo, now),
+  };
 }
 
 function listingMetrics(ipo) {

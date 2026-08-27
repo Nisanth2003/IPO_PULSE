@@ -19,7 +19,8 @@ which is exactly why the summary sheet this replaced could not be the store.
     IPOs          one row per IPO, dotted-path columns for every scalar
     Financials    slug, year, revenue, ebitda, pat, net_worth, total_debt
     GMP           slug, date, gmp, kostak, sauda, source
-    Subscription  slug, day, date, qib, nii, retail, employee, total
+    Subscription  slug, day, date, qib, nii, retail, employee, total,
+                  nii_small, nii_big
     Lists         slug, field, idx, value      (analysis bullets, steps)
     I18n          slug, lang, key, idx, value  (hi / te)
     Benchmarks    slug, metric, value
@@ -51,6 +52,8 @@ SCALARS: list[tuple[str, tuple[str, ...], str]] = [
     ("issue.price_high",            ("issue", "price_high"),            "num"),
     ("issue.lot_size",              ("issue", "lot_size"),              "num"),
     ("issue.shares_post_issue_cr",  ("issue", "shares_post_issue_cr"),  "num"),
+    ("issue.min_shni_qty",          ("issue", "min_shni_qty"),          "num"),
+    ("issue.min_bhni_qty",          ("issue", "min_bhni_qty"),          "num"),
     ("issue.registrar",             ("issue", "registrar"),             "text"),
     ("issue.registrar_url",         ("issue", "registrar_url"),         "text"),
     ("issue.exchanges",             ("issue", "exchanges"),             "csv"),
@@ -83,7 +86,11 @@ SCALARS: list[tuple[str, tuple[str, ...], str]] = [
 FIN_METRICS = ["revenue", "ebitda", "pat", "net_worth", "total_debt"]
 FIN_COLS = ["slug", "year"] + FIN_METRICS
 GMP_COLS = ["slug", "date", "gmp", "kostak", "sauda", "source"]
-SUB_COLS = ["slug", "day", "date", "qib", "nii", "retail", "employee", "total"]
+# nii_small / nii_big go on the end, not beside `nii`. _dicts keys by header
+# text so position is free, and appending leaves every existing cell where a
+# human last saw it — a mid-tab insert would visually shuffle 34 rows.
+SUB_COLS = ["slug", "day", "date", "qib", "nii", "retail", "employee", "total",
+            "nii_small", "nii_big"]
 LIST_COLS = ["slug", "field", "idx", "value"]
 I18N_COLS = ["slug", "lang", "key", "idx", "value"]
 BENCH_COLS = ["slug", "metric", "value"]
@@ -268,7 +275,8 @@ def from_tables(tables: dict[str, list[list]]) -> dict[str, dict]:
             continue
         rec.setdefault("subscription", []).append({
             k: _txt(row.get(k))
-            for k in ("day", "date", "qib", "nii", "retail", "employee", "total")
+            for k in ("day", "date", "qib", "nii", "retail", "employee", "total",
+                      "nii_small", "nii_big")
         })
 
     staged: dict[tuple[str, str], list[tuple[int, str]]] = {}
@@ -375,7 +383,8 @@ def to_tables(records: dict[str, dict]) -> dict[str, list[list]]:
             tables["Subscription"].append(
                 [slug, _num_cell(day.get("day")), _date_cell(day.get("date"))]
                 + [_num_cell(day.get(k))
-                   for k in ("qib", "nii", "retail", "employee", "total")])
+                   for k in ("qib", "nii", "retail", "employee", "total",
+                             "nii_small", "nii_big")])
 
         for field_path in LIST_FIELDS:
             for i, value in enumerate(_dig(d, field_path) or []):

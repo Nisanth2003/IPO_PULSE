@@ -15,6 +15,9 @@
     ipopulse enrich [slug]           fill whatever is missing, automatically
     ipopulse rhp <slug> --write      financials from NSE's prospectus
     ipopulse doctor [slug] [--fix]   what is missing; repair what is derivable
+    ipopulse facts [slug] --write    financials + KPIs from InvestorGain, keyless
+    ipopulse validate [slug]         which reels are recordable, and until when
+    ipopulse monitor                 is the sheet still being updated? (cron)
     ipopulse cache --prune           drop Gemini responses past their TTL
     ipopulse build                   compute + publish JSON for the frontend
     ipopulse report [slug]           Excel workbook into backend/out/
@@ -33,7 +36,7 @@ import hashlib
 import json
 import os
 import sys
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -1413,7 +1416,21 @@ def cmd_gmp_sync(args) -> int:
             if getattr(args, "reconcile", False):
                 for r in rows_in:
                     old = have.get(r["day"])
-                    if old and abs((old.total or 0) - r["total"]) > 0.005:
+                    if not old:
+                        continue
+                    if abs((old.total or 0) - r["total"]) > 0.005:
+                        fixed.append(r)
+                        continue
+                    # A settled total is not the only thing that can be out of
+                    # date. The NII split (sHNI / bHNI) was added to the store
+                    # after these rows were written, so every existing day has
+                    # a correct total and no split at all — and reel 4 cannot
+                    # quote an HNI their own allotment odds without it.
+                    # Backfill a field the source has and the row does not,
+                    # without treating that as a disagreement worth printing
+                    # as a correction.
+                    if any(r.get(k) and not getattr(old, k, 0)
+                           for k in ("nii_small", "nii_big")):
                         fixed.append(r)
             if not new and not fixed:
                 continue
@@ -1564,8 +1581,17 @@ def enrich_plan(ipo: Ipo) -> list[tuple[str, list[str], int]]:
         steps.append(("issue details",
                       ["research", ipo.slug, "--what", "ipo", "--write"], 1))
 
-    # One RHP read fills five fields, so it is worth running if any is absent.
-    if not (f.revenue and f.ebitda and f.net_worth and f.eps and f.pe_peer_avg):
+    # The RHP read is the fallback now, not the first resort. `facts` pulls the
+    # same restated statement out of InvestorGain's detail record for free, and
+    # runs before this in the daily chain — so by the time enrich looks, the
+    # four core series are usually already there and this costs nothing.
+    #
+    # `pe_peer_avg` is deliberately NOT in the trigger. InvestorGain does not
+    # carry a peer average, so including it would make this condition
+    # permanently true and spend a Gemini request on every enrich run for every
+    # IPO, re-reading a prospectus whose numbers are already stored. Peer P/E
+    # stays a gap `doctor` reports and a human types.
+    if not (f.revenue and f.ebitda and f.net_worth and f.eps):
         steps.append(("financials from the RHP",
                       ["rhp", ipo.slug, "--write"], 1))
 
@@ -1749,6 +1775,182 @@ def cmd_enrich(args) -> int:
         publish(store.load_all())
         print("Saved to the sheet — the site shows it on the next reload.")
     return 0
+
+
+def cmd_facts(args) -> int:
+    """Fill the financial statement, the valuation KPIs and the HNI tranche
+    minimums from InvestorGain. Free, keyless, no model involved.
+
+    This is the step reel 4 was missing. Its financials and valuation scenes
+    were blank for all but three tracked IPOs, and the only filler in the
+    pipeline was `rhp` — a Gemini read of a 400-page prospectus PDF that
+    usually returned nothing and spent a request finding out. The same
+    restated statement is published as a plain HTML table on the detail
+    record this project already fetches for the company brief.
+
+    Gap-filling only. A stored value is never overwritten, because the reason
+    a figure is on the sheet may be that you corrected it by hand; `--force`
+    is the explicit way to say otherwise.
+    """
+    from .providers import investorgain as ig
+
+    slugs = args.slug or store.list_slugs()
+    changed, skipped = [], []
+
+    for slug in slugs:
+        ipo = store.load(slug)
+        row = ig.resolve(slug, ipo.company or "")
+        if not row:
+            skipped.append((slug, "not on InvestorGain's board"))
+            continue
+
+        raw = ipo.to_dict()
+        wrote: list[str] = []
+
+        # ── the statement
+        fin = ig.financials(row)
+        if fin:
+            block = raw.setdefault("financials", {})
+            stored_years = [str(y) for y in (block.get("years") or [])]
+            # A different set of years is a different statement, not extra
+            # columns to merge into this one. Replacing the year axis while
+            # keeping a hand-typed series would silently re-label FY23 revenue
+            # as FY24, so the two only ever move together.
+            fresh_axis = stored_years != fin["years"]
+            has_any = any(any(float(v or 0) for v in (block.get(k) or []))
+                          for k in ("revenue", "ebitda", "pat", "net_worth"))
+            if fresh_axis and has_any and not args.force:
+                skipped.append((slug, f"years differ ({', '.join(stored_years)} "
+                                      f"vs {', '.join(fin['years'])}) — --force to replace"))
+            else:
+                if fresh_axis:
+                    block["years"] = fin["years"]
+                    wrote.append("years")
+                for key in ("revenue", "ebitda", "pat", "net_worth", "total_debt"):
+                    if key not in fin:
+                        continue
+                    have = [v for v in (block.get(key) or []) if float(v or 0)]
+                    if have and not args.force:
+                        continue
+                    block[key] = fin[key]
+                    wrote.append(key)
+
+        # ── the ratios
+        val = ig.valuation(row)
+        if val.get("eps") and (not raw.get("financials", {}).get("eps") or args.force):
+            raw.setdefault("financials", {})["eps"] = val["eps"]
+            wrote.append("eps")
+
+        # ── the lot, and the HNI tranche minimums
+        #
+        # Lot size belongs here rather than in `sync`: NSE publishes it only
+        # once an issue is nearly open, and this desk has it from the day the
+        # terms are filed. Without it reels 1, 2 and 4 are all blocked — the
+        # minimum investment, the gain per lot and the whole stake scene are
+        # `something × lot`, and a zero lot renders them as ₹0, which reads as
+        # "no profit" rather than "not known yet".
+        cats = ig.categories(row)
+        issue = raw.setdefault("issue", {})
+        for key in ("lot_size", "min_shni_qty", "min_bhni_qty"):
+            if cats.get(key) and (not issue.get(key) or args.force):
+                issue[key] = cats[key]
+                wrote.append(key)
+
+        if not wrote:
+            continue
+        changed.append((slug, wrote))
+        if not args.dry_run:
+            store.save(Ipo.from_dict(raw))
+
+    for slug, wrote in changed:
+        print(f"  {slug:<34} {', '.join(wrote)}")
+    for slug, why in skipped:
+        print(f"  {slug:<34} — {why}")
+    verb = "would fill" if args.dry_run else "filled"
+    print(f"\n{verb} {len(changed)} of {len(slugs)} IPO(s). "
+          f"Free and keyless — no Gemini request was spent.")
+    return 0
+
+
+def cmd_validate(args) -> int:
+    """Is every record internally consistent, and which reels can be shot?
+
+    `doctor` asks what is absent and `grade` asks whether the numbers match
+    InvestorGain. This asks the two questions neither covers: does the record
+    contradict itself, and — given the calendar and the clock — is reel N
+    recordable right now or has its window shut.
+    """
+    from . import readiness
+    from .compute import derive
+
+    now = datetime.now()
+    ipos = [store.load(s) for s in (args.slug or store.list_slugs())]
+    reports = [readiness.report(i, derive(i, now), now) for i in ipos]
+
+    if args.json:
+        print(json.dumps(reports, indent=1, default=str))
+        return 0
+
+    # Live issues first: a window that shuts tonight is the only thing on this
+    # page anybody needs to act on today.
+    rank = {"open": 0, "upcoming": 1, "closed": 2, "allotment": 3, "listed": 4}
+    reports.sort(key=lambda r: (rank.get(r["status"], 9), -r["ready_count"]))
+
+    glyph = {"ready": "●", "partial": "◐", "blocked": "✗",
+             "early": "·", "expired": "·"}
+    print(f"{'IPO':<34}{'STATUS':<11}{'1':^3}{'2':^3}{'3':^3}{'4':^3}"
+          f"{'5':^3}{'6':^3}  READY  ISSUES")
+    print("-" * 96)
+    for r in reports:
+        dots = "".join(f"{glyph[r['reels'][n]['state']]:^3}" for n in range(1, 7))
+        errs = r["errors"]
+        note = f"{errs} error(s)" if errs else (
+            f"{len(r['problems'])} warning(s)" if r["problems"] else "")
+        print(f"{r['company'][:33]:<34}{r['status']:<11}{dots}  "
+              f"{r['ready_count']}/6    {note}")
+
+    print("\n  ● ready   ◐ recordable but thin or stale   "
+          "✗ a required field is missing   · outside its window")
+
+    for r in reports:
+        detail_lines: list[str] = []
+        for n in range(1, 7):
+            rs = r["reels"][n]
+            if rs["state"] == "blocked":
+                detail_lines.append(f"    reel {n}  missing: {', '.join(rs['missing'])}")
+            elif rs["state"] == "partial" and args.verbose:
+                bits = rs["soft"] + [f"{k} is stale" for k in rs["stale"]]
+                detail_lines.append(f"    reel {n}  thin: {', '.join(bits)}")
+            elif rs["state"] == "expired" and args.verbose:
+                detail_lines.append(f"    reel {n}  window shut — {rs['window']['ends']}")
+        for p in r["problems"]:
+            mark = "!!" if p["severity"] == "error" else " !"
+            detail_lines.append(f"   {mark} {p['what']}: {p['detail']}")
+        if detail_lines:
+            print(f"\n── {r['company']}  ({r['slug']})")
+            print("\n".join(detail_lines))
+
+    total_err = sum(r["errors"] for r in reports)
+    if total_err:
+        print(f"\n{total_err} contradiction(s) that would render as a "
+              f"confident wrong number.")
+    return 1 if (total_err and args.strict) else 0
+
+
+def cmd_monitor(args) -> int:
+    """Did the data actually arrive today? The watchdog behind the timers."""
+    from . import monitor as watch
+
+    r = watch.check()
+    if args.json:
+        print(json.dumps(r, indent=1, default=str))
+    else:
+        for line in watch.report(r):
+            print(line)
+    # Non-zero only under --strict. The scheduled entry passes it, so a run
+    # where nothing arrived shows up as a failed task in Task Scheduler rather
+    # than as a green tick over an empty sheet.
+    return 1 if (r["errors"] and args.strict) else 0
 
 
 def cmd_grade(args) -> int:
@@ -2320,6 +2522,33 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--retry", action="store_true",
                     help="ignore the attempt log and run every planned step")
     sp.set_defaults(func=cmd_enrich)
+
+    sp = sub.add_parser("facts", help="financials + valuation KPIs from "
+                                      "InvestorGain — free, keyless, no AI")
+    sp.add_argument("slug", nargs="*", help="just these; default is every IPO")
+    sp.add_argument("--force", action="store_true",
+                    help="overwrite stored figures instead of filling gaps only")
+    sp.add_argument("--dry-run", action="store_true",
+                    help="print what would be written and write nothing")
+    sp.set_defaults(func=cmd_facts)
+
+    sp = sub.add_parser("validate", help="which reels are recordable right now, "
+                                         "until when, and what contradicts itself")
+    sp.add_argument("slug", nargs="*", help="just these; default is every IPO")
+    sp.add_argument("--verbose", "-v", action="store_true",
+                    help="also list the thin scenes and the shut windows")
+    sp.add_argument("--json", action="store_true", help="machine-readable")
+    sp.add_argument("--strict", action="store_true",
+                    help="exit 1 if any record contradicts itself")
+    sp.set_defaults(func=cmd_validate)
+
+    sp = sub.add_parser("monitor", help="is the sheet still being updated? "
+                                        "the watchdog the timers call")
+    sp.add_argument("--json", action="store_true", help="machine-readable")
+    sp.add_argument("--strict", action="store_true",
+                    help="exit 1 on any error-level finding, so a failed "
+                         "timer run is visible as a failed task")
+    sp.set_defaults(func=cmd_monitor)
 
     sp = sub.add_parser("grade", help="score the stored numbers against InvestorGain")
     sp.add_argument("--days", type=int, default=7,

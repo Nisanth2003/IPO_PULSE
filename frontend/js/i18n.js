@@ -110,6 +110,24 @@ const LABELS = {
   atTodayGmp:  ['AT TODAY’S GMP', 'आज के GMP पर', 'నేటి GMP వద్ద'],
   allotOdds:   ['ALLOTMENT ODDS', 'अलॉटमेंट चांस', 'అలాట్‌మెంట్ ఛాన్స్'],
   likely:      ['Likely', 'संभावित', 'సాధ్యం'],
+  // The three categories that allot by DRAW, and so have odds worth quoting.
+  // sHNI and bHNI are the NII book either side of SEBI's ₹10 lakh line; since
+  // October 2021 both allot their minimum application by lottery exactly as
+  // retail does, which is why each gets its own row rather than one "NII".
+  catRetail:   ['Retail', 'रिटेल', 'రిటైల్'],
+  catShni:     ['sHNI ₹2-10L', 'sHNI ₹2-10 लाख', 'sHNI ₹2-10 లక్షలు'],
+  catBhni:     ['bHNI ₹10L+', 'bHNI ₹10 लाख+', 'bHNI ₹10 లక్షలు+'],
+  minTicket:   ['MIN TICKET', 'न्यूनतम रकम', 'కనీస మొత్తం'],
+  // Its own heading, not a second 'ALLOTMENT ODDS'. The tile above already
+  // carries that label for retail, and the same words twice on one frame
+  // reads as a duplicated block rather than as a breakdown of it.
+  oddsByCat:   ['IF YOU APPLY AS', 'अगर आप हैं', 'మీరు దరఖాస్తు చేస్తే'],
+  // QIB is proportionate and the anchor book is discretionary — there is no
+  // draw, so printing "1 in N" beside it would invent a statistic about a
+  // process that holds no lottery.
+  qibProportionate: ['QIB is allotted proportionately — no draw, no odds.',
+                     'QIB में अनुपात से अलॉटमेंट होता है — कोई लॉटरी नहीं।',
+                     'QIB నిష్పత్తి ప్రకారం కేటాయిస్తారు — లాటరీ లేదు.'],
   lotPending:  ['Lot size not published yet.', 'लॉट साइज़ अभी नहीं आया।', 'లాట్ సైజ్ ఇంకా రాలేదు.'],
   stakeNote:   ['Extra lots do not improve retail odds. Apply with money you can lock up.',
                 'ज़्यादा लॉट से रिटेल चांस नहीं बढ़ते। उतना ही लगाएं जितना रोक सकें।',

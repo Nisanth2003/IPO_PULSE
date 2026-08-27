@@ -193,9 +193,42 @@ const OUTPUT = {
     const s = this.d.subscription;
     if (!s.has_data || !s.retail) return '';
     const r = Number(s.retail) || 0;
-    if (r >= 5) return `Retail is ${this.voTimes(r)} over, so roughly one application in ${Math.round(r)} gets a lot. Apply for one lot. Extra lots do not improve your chances.`;
-    if (r >= 1) return "Retail is covered, so allotment will be a draw — but a kind one. Most single-lot applications should get something.";
-    return "Retail isn't fully covered, so if you apply you'll very likely get the full allotment. Ask yourself why nobody else wanted it.";
+    let line;
+    if (r >= 5) line = `Retail is ${this.voTimes(r)} over, so roughly one application in ${Math.round(r)} gets a lot. Apply for one lot. Extra lots do not improve your chances.`;
+    else if (r >= 1) line = "Retail is covered, so allotment will be a draw — but a kind one. Most single-lot applications should get something.";
+    else line = "Retail isn't fully covered, so if you apply you'll very likely get the full allotment. Ask yourself why nobody else wanted it.";
+    return line + this.voTakeHniOdds();
+  },
+
+  /* The same question for the two HNI tranches, which the card now prices
+     beside retail — so the narration has to cover them or it contradicts what
+     is on screen for six seconds.
+   *
+   * Worth saying out loud rather than leaving on the card: an HNI hears
+   * "retail is 61 times over" and assumes their own book is comparable, and on
+   * Tempsens it was five times worse. The two tranches also diverge from each
+   * other often enough to be worth a sentence — sHNI 281 against bHNI 331 here
+   * — because which side of ten lakh you apply on is a choice, and this is the
+   * number that should decide it.
+   *
+   * Silent when the exchange did not publish the split, which is every issue
+   * whose subscription rows predate those columns. */
+  voTakeHniOdds() {
+    const s = this.d.subscription;
+    const sh = Number(s.nii_small) || 0, bh = Number(s.nii_big) || 0;
+    if (sh < 1 && bh < 1) return '';
+    const say = (n) => `one in ${Math.round(n)}`;
+    if (sh >= 1 && bh >= 1) {
+      const cheaper = sh < bh ? 'the smaller' : 'the bigger';
+      return ` If you're applying as an HNI, the numbers are different and they're worse: `
+        + `${this.voTimes(sh)} in the two-to-ten lakh book, about ${say(sh)}, and `
+        + `${this.voTimes(bh)} above ten lakh, about ${say(bh)}. `
+        + `On this issue ${cheaper} ticket has the better odds — that is not always true, `
+        + `so it is worth checking rather than assuming.`;
+    }
+    const only = sh >= 1 ? sh : bh;
+    const which = sh >= 1 ? 'the two-to-ten lakh book' : 'the above-ten-lakh book';
+    return ` As an HNI in ${which}, it's ${this.voTimes(only)} over — about ${say(only)}.`;
   },
 
   /* ── the English scripts, per scene ───────────────────────────────────
@@ -219,6 +252,14 @@ const OUTPUT = {
    */
   enSegments(n) {
     const ipo = this.ipo, d = this.d, L = this.loc;
+    // The header reads `reelSeconds`, which reaches here through scriptHolds,
+    // and Alpine evaluates that on the first paint — before loadCatalogue has
+    // resolved and `ipo` is still null. Every scene below dereferences
+    // ipo.issue, so without this the boot throws once per timing expression on
+    // the page. Alpine swallows them and the numbers fill in on the next
+    // render, which is why it was invisible; it still buried any real error in
+    // ten identical ones.
+    if (!ipo || !d) return {};
     const iss = ipo.issue, g = d.gmp, s = d.subscription, fin = d.financials;
     const dt = (x) => this.fmtDate(x, true);
     const c = this.voClock;

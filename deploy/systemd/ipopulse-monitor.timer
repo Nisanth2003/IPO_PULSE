@@ -1,0 +1,40 @@
+[Unit]
+Description=IPO Pulse timer: monitor (data-arrival watchdog)
+
+[Timer]
+# The watchdog, and the only unit here whose job is to FAIL.
+#
+# Every other timer writes something and reports success on exit 0 — which it
+# does just as happily when the sheet was already full and nothing new
+# arrived. A timer that quietly stopped firing, a slug that stopped matching
+# upstream, an expired credential: none of them fail a run. The first visible
+# symptom is a reel quoting a three-day-old premium as today's.
+#
+# `monitor --strict` exits 1 when something that SHOULD have arrived did not —
+# an issue taking bids with no subscription row dated today, a GMP older than
+# the market is, the same company stored twice — so the fault surfaces as a
+# failed unit in `systemctl --failed` rather than being found by reading logs.
+#
+# Three slots, each placed after a writing job has had time to finish:
+#   12:30  after the 10:00 daily chain and the 11:15 GMP pull
+#   19:30  after the 18:35 daily chain, once the exchanges have published the
+#          day's closing subscription
+#   22:30  after the 21:15 GMP pull and before the 23:45 grey chain, so a day
+#          that never got its numbers is caught the same night
+#
+# Read-only against the store — it makes no sheet write, so unlike every other
+# unit here it cannot race one.
+OnCalendar=*-*-* 12:30:00 Asia/Kolkata
+OnCalendar=*-*-* 19:30:00 Asia/Kolkata
+OnCalendar=*-*-* 22:30:00 Asia/Kolkata
+
+# Deliberately NOT Persistent: a missed check is not worth running late. The
+# question it asks is "did today's data arrive", and a run fired at boot for a
+# slot three days ago answers it about the wrong day.
+Persistent=false
+RandomizedDelaySec=60
+
+Unit=ipopulse@monitor.service
+
+[Install]
+WantedBy=timers.target

@@ -1319,18 +1319,137 @@ function studio() {
                total: live.length };
     },
 
-    /* Rough allotment odds from the retail multiple.
+    /* Rough allotment odds from a category's own subscription multiple.
      *
-     * When retail is oversubscribed, SEBI's rules put single-lot applications
-     * into a computerised draw, and the multiple IS the odds — 5x means about
-     * one in five. Stated as "1 in N" rather than a percentage because that
-     * is how a lottery is understood, and capped in words at the top end
-     * because "1 in 87" invites false precision about a draw. */
-    get allotOdds() {
-      const r = Number(this.d && this.d.subscription && this.d.subscription.retail) || 0;
-      if (r <= 0) return '—';
-      if (r < 1) return this.t('likely');
-      return '1 in ' + (r < 10 ? r.toFixed(1) : Math.round(r));
+     * When a category is oversubscribed, SEBI's rules put minimum-size
+     * applications into a computerised draw, and the multiple IS the odds —
+     * 5x means about one in five. Stated as "1 in N" rather than a percentage
+     * because that is how a lottery is understood.
+     *
+     * This applies to retail AND to both HNI tranches: since the October 2021
+     * reform, sHNI and bHNI allot their minimum application by draw too. It
+     * does NOT apply to QIB, which is proportionate and partly discretionary
+     * — see `oddsRows` for why that one is stated in words instead. */
+    odds(multiple) {
+      const m = Number(multiple) || 0;
+      if (m <= 0) return '—';
+      if (m < 1) return this.t('likely');
+      return '1 in ' + (m < 10 ? m.toFixed(1) : Math.round(m));
+    },
+    get allotOdds() { return this.odds(this.d?.subscription?.retail); },
+
+    /* Allotment odds for every category that HAS odds, plus the cheque each
+     * one has to write.
+     *
+     * The stake scene only ever answered this for retail, which quietly
+     * assumed the whole audience applies with ₹15,000. An HNI watching gets a
+     * different answer on both halves — Tempsens closed at 61x retail against
+     * 281x sHNI and 331x bHNI, and the sHNI ticket is fourteen lots, not one.
+     *
+     * A row is dropped when its multiple is absent rather than shown as a
+     * zero: rows written before nii_small / nii_big existed have no split,
+     * and "0x" would read as "nobody bid" rather than "not published". */
+    get oddsRows() {
+      const s = this.d?.subscription || {};
+      if (!s.has_data) return [];
+      const band = Number(this.ipo?.issue?.price_high) || 0;
+      const lot = Number(this.ipo?.issue?.lot_size) || 0;
+      const iss = this.ipo?.issue || {};
+
+      const rows = [
+        { key: 'retail', label: this.t('catRetail'), mult: s.retail,
+          qty: lot, tone: SERIES.retail },
+        // Both HNI rows stay in the NII pink family — they ARE the NII book,
+        // and reel 3's bars have already taught the viewer that pink is NII.
+        // Split by lightness rather than by hue so the two are separable
+        // without claiming they are different categories. Every row is
+        // direct-labelled, so no meaning rests on the colour alone.
+        { key: 'shni', label: this.t('catShni'), mult: s.nii_small,
+          qty: Number(iss.min_shni_qty) || 0, tone: SERIES.nii },
+        { key: 'bhni', label: this.t('catBhni'), mult: s.nii_big,
+          qty: Number(iss.min_bhni_qty) || 0, tone: '#F9A8D4' },
+      ].filter((r) => Number(r.mult) > 0);
+
+      return rows.map((r) => ({
+        ...r,
+        odds: this.odds(r.mult),
+        // The minimum ticket, so "1 in 281" comes with what it costs to enter.
+        cheque: r.qty && band ? r.qty * band : 0,
+        lots: r.qty && lot ? Math.round(r.qty / lot) : 0,
+      }));
+    },
+
+    /* QIB is not a draw and must not be printed beside three that are.
+     * Institutional allotment is proportionate, and the anchor book is
+     * allocated at the issuer's discretion before bidding even opens — so a
+     * "1 in 303" beside a 302.88x QIB figure would be a fabricated statistic
+     * about a process that holds no lottery. Stated in words, or not at all. */
+    get qibNote() {
+      const q = Number(this.d?.subscription?.qib) || 0;
+      return q > 0 ? this.t('qibProportionate') : '';
+    },
+
+    /* ── is this reel recordable, and for how much longer ───────────────
+     *
+     * The studio could always render every reel for every IPO. What it could
+     * not do was tell you which ones were worth recording — so a blank
+     * financials table looked like a rendering fault, and a subscription reel
+     * for an issue that shut on Friday looked exactly like one for an issue
+     * closing tonight.
+     *
+     * Keyed off `this.now`, the ticking clock the countdown already uses, so
+     * a window that shuts while the studio is open goes grey by itself
+     * instead of waiting for a reload. Recomputed on every tick, which is
+     * cheap: it is arithmetic over one record, not a fetch.
+     */
+    get ready() {
+      if (!this.ipo || !this.d) return null;
+      return readinessReport(this.ipo, this.d, new Date(this.now));
+    },
+    /** State of one reel, for the tab dots. `r` is a REELS entry. */
+    reelReady(r) {
+      const rr = this.ready;
+      return rr ? rr.reels[r.n] : null;
+    },
+    readyTone(state) { return READY_TONE[state] || READY_TONE.blocked; },
+
+    /* The window, as a sentence you can act on.
+     *
+     * "Valid until Mon 25 Aug, 17:00" is the whole answer to the question
+     * that started this — a card reading `open` with a countdown at 00:00 and
+     * no way to tell which one was lying. */
+    get readyNote() {
+      const rs = this.reelReady(this.reel);
+      if (!rs) return null;
+      const w = rs.window;
+      const when = (dt) => (dt ? this.fmtStamp(dt) : null);
+      if (w.state === 'early') {
+        return { tone: 'text-sky-300',
+                 text: `Not yet — recordable from ${when(w.from)} (${w.starts}).` };
+      }
+      if (w.state === 'expired') {
+        return { tone: 'text-rose-400',
+                 text: `Window shut ${when(w.to)} — ${w.ends}.` };
+      }
+      const missing = rs.missing.length
+        ? ` Missing: ${rs.missing.join(', ')}.`
+        : (rs.stale.length ? ` ${rs.stale.join(' and ')} is not today's reading.` : '');
+      const till = w.to ? `Valid until ${when(w.to)} — ${w.ends}.` : 'No end date on file.';
+      return {
+        tone: rs.state === 'ready' ? 'text-emerald-300'
+          : rs.state === 'partial' ? 'text-amber-300' : 'text-rose-400',
+        text: till + missing,
+      };
+    },
+
+    /** 'Mon 25 Aug, 17:00' — a moment, not a date. */
+    fmtStamp(dt) {
+      const d = dt instanceof Date ? dt : new Date(dt);
+      if (isNaN(d)) return '—';
+      const day = d.toLocaleDateString('en-IN',
+        { weekday: 'short', day: 'numeric', month: 'short' });
+      const p = (n) => String(n).padStart(2, '0');
+      return `${day}, ${p(d.getHours())}:${p(d.getMinutes())}`;
     },
 
     /* Colour for a subscription multiple, on the same scale compute.js uses

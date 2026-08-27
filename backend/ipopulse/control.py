@@ -101,6 +101,41 @@ JOBS: dict[str, dict[str, Any]] = {
         "argv": ["enrich", "--max-ai", "6"],
         "schedule": "part of daily",
     },
+    "facts": {
+        "label": "Financials from InvestorGain",
+        "detail": "Three years of restated revenue / EBITDA / PAT / net worth "
+                  "/ debt, plus post-issue EPS and the sHNI and bHNI minimum "
+                  "bids — read from the same detail record the company brief "
+                  "already uses. Free, keyless, no AI. Fills gaps only, so a "
+                  "figure you corrected by hand survives it. This is what "
+                  "reel 4's financials and valuation scenes read.",
+        "argv": ["facts"],
+        "schedule": "part of daily",
+    },
+    "monitor": {
+        "label": "Is the data still arriving?",
+        "detail": "The watchdog. Compares the store against the issue calendar "
+                  "(an issue taking bids today MUST have a subscription row "
+                  "dated today) and against its own last run, so a timer that "
+                  "silently stopped firing shows up as a failed task instead "
+                  "of as a stale premium in a reel. Also catches the same "
+                  "company stored twice. Read-only, keyless, no AI.",
+        # --strict so a run where nothing arrived exits non-zero and Task
+        # Scheduler shows red. Without it the watchdog can only be found by
+        # going and reading its output, which is the thing nobody does.
+        "argv": ["monitor", "--strict"],
+        "schedule": "12:30, 19:30, 22:30 IST daily",
+    },
+    "validate": {
+        "label": "Which reels are recordable",
+        "detail": "Per IPO and per reel: is every field the scenes read "
+                  "present, are the moving numbers fresh, and is the reel "
+                  "still inside its validity window. Also names the "
+                  "contradictions a record can hold while looking complete — "
+                  "a listing before the close, an EBITDA above revenue.",
+        "argv": ["validate"],
+        "schedule": "part of daily",
+    },
     "grade": {
         "label": "Grade the data",
         "detail": "Scores every stored GMP and subscription figure against "
@@ -181,7 +216,16 @@ CHAINS = {
     # same run that created it, before `enrich` spends model budget writing an
     # analysis of a company that does not exist. It cannot break the chain: it
     # exits non-zero only under --strict, which the job does not pass.
-    "daily": ["sync", "verify", "enrich", "doctor", "build"],
+    # `facts` sits BEFORE `enrich` and that ordering is the point: it fills the
+    # financials for free, so `enrich`'s RHP step — a Gemini read of a 400-page
+    # PDF — finds them already present and skips. The free source runs first
+    # and the metered one only covers what it could not.
+    #
+    # `validate` closes the chain, after `build`. It is the answer to "can I
+    # record anything today", and it is only worth asking once the run has
+    # finished writing — asked earlier it reports gaps the same run then fills.
+    # It exits 0 without --strict, so it cannot break the chain it reports on.
+    "daily": ["sync", "verify", "facts", "enrich", "doctor", "build", "validate"],
     # gmp-sync runs BEFORE the model-based refresh: it is free, keyless and
     # deterministic, so anything it can supply should not cost a Gemini call
     # or need vetting. `gmp` then fills only what InvestorGain did not cover.

@@ -59,6 +59,16 @@ class Issue:
     price_high: float = 0.0
     lot_size: int = 0
     shares_post_issue_cr: float = 0.0   # for market cap / P-E; optional
+    # The minimum application, in SHARES, for the two HNI tranches. Retail's
+    # minimum is one lot and needs no field; sHNI and bHNI have their own
+    # floors (₹2 lakh and ₹10 lakh worth, rounded to whole lots) and nothing
+    # else in the record implies them.
+    #
+    # Needed because "1 in 281" is only half an answer for an HNI: the other
+    # half is what the ticket costs. 14 lots at ₹300 is ₹2.1 lakh locked up
+    # for a week, and a viewer deciding between tranches needs both numbers.
+    min_shni_qty: float = 0.0
+    min_bhni_qty: float = 0.0
     registrar: str = ""
     registrar_url: str = ""
     exchanges: list[str] = field(default_factory=lambda: ["BSE", "NSE"])
@@ -74,6 +84,8 @@ class Issue:
             price_high=_f(d.get("price_high")),
             lot_size=int(_f(d.get("lot_size"))),
             shares_post_issue_cr=_f(d.get("shares_post_issue_cr")),
+            min_shni_qty=_f(d.get("min_shni_qty")),
+            min_bhni_qty=_f(d.get("min_bhni_qty")),
             registrar=d.get("registrar", "") or "",
             registrar_url=d.get("registrar_url", "") or "",
             exchanges=_list(d.get("exchanges")) or ["BSE", "NSE"],
@@ -166,6 +178,17 @@ class SubDay:
     retail: float = 0.0
     employee: float = 0.0
     total: float = 0.0
+    # NII, split at the ₹10 lakh line SEBI drew in 2021: sHNI is the ₹2-10 lakh
+    # third of the NII book, bHNI the ₹10 lakh-plus two thirds. Kept as their
+    # own fields rather than derived from `nii`, because they are separately
+    # published and routinely diverge by 4x — Tempsens closed day 1 at 20.75x
+    # sHNI against 8.39x bHNI, and a viewer told "NII 12.51x" learns neither.
+    #
+    # They matter beyond colour: both tranches allot the minimum application by
+    # draw, so each multiple IS that tranche's odds. One NII number cannot give
+    # an HNI their own answer.
+    nii_small: float = 0.0
+    nii_big: float = 0.0
 
     @classmethod
     def from_dict(cls, d: dict) -> "SubDay":
@@ -177,6 +200,8 @@ class SubDay:
             retail=_f(d.get("retail")),
             employee=_f(d.get("employee")),
             total=_f(d.get("total")),
+            nii_small=_f(d.get("nii_small")),
+            nii_big=_f(d.get("nii_big")),
         )
 
 
