@@ -486,6 +486,56 @@ def handle(handler, method: str) -> bool:
         _json(handler, 200, RUNNER.snapshot())
         return True
 
+    # Narration for the script the studio is showing.
+    #
+    # It takes the TEXT rather than a slug and a reel number, and that is not
+    # laziness: every script in this project is generated in output.js and has
+    # no Python equivalent, so the server genuinely does not know what reel 2
+    # of Augmont says. See voice.py's header for why porting it would be the
+    # wrong trade.
+    #
+    # Behind the same token as /api/run, because unlike the jobs this one
+    # spends money per call.
+    if path == "/api/voice" and method == "POST":
+        from . import voice as tts
+
+        body = _body(handler)
+        try:
+            audio, hit = tts.synthesize(
+                str(body.get("text", "")),
+                vid=str(body.get("voice_id", "") or ""),
+                mdl=str(body.get("model", "") or ""),
+                settings=body.get("settings") if isinstance(
+                    body.get("settings"), dict) else None,
+                force=bool(body.get("force")))
+        except tts.VoiceError as err:
+            # 400, not 500: every one of these is something the caller can fix
+            # — an empty script, a missing key, a wrong voice id, a spent
+            # budget — and a 500 would read as "the server is broken".
+            _json(handler, 400, {"error": str(err)})
+            return True
+
+        left = tts.budget()
+        _bytes(handler, 200, audio, "audio/mpeg", {
+            "X-Voice-Cached": "1" if hit else "0",
+            # 0 on a cache hit, because a hit is not billed. The studio shows
+            # this so a re-render visibly costs nothing.
+            "X-Voice-Chars": "0" if hit else str(len(str(body.get("text", "")))),
+            "X-Voice-Left": str(left["left"]),
+        })
+        return True
+
+    if path == "/api/voice/status":
+        from . import voice as tts
+
+        _json(handler, 200, {
+            "configured": tts.configured(),
+            "model": tts.model(),
+            "budget": tts.budget(),
+            "max_chars": tts.MAX_CHARS,
+        })
+        return True
+
     if path == "/api/run" and method == "POST":
         body = _body(handler)
         # {"job": "sync"} for one, {"jobs": [...]} for a sequence in order.
@@ -565,6 +615,13 @@ def _cors(handler) -> None:
         handler.send_header("Access-Control-Allow-Headers", "Content-Type, X-Token")
         handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         handler.send_header("Access-Control-Max-Age", "600")
+        # Without this, a cross-origin caller can read the mp3 body but not
+        # these — the browser hides every response header that is not on the
+        # CORS-safelist unless it is named here. /api/voice reports the cache
+        # hit and the spend in headers, so the studio would show "0 characters,
+        # not cached" for every render and quietly look broken.
+        handler.send_header("Access-Control-Expose-Headers",
+                            "X-Voice-Cached, X-Voice-Chars, X-Voice-Left")
 
 
 def _send(handler, code: int, text: str, ctype: str) -> None:
@@ -580,6 +637,25 @@ def _send(handler, code: int, text: str, ctype: str) -> None:
 
 def _json(handler, code: int, payload: dict) -> None:
     _send(handler, code, json.dumps(payload), "application/json")
+
+
+def _bytes(handler, code: int, raw: bytes, ctype: str,
+           extra: dict[str, str] | None = None) -> None:
+    """_send for a body that is not text. Only /api/voice needs it so far.
+
+    Kept separate rather than widening _send: that one encodes utf-8, and an
+    mp3 that survived a str round-trip would be a corrupt file rather than an
+    error, which is the worst kind of bug to ship.
+    """
+    handler.send_response(code)
+    handler.send_header("Content-Type", ctype)
+    handler.send_header("Content-Length", str(len(raw)))
+    handler.send_header("Cache-Control", "no-store")
+    for name, value in (extra or {}).items():
+        handler.send_header(name, value)
+    _cors(handler)
+    handler.end_headers()
+    handler.wfile.write(raw)
 
 
 PANEL_HTML = """<!doctype html>

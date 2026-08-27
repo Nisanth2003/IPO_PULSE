@@ -65,6 +65,11 @@
 <script src="js/data.js"></script>
 <script src="js/reels.js"></script>
 <script src="js/output.js"></script>
+<!-- Both are self-contained IIFEs with no dependency on Alpine or each other,
+     so load order among them does not matter — only that they precede
+     studio.js, which calls into them. -->
+<script src="js/capture.js"></script>
+<script src="js/bundle.js"></script>
 <script src="js/studio.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 </head>
@@ -2229,6 +2234,69 @@
         Press <b class="text-slate-300">F</b> for focus mode, start your recorder,
         then <b class="text-slate-300">Space</b>. The reel plays its
         <span x-text="sceneCount"></span> scenes and stops — that's one finished video.
+      </div>
+    </div></details>
+
+    <!-- ══ VOICE → CAPTURE → BUNDLE ══════════════════════════════════════
+         Three steps in the order they have to happen, and the order is the
+         point: the narration exists first, the recording is made WITH it, and
+         the bundle is what leaves. Recording first and syncing later in CapCut
+         is the workflow this replaces. -->
+    <details class="sect" open><summary>Voice &amp; bundle</summary><div class="body">
+
+      <!-- 1. narration -->
+      <div class="row">
+        <label class="fld">1 · Narration for this reel</label>
+        <button class="btn btn-acc w-full" @click="genVoice()" :disabled="voice.busy"
+                x-text="voice.busy ? 'Generating…'
+                        : (voiceReady ? '↻ Re-generate voice' : '🎙 Generate voice')"></button>
+        <template x-if="voiceReady">
+          <audio class="w-full mt-1.5 h-8" controls :src="voice.url"></audio>
+        </template>
+        <div class="text-[9.5px] mt-1" x-show="voice.msg"
+             :class="voice.ok ? 'text-slate-500' : 'text-red-300'" x-text="voice.msg"></div>
+        <div class="text-[9.5px] text-slate-500 mt-1" x-show="!voice.msg">
+          Billed per character, and cached — re-generating an unchanged script
+          costs nothing. Needs a backend and the job password.
+        </div>
+      </div>
+
+      <!-- 2. capture -->
+      <div class="row mt-2">
+        <label class="fld">2 · Record reel + voice → one file</label>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button class="btn" :class="cap.rec?'btn-on':''"
+                  @click="cap.rec ? stopCapture() : startCapture()"
+                  x-text="cap.rec ? '■ Stop' : '⏺ Record'"></button>
+          <a class="btn" :class="cap.url ? '' : 'opacity-40 pointer-events-none'"
+             :href="cap.url" :download="(slug||'ipo')+'-reel'+reel.n+'-'+lang+'.webm'">⤓ webm</a>
+        </div>
+        <div class="text-[9.5px] mt-1" x-show="cap.msg"
+             :class="cap.ok ? 'text-slate-500' : 'text-red-300'" x-text="cap.msg"></div>
+        <div class="text-[9.5px] text-slate-500 mt-1" x-show="!cap.msg">
+          Pick <b class="text-slate-300">this tab</b> in the dialog. Focus mode
+          switches on by itself — the capture takes the whole tab, panels
+          included. Stops when the reel ends.
+        </div>
+        <div class="text-[9.5px] text-amber-300/80 mt-1" x-show="!voiceReady">
+          No narration yet — recording now gives you a silent video.
+        </div>
+      </div>
+
+      <!-- 3. bundle -->
+      <div class="row mt-2">
+        <label class="fld">3 · Everything for this upload</label>
+        <button class="btn btn-acc w-full" @click="downloadBundle()"
+                :class="(cap.blob || voice.blob) ? '' : 'opacity-40'">⤓ Download bundle (.zip)</button>
+        <div class="text-[9.5px] text-slate-500 mt-1">
+          <span class="font-mono">reel.webm</span> ·
+          <span class="font-mono">voice.mp3</span> ·
+          <span class="font-mono">publishing-pack.txt</span> ·
+          <span class="font-mono">thumbnail-prompt.txt</span> ·
+          <span class="font-mono">script.txt</span>.
+          The mp3 rides along untranscoded, so a re-edit never starts from the
+          video's audio.
+        </div>
       </div>
     </div></details>
 

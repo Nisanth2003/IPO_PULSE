@@ -2004,6 +2004,67 @@ def cmd_videos(args) -> int:
     return 0
 
 
+def cmd_voice(args) -> int:
+    """Narrate a script with ElevenLabs, or list the voices on the account.
+
+    The studio calls /api/voice for this; the command exists because the first
+    thing anybody needs is their own voice id, and because when a key is wrong
+    a terminal error is worth ten browser ones.
+    """
+    from . import voice as tts
+
+    if args.voices:
+        try:
+            found = tts.voices()
+        except tts.VoiceError as err:
+            print(err, file=sys.stderr)
+            return 1
+        if not found:
+            print("No voices on this account.")
+            return 0
+        current = tts.voice_id()
+        for v in found:
+            mark = " <- ELEVENLABS_VOICE_ID" if v["id"] == current else ""
+            # `cloned` is the one that matters: the playbook's §3.1 sweet spot
+            # is narrating as yourself, and a stock voice presenting as an
+            # adviser is the branch with the monetisation risk on it.
+            print(f"  {v['id']}  {v['name']:<24}{v['category']}{mark}")
+        return 0
+
+    b = tts.budget()
+    if args.budget:
+        print(f"{b['used']} of {b['cap']} characters used this month "
+              f"({b['left']} left). Cap is advisory and local — set "
+              f"ELEVENLABS_MONTHLY_CHAR_CAP to change it.")
+        return 0
+
+    if args.text_file:
+        text = Path(args.text_file).read_text(encoding="utf-8")
+    elif args.text:
+        text = args.text
+    else:
+        text = sys.stdin.read()
+
+    try:
+        audio, hit = tts.synthesize(text, vid=args.voice or "",
+                                    force=args.force)
+    except tts.VoiceError as err:
+        print(err, file=sys.stderr)
+        return 1
+
+    out = Path(args.out) if args.out else tts.cached_path(text.strip())
+    if args.out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(audio)
+
+    chars = 0 if hit else len(text.strip())
+    print(f"{'cached' if hit else 'generated'}  {len(audio):,} bytes  "
+          f"{chars} characters billed  ->  {out}")
+    if not hit:
+        print(f"{tts.budget()['left']} characters left this month.")
+    return 0
+
+
 def cmd_verify(args) -> int:
     """Does every tracked IPO actually exist? Ask NSE and BSE.
 
@@ -2632,6 +2693,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("videos", help="what the channel has published, and what is missing")
     sp.set_defaults(func=cmd_videos)
+
+    sp = sub.add_parser("voice", help="narrate a script with ElevenLabs "
+                                      "(cached; billed per character)")
+    sp.add_argument("text", nargs="?", help="the script; omit to read stdin")
+    sp.add_argument("--text-file", help="read the script from a file instead")
+    sp.add_argument("--out", help="write the mp3 here as well as to the cache")
+    sp.add_argument("--voice", help="voice id, default ELEVENLABS_VOICE_ID")
+    sp.add_argument("--voices", action="store_true",
+                    help="list the voices this key can use, and exit")
+    sp.add_argument("--budget", action="store_true",
+                    help="show this month's character spend, and exit")
+    sp.add_argument("--force", action="store_true",
+                    help="re-generate even if it is cached (this costs money)")
+    sp.set_defaults(func=cmd_voice)
 
     sp = sub.add_parser("verify", help="does every tracked IPO exist? ask NSE and BSE")
     sp.add_argument("--write", action="store_true",

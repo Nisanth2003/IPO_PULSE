@@ -126,6 +126,15 @@ function studio() {
      * same jobs the cron already runs". */
     gh: { open: false, token: '', draft: '', owner: '', repo: '',
           msg: '', ok: false, runs: [], sealed: false, pw: '', busy: false },
+
+    /* Narration and the recording made from it.
+     *
+     * `blob` is the source of truth and `url` exists only so an <audio> or
+     * <video> element has something to point at. Both are dropped together in
+     * setVoice/startCapture, because a URL outliving its blob is a player that
+     * silently plays nothing. */
+    voice: { blob: null, url: '', busy: false, msg: '', ok: true },
+    cap: { rec: null, blob: null, url: '', msg: '', ok: true },
     /* Must match control.CHAINS. The `push` steps these used to name were
        removed with the local store — the sheet IS the store now, so there is
        nothing left to push it to. */
@@ -786,7 +795,165 @@ function studio() {
         if (this.sceneProg >= 100) { this.sceneProg = 0; this.nextScene(); }
       }, 50);
     },
-    stopPlay() { this.playing = false; this.sceneProg = 0; clearInterval(this._timer); },
+    stopPlay() {
+      this.playing = false; this.sceneProg = 0; clearInterval(this._timer);
+      /* A reel ending IS the end of the video — nextScene() calls this when it
+         runs off the last scene. So the recorder stops itself, and a take is
+         exactly one reel with no trailing frames of a paused card. */
+      if (this.cap.rec) this.stopCapture();
+    },
+
+    /* ── voice, capture, bundle ──────────────────────────────────────────
+     *
+     * Three steps of the playbook's daily loop, collapsed into the studio:
+     * generate the narration (§8), record the reel with it (§9), and take away
+     * one file that holds everything the upload needs (§10).
+     *
+     * The order matters and the UI enforces it: no voice, no narrated capture.
+     * Recording first and hoping to sync later is the workflow this replaces.
+     */
+
+    /* Narration for the script on screen.
+     *
+     * Goes through the backend, never straight to ElevenLabs: the key is
+     * metered money, and a key in this page is a key in everyone's page. That
+     * is a harder line than the GitHub PAT — a leaked PAT runs cron jobs, a
+     * leaked voice key runs up a bill.
+     *
+     * Which is also why this needs the trigger token: the same sign-in as
+     * running a job, because this one spends per call. */
+    async genVoice() {
+      if (!this.api) {
+        this.voice.msg = 'Voice needs a backend — this is the static site. '
+          + 'Run `ipopulse serve`, or set IPOPULSE_TRIGGER_API to a hosted one.';
+        this.voice.ok = false;
+        return;
+      }
+      if (!this.run.token) {
+        // The password panel already exists for jobs; reuse it rather than
+        // growing a second sign-in for the same token.
+        this.run.open = true;
+        this.voice.msg = 'Sign in first — same password as running a job.';
+        this.voice.ok = false;
+        return;
+      }
+      const text = (this.script || '').trim();
+      if (!text) { this.voice.msg = 'This reel has no script.'; this.voice.ok = false; return; }
+
+      this.voice.busy = true; this.voice.ok = true;
+      this.voice.msg = 'Generating…';
+      try {
+        const r = await fetch(`${this.api}/api/voice`, {
+          method: 'POST', cache: 'no-store',
+          headers: { 'Content-Type': 'application/json', 'X-Token': this.run.token },
+          body: JSON.stringify({ text }),
+        });
+        if (!r.ok) {
+          const body = await r.json().catch(() => ({}));
+          throw new Error(body.error || `HTTP ${r.status}`);
+        }
+        const cached = r.headers.get('X-Voice-Cached') === '1';
+        const chars = Number(r.headers.get('X-Voice-Chars') || 0);
+        const left = Number(r.headers.get('X-Voice-Left') || 0);
+        const blob = await r.blob();
+        this.setVoice(blob);
+        this.voice.ok = true;
+        this.voice.msg = cached
+          ? 'From the cache — this cost nothing.'
+          : `${chars.toLocaleString()} characters billed · `
+            + `${left.toLocaleString()} left this month.`;
+      } catch (err) {
+        this.voice.ok = false;
+        this.voice.msg = err.message;
+      } finally { this.voice.busy = false; }
+    },
+
+    /* One object URL at a time. Every blob: URL pins its blob in memory until
+       revoked, and re-rendering a long script twenty times while tuning a
+       number would otherwise leak all twenty. */
+    setVoice(blob) {
+      if (this.voice.url) URL.revokeObjectURL(this.voice.url);
+      this.voice.blob = blob;
+      this.voice.url = blob ? URL.createObjectURL(blob) : '';
+    },
+
+    get voiceReady() { return !!(this.voice.url && this.voice.blob); },
+
+    async startCapture() {
+      if (!CAPTURE.supported) {
+        this.cap.ok = false;
+        this.cap.msg = 'This browser has no screen recorder. Chrome or Edge.';
+        return;
+      }
+      /* Focus mode is not advisory here: getDisplayMedia captures the whole
+         tab, so a visible panel is a panel in the video. */
+      this.focus = true;
+      if (this.cap.url) { URL.revokeObjectURL(this.cap.url); this.cap.url = ''; }
+      this.cap.blob = null;
+      this.cap.ok = true;
+      try {
+        this.cap.rec = await CAPTURE.start({
+          voiceUrl: this.voice.url || '',
+          onState: (m) => { this.cap.msg = m; },
+          reset: () => { this.go(this.reelIndex, 0); this.replay(); },
+          play: () => this.startPlay(),
+          onStop: (blob) => {
+            this.cap.rec = null;
+            this.cap.blob = blob;
+            this.cap.url = URL.createObjectURL(blob);
+            this.cap.ok = true;
+            this.cap.msg = `Recorded ${(blob.size / 1e6).toFixed(1)} MB.`;
+          },
+        });
+      } catch (err) {
+        this.cap.rec = null;
+        this.cap.ok = false;
+        // A cancelled picker is a NotAllowedError, which is not a fault.
+        this.cap.msg = err.name === 'NotAllowedError'
+          ? 'Capture cancelled.' : err.message;
+      }
+    },
+    stopCapture() {
+      if (this.cap.rec) this.cap.rec.stop();
+      if (this.playing) { this.playing = false; clearInterval(this._timer); }
+    },
+
+    /* One zip per upload.
+     *
+     * The pristine voice.mp3 goes in alongside the video even though the video
+     * already carries the narration — the webm's audio has been through an
+     * mp3 -> WebAudio -> Opus round trip, and a re-edit should never have to
+     * start from the transcoded copy. */
+    async downloadBundle() {
+      const stem = [this.slug || 'ipo', `reel${this.reel.n}`, this.lang]
+        .join('-').replace(/[^a-z0-9-]+/gi, '-').toLowerCase();
+      const zip = await ZIP.fromMixed([
+        { name: 'reel.webm', blob: this.cap.blob },
+        { name: 'voice.mp3', blob: this.voice.blob },
+        { name: 'publishing-pack.txt', text: this.packaging },
+        { name: 'thumbnail-prompt.txt', text: this.thumbnailPrompt },
+        { name: 'script.txt', text: this.script },
+      ]);
+      if (!zip) {
+        this.cap.ok = false;
+        this.cap.msg = 'Nothing to bundle yet — generate a voice or record.';
+        return;
+      }
+      this.saveBlob(zip, `${stem}.zip`);
+    },
+
+    /* Blob -> a file on disk. Revoked on the next tick rather than
+       immediately: some browsers have not started reading the URL by the time
+       click() returns, and revoking too early produces a 0-byte download. */
+    saveBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    },
 
     // ── entrance animation ─────────────────────────────────────────────
     replay() {
