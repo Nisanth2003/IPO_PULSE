@@ -407,6 +407,11 @@ def voice_id(lang: str = "") -> str:
 
 # Which env var tunes which API field. Names are the plain-English ones a
 # person would look for, not the API's spelling.
+# The sentinel that turns one field over to the script. A word rather than a
+# magic number, because "0.6" and "derive it" are different KINDS of answer and
+# a number can never mean the second one.
+AUTO = "auto"
+
 SETTING_ENV = (
     ("stability", "ELEVENLABS_STABILITY"),
     ("similarity_boost", "ELEVENLABS_SIMILARITY"),
@@ -415,7 +420,7 @@ SETTING_ENV = (
 )
 
 
-def tuned_settings(lang: str = "") -> dict[str, Any]:
+def tuned_settings(lang: str = "", text: str = "") -> dict[str, Any]:
     """DEFAULT_SETTINGS with any env overrides applied, per language.
 
     Named `tuned_settings` and not `settings` on purpose: `settings` is already
@@ -442,14 +447,31 @@ def tuned_settings(lang: str = "") -> dict[str, Any]:
     should cost you the tuning, not the whole narration.
     """
     out = dict(DEFAULT_SETTINGS)
+
+    # `auto` on any of these hands that one field to speech.delivery(), which
+    # reads it off the script — see AUTO below. Everything else is unchanged:
+    # an explicit number still pins the field, and an unset one keeps the
+    # documented default.
+    auto_fields = set()
     for field, env in SETTING_ENV:
         raw = _per_lang(env, lang)
         if not raw:
+            continue
+        if raw.strip().lower() == AUTO:
+            auto_fields.add(field)
             continue
         try:
             out[field] = float(raw)
         except ValueError:
             pass
+
+    if auto_fields and text:
+        from . import speech
+        derived = speech.delivery(text, lang)
+        for field in auto_fields:
+            if field in derived:
+                out[field] = derived[field]
+
     return out
 
 
@@ -609,7 +631,7 @@ def cached_path(text: str, vid: str = "", mdl: str = "",
         # the KEY as well as in the request, or raising ELEVENLABS_STYLE would
         # hash to the same stem and hand back the old flat read from cache —
         # looking like the setting had no effect.
-        merged = {**tuned_settings(lang), **(settings or {})}
+        merged = {**tuned_settings(lang, text), **(settings or {})}
     # The language is not in the key: it only ever selects a voice, a model and
     # a style, and all three ARE in the key. Adding it would cache the same
     # reading twice under two labels.
@@ -704,7 +726,7 @@ def _synthesize_one(provider: str, text: str, vid: str, mdl: str,
     vid = vid or voice_id(lang)
     mdl = mdl or model(lang)
     # Must match cached_path's merge exactly, or every render misses the cache.
-    merged = {**tuned_settings(lang), **(settings or {})}
+    merged = {**tuned_settings(lang, text), **(settings or {})}
 
     # ── refusals that no key can fix, checked before any of them is tried ──
 

@@ -130,6 +130,102 @@ def for_speech(text: str, lang: str = "en") -> str:
     return out.strip()
 
 
+# ── deriving the delivery from the script ──────────────────────────────────
+#
+# Reference numeric density, in digits per 100 characters, per language.
+#
+# MEASURED, not guessed — over all 24 IPOs x 6 reels in the book on
+# 28 Aug 2026. The per-language split is the whole reason this constant exists:
+#
+#     reel   en    hi    te
+#      1    3.3   9.7   9.9
+#      2    2.9   9.9   9.6
+#      3    1.7   6.3   5.8
+#      4    4.4   6.6   6.5
+#      5    1.7   5.3   5.0
+#      6    3.0   5.9   5.3
+#
+# Hindi and Telugu run two to three times denser than English, and not because
+# they say more numbers — they say the SAME numbers in a third of the words, so
+# the digits are a far larger share of the text. Feeding raw density into one
+# formula would therefore peg every Indic reel at maximum stability and lose all
+# variation *within* a language, which is the variation actually worth having.
+# So density is scored as a RATIO against its own language's typical value.
+REF_DENSITY = {"en": 3.0, "hi": 7.5, "te": 7.4}
+
+# A long sentence needs air. English averages 41-74 characters per sentence and
+# the Indic scripts 24-52, so this threshold is deliberately generous.
+LONG_SENTENCE = 60
+
+
+def profile(text: str, lang: str = "en") -> dict:
+    """Measurable properties of a script that should change how it is read."""
+    body = (text or "").strip()
+    if not body:
+        return {"chars": 0, "density": 0.0, "ratio": 1.0,
+                "questions": 0, "mean_sentence": 0.0}
+    digits = sum(c.isdigit() for c in body)
+    density = digits * 100.0 / len(body)
+    ref = REF_DENSITY.get((lang or "en").lower(), REF_DENSITY["en"])
+    sentences = [s for s in re.split(r"[।.!?]", body) if s.strip()]
+    mean_sentence = (sum(len(s) for s in sentences) / len(sentences)
+                     if sentences else 0.0)
+    return {
+        "chars": len(body),
+        "density": density,
+        "ratio": density / ref if ref else 1.0,
+        # Only reel 4 asks anything ("Apply or Skip?"), which makes this a clean
+        # signal for "this reel is an argument, not a readout".
+        "questions": len(re.findall(r"[?？]", body)),
+        "mean_sentence": mean_sentence,
+    }
+
+
+def _clamp(v: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, v))
+
+
+def delivery(text: str, lang: str = "en") -> dict:
+    """Voice settings derived from the script itself.
+
+    The governing idea, and it is the opposite of the obvious one: STABILITY
+    RISES WITH NUMERIC DENSITY. Low stability is what lets v3 act, but it also
+    lets it improvise — and on a line that is mostly figures, "expressive" means
+    a real risk of speaking a different number than the card is showing. That is
+    not a delivery flaw, it is a false statement about somebody's money.
+
+    So a figure-heavy reel is read straight and clearly, and a reel that is
+    argument rather than readout gets the latitude, because there is nothing in
+    it to get factually wrong. Questions are the marker for the second kind.
+
+    Returns only the three fields worth varying. similarity_boost and
+    use_speaker_boost are voice-identity settings, not performance ones — moving
+    them per reel would make the same voice sound like different people between
+    scenes, which is the complaint that started this.
+    """
+    p = profile(text, lang)
+    if not p["chars"]:
+        return {}
+    r = p["ratio"]
+
+    # 0.58 at typical density, rising toward 0.78 as a reel gets figure-heavy and
+    # falling toward 0.42 when it is mostly prose.
+    stability = _clamp(0.58 + (r - 1.0) * 0.18, 0.42, 0.78)
+
+    # Exaggeration: down with density, up with rhetorical questions.
+    style = _clamp(0.18 - (r - 1.0) * 0.12 + p["questions"] * 0.06, 0.05, 0.42)
+
+    # Dense or long-sentenced copy wants a fraction more room.
+    speed = 1.0 - (r - 1.0) * 0.05
+    if p["mean_sentence"] > LONG_SENTENCE:
+        speed -= 0.02
+    speed = _clamp(speed, 0.92, 1.03)
+
+    return {"stability": round(stability, 3),
+            "style": round(style, 3),
+            "speed": round(speed, 3)}
+
+
 # Patterns that are wrong in the SCRIPT rather than in its pronunciation. These
 # are reported, never rewritten: each one wants an editorial fix in output.js,
 # and a normaliser that quietly papered over them would hide the actual bug.
