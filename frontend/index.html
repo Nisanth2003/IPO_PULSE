@@ -108,9 +108,13 @@
             :class="ready && ready.urgent ? 'dot-blink' : ''"
             :style="`background:${readyTone(ready && ready.ready_count ? 'ready' : 'blocked').dot}`"
             :title="ready ? ready.ready_count + ' of 6 reels ready to record' : ''"></span>
+      <!-- blur() after picking, and it is not cosmetic: key() ignores events
+           whose target is an INPUT/TEXTAREA/SELECT, so a select that keeps
+           focus silently kills , / . and Shift+arrows until you click the
+           page. Focus goes back to the document, where the shortcuts live. -->
       <select class="inp !w-auto !py-1.5 font-bold" :value="slug" :style="selectStyle"
-              @change="select($event.target.value)"
-              title="Shift+↑ / Shift+↓ or , / . to step through this list">
+              @change="select($event.target.value); $event.target.blur()"
+              title="Shift+↑ / Shift+↓ or , / . to step through this list — press ? for all shortcuts">
         <template x-for="c in catalogue" :key="c.slug">
           <option :value="c.slug" :style="optionStyle(c)"
                   x-text="optionLabel(c)"></option>
@@ -201,6 +205,64 @@
        then poll for the log. Outside <header> on purpose: the header has
        backdrop-blur, which would make it the containing block for this
        fixed overlay and clip it to the header's height. -->
+  <!-- KEYBOARD SHEET. Opened with ? (or /), closed with either, Escape, or a
+       click outside. Every row here mirrors a case in studio.js key() — if you
+       add a shortcut there, add it here, because a shortcut nobody can find is
+       a shortcut that does not exist. Outside <header> for the same
+       backdrop-blur containing-block reason as the panel below. -->
+  <div x-show="keysOpen" x-cloak @click="keysOpen = false"
+       class="fixed inset-0 z-50 grid place-items-center p-4"
+       style="background:rgba(2,6,23,.72);backdrop-filter:blur(3px)">
+    <div class="w-full max-w-2xl rounded-2xl p-5 max-h-[90vh] overflow-y-auto"
+         style="background:#0F172A;border:1px solid rgba(255,255,255,.14)" @click.stop>
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <div class="font-black text-lg">Keyboard</div>
+          <div class="text-2xs text-slate-400 mt-0.5">
+            None of these fire while a text box, dropdown or textarea has focus.
+          </div>
+        </div>
+        <button class="btn" @click="keysOpen = false">✕</button>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+        <template x-for="row in [
+              ['Move', ''],
+              ['1 – 6', 'jump to that reel'],
+              ['← / →', 'previous / next scene'],
+              ['↑ / ↓', 'previous / next reel'],
+              [', / .', 'previous / next IPO'],
+              ['Shift+↑ / ↓', 'previous / next IPO'],
+              ['Play', ''],
+              ['Space', 'play / pause the reel'],
+              ['R', 'replay from the first scene'],
+              ['Look', ''],
+              ['L / Shift+L', 'cycle language forward / back'],
+              ['B', 'cycle the background'],
+              ['[ / ]', 'text scale down / up'],
+              ['G', 'toggle the safe-area guides'],
+              ['F', 'focus mode (Escape leaves)'],
+              ['Do', ''],
+              ['S / D', 'toggle the left / right panel'],
+              ['E', 'export this scene as a PNG'],
+              ['?', 'this sheet'],
+            ]" :key="row[0]">
+          <!-- An empty second cell marks a group heading rather than a binding,
+               so the list needs no separate nested structure to read as one. -->
+          <div :class="row[1] ? 'flex items-baseline justify-between gap-3 py-0.5'
+                              : 'text-2xs uppercase tracking-wider text-slate-500 pt-3 pb-1 font-bold'">
+            <template x-if="row[1]">
+              <span class="font-mono text-xs px-1.5 py-0.5 rounded bg-[#0B1220]
+                           border border-white/10 shrink-0" x-text="row[0]"></span>
+            </template>
+            <template x-if="!row[1]"><span x-text="row[0]"></span></template>
+            <span x-show="row[1]" class="text-slate-400 text-xs text-right"
+                  x-text="row[1]"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
   <div x-show="run.open" x-cloak @keydown.escape.window="runClose()"
        class="fixed inset-0 z-50 grid place-items-center p-4"
        style="background:rgba(2,6,23,.72);backdrop-filter:blur(3px)">

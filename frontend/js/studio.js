@@ -31,6 +31,10 @@ function studio() {
     gifSize: 4.6,               // in --fs units, so it tracks the frame
     showSafe: false, showFooter: true, showProgress: true, rounded: true,
     leftOpen: true, rightOpen: true,
+    /* The shortcut sheet. Every key below was reachable only by hovering the
+       IPO dropdown for its tooltip, which is not documentation. `?` opens
+       this; the list itself is markup in index.html, next to the panel. */
+    keysOpen: false,
     playing: false, speed: 1, sceneProg: 0,
     /* Timing. `script` derives each scene's hold from how long its narration
        takes to say; `fixed` keeps the designed holds from reels.js.
@@ -971,7 +975,12 @@ function studio() {
      * budget check against the same pre-call balance and could jointly
      * overspend the cap they each individually cleared. */
     async genVoice(only = '') {
-      if (!this.api) {
+      /* hasBackend, NOT `api`. probeBackend sets api to '' for a same-origin
+         backend — which is exactly the `ipopulse serve` case — so gating on
+         `!this.api` refused to narrate on the one setup that could, and told
+         you to run the server you were already running. `api` is a prefix
+         ('' means same-origin); `hasBackend` is the question being asked. */
+      if (!this.hasBackend) {
         this.voice.msg = 'Voice needs a backend — this is the static site. '
           + 'Run `ipopulse serve`, or set IPOPULSE_TRIGGER_API to a hosted one.';
         this.voice.ok = false;
@@ -1363,7 +1372,13 @@ function studio() {
         case 'ArrowUp':    this.prevReel(); break;
         case ' ':          e.preventDefault(); this.togglePlay(); break;
         case 'f': case 'F': this.focus = !this.focus; break;
-        case 'Escape':      this.focus = false; break;
+        /* Both spellings: '?' is Shift+/ on a US layout but a key of its own
+           elsewhere, and '/' alone is what people press when they guess. */
+        case '?': case '/': e.preventDefault(); this.keysOpen = !this.keysOpen; break;
+        /* Escape closes the sheet first if it is open, so one press does the
+           thing that is in front of you rather than silently leaving focus
+           mode while a panel stays up. */
+        case 'Escape':      if (this.keysOpen) { this.keysOpen = false; } else { this.focus = false; } break;
         case 'g': case 'G': this.showSafe = !this.showSafe; break;
         case 's': case 'S': this.leftOpen = !this.leftOpen; break;
         case 'd': case 'D': this.rightOpen = !this.rightOpen; break;

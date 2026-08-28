@@ -55,6 +55,19 @@ services:
         sync: false
 
       # Optional. Without it the jobs still run; analysis and translation are
-      # the parts that need it.
+      # the parts that need it. It is ALSO the voice key: Gemini TTS is the
+      # only one of the two providers whose free tier carries a commercial
+      # licence, so on a free channel this — not the ElevenLabs key below —
+      # is what makes /api/voice work. See YOUTUBE-PLAYBOOK.md §8.
       - key: GEMINI_API_KEY
+        sync: false
+
+      # Optional, and deliberately second. ElevenLabs' free plan grants NO
+      # commercial licence, so setting this on a monetised channel buys
+      # nothing until there is a paid subscription behind it — at which point
+      # it becomes first choice, because cloning your own voice is the branch
+      # §3.1 treats as safe. _2 is read too, for a paid key with a paid spare.
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY_2
         sync: false
