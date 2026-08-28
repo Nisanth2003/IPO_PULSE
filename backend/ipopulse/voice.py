@@ -210,13 +210,36 @@ class VoiceError(RuntimeError):
     """Anything that stops audio coming back, with a message worth showing."""
 
 
-def providers() -> list[str]:
+def providers(lang: str = "") -> list[str]:
     """Which providers to try, in order. IPOPULSE_VOICE_PROVIDERS overrides.
+
+    PER LANGUAGE, because the right provider genuinely differs by language and
+    that is a finding rather than a preference. Checked against the ElevenLabs
+    voice library API on 29 Aug 2026:
+
+        Hindi    300 shared voices, the most-used with 10-15k adopters each.
+        Telugu   ZERO. `language=te`, `tel` and `telugu` all return nothing —
+                 Telugu is not even a filterable language there, while Tamil
+                 returns 100. Searching "telugu" finds ten voices with Telugu
+                 in their NAME whose verified_languages are all `hi`: Hindi
+                 voices marketed for Telugu.
+
+    eleven_v3 listing Telugu among 70+ languages is not the same claim as
+    having a voice verified to speak it, and the difference is audible — it
+    comes out as a generically Indic accent, which is what "the Telugu sounds
+    like Tamil" was. No setting fixes that; it is missing training data.
+
+    Gemini does list Telugu natively, so the sane split is ElevenLabs for
+    en/hi and Gemini for te:
+
+        IPOPULSE_VOICE_PROVIDERS=elevenlabs,gemini
+        IPOPULSE_VOICE_PROVIDERS_TE=gemini,elevenlabs
 
     Names not recognised are dropped rather than raising: a typo in an env var
     should not take the whole feature down, and `--plan` shows what resolved.
     """
-    raw = (os.getenv("IPOPULSE_VOICE_PROVIDERS") or "").strip()
+    raw = _per_lang("IPOPULSE_VOICE_PROVIDERS", lang) if lang else (
+        os.getenv("IPOPULSE_VOICE_PROVIDERS") or "").strip()
     if not raw:
         wanted = list(DEFAULT_PROVIDERS)
     else:
@@ -494,10 +517,10 @@ def plan() -> dict[str, dict[str, str]]:
     believe Telugu is on a different model than it is, and discover otherwise
     only from the accent in a finished video.
     """
-    order = providers()
-    first = next((p for p in order if available(p)), "")
     out = {}
     for code in ("en", "hi", "te"):
+        order = providers(code)
+        first = next((p for p in order if available(p)), "")
         if first == "gemini":
             out[code] = {
                 "provider": "gemini",
@@ -617,7 +640,7 @@ def cached_path(text: str, vid: str = "", mdl: str = "",
     Gemini returns PCM this module wraps as wav. So a lookup globs for the stem
     and a write names the file after what actually came back — see `find_cached`.
     """
-    provider = provider or (providers() or ["elevenlabs"])[0]
+    provider = provider or (providers(lang) or ["elevenlabs"])[0]
     if provider == "gemini":
         vid = vid or gemini_voice(lang)
         mdl = mdl or gemini_model(lang)
@@ -661,7 +684,7 @@ def synthesize(text: str, vid: str = "", mdl: str = "",
     comparing two takes needs to know what they are comparing, and it has to
     know the format, because the two providers do not return the same one.
     """
-    wanted = [provider] if provider else providers()
+    wanted = [provider] if provider else providers(lang)
     if not wanted:
         raise VoiceError(
             "No usable voice provider. IPOPULSE_VOICE_PROVIDERS resolved to "
