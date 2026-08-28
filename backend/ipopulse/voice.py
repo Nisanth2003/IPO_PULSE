@@ -328,6 +328,38 @@ def api_keys() -> list[str]:
     return [k for k in found if not (k in seen or seen.add(k))]
 
 
+def script_hash(text: str) -> str:
+    """First 8 hex of SHA-256 over the script — the whole cache-invalidation
+    scheme in one function.
+
+    MIRRORED IN JAVASCRIPT: studio.js `scriptHash()` must produce the identical
+    value, because the browser derives the audio's filename from the script it
+    is about to render and then asks GitHub for exactly that file. If the two
+    implementations disagree by even a space, every lookup 404s and the site is
+    silently mute. The contract, and it is deliberately the simplest thing that
+    can agree across two languages:
+
+        strip surrounding whitespace -> encode UTF-8 -> SHA-256 -> first 8 hex
+
+    Why a hash at all: it makes the URL self-invalidating. Re-word a script and
+    its hash changes, so the page asks for a file that does not exist and shows
+    "not narrated yet" rather than confidently playing yesterday's read over
+    today's numbers. No manifest, no sheet column, nothing to keep in step —
+    which is the point, because a stored URL is a second copy of the truth and
+    it goes stale silently.
+
+    Eight hex is 4 billion values over a corpus of a few thousand scripts. The
+    cost of a collision is one wrong narration, not corruption, and the birthday
+    bound at that scale is negligible.
+    """
+    return hashlib.sha256(text.strip().encode("utf-8")).hexdigest()[:8]
+
+
+def asset_name(slug: str, reel: int, lang: str, text: str) -> str:
+    """The one filename both sides compute. See script_hash for the contract."""
+    return f"{slug}-r{int(reel)}-{lang}-{script_hash(text)}.mp3"
+
+
 def key_label(key: str) -> str:
     """A stable, non-secret name for one key — for logs and the ledger.
 

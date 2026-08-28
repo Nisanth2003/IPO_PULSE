@@ -79,6 +79,15 @@ jobs:
           # leak scan below independently enforces. Unset simply means the panel
           # asks for a token by hand instead. See cli.py, _sealed_pat.
           GH_DISPATCH_PAT: ${{ secrets.GH_DISPATCH_PAT }}
+          # Where the pre-rendered narration lives, so the site can PLAY audio
+          # with no backend — /api/voice cannot exist on Pages and the voice key
+          # must never reach a browser. narrate.yml puts MP3s on a Release; the
+          # page derives each filename from a hash of the script it is showing
+          # (cli.py _audio_base, voice.py script_hash). Left unset this is '',
+          # which is not a failure: the buttons simply read "not narrated yet".
+          # GITHUB_REPOSITORY is always set by Actions, so _audio_base derives
+          # the URL itself and no configuration is needed here.
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           if [ -z "$GOOGLE_SHEETS_ID" ]; then
             echo "::error::GOOGLE_SHEETS_ID is not set - the site would load with no data."

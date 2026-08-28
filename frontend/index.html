@@ -2446,17 +2446,44 @@
              optional — an unsupported language comes back as confident
              nonsense rather than an error, so a 200 proves nothing. -->
         <template x-for="l in LANGS" :key="l.code">
-          <div class="flex items-center gap-1.5 mt-1.5">
-            <span class="w-1.5 h-1.5 rounded-full shrink-0"
-                  :style="`background:${voice[l.code] ? '#22C55E' : '#334155'}`"></span>
-            <span class="text-[10px] font-bold w-12 shrink-0" x-text="l.label"></span>
-            <template x-if="voice.urls[l.code]">
-              <audio class="flex-1 h-7 min-w-0" controls :src="voice.urls[l.code]"></audio>
+          <div class="mt-1.5">
+            <div class="flex items-center gap-1.5">
+              <!-- green = loaded in this session, amber = pre-rendered on the
+                   Release and one click away, grey = nothing to play yet -->
+              <span class="w-1.5 h-1.5 rounded-full shrink-0"
+                    :style="`background:${voiceFresh(l.code) ? '#22C55E'
+                              : (voice.hosted[l.code] ? '#F59E0B' : '#334155')}`"></span>
+              <span class="text-[10px] font-bold w-12 shrink-0" x-text="l.label"></span>
+
+              <!-- ▶ SWITCHES THE CARD TO THIS LANGUAGE AND PLAYS IT. Works with
+                   no backend: the clip is fetched from the Release, decoded to
+                   get its true length, and the reel re-times itself to match.
+                   Hearing Telugu over an English card would prove nothing,
+                   which is why this changes the picture too. -->
+              <button class="btn !py-0.5 text-[9.5px] px-2"
+                      :class="lang === l.code ? 'btn-on' : ''"
+                      :disabled="!!voice.busy || !hasAudio(l.code)"
+                      @click="playLang(l.code)"
+                      x-text="voice.busy === l.code ? '…' : '▶'"></button>
+
+              <!-- Generating needs a key, so it needs a backend. On Pages this
+                   is correctly unavailable rather than misleadingly present. -->
+              <button class="btn flex-1 !py-0.5 text-[9.5px]"
+                      :disabled="!!voice.busy || !hasBackend"
+                      @click="genVoice(l.code)"
+                      x-text="voiceFresh(l.code) ? '↻ Re-render this one'
+                              : (hasBackend ? 'Generate just this one'
+                                            : 'Generate: needs a backend')"></button>
+            </div>
+            <!-- The scrubber, once there is something to scrub. -->
+            <template x-if="voiceFresh(l.code) && voice.urls[l.code]">
+              <audio class="w-full h-7 mt-1" controls
+                     :src="voice.urls[l.code]"></audio>
             </template>
-            <template x-if="!voice.urls[l.code]">
-              <button class="btn flex-1 !py-0.5 text-[9.5px]" :disabled="!!voice.busy"
-                      @click="genVoice(l.code)">Generate just this one</button>
-            </template>
+            <div class="text-[9px] text-slate-500 mt-0.5"
+                 x-show="voiceFresh(l.code) && voice.secs[l.code]"
+                 x-text="'measured ' + voice.secs[l.code].toFixed(1)
+                         + 's — reel timed to match'"></div>
           </div>
         </template>
         <div class="text-[9.5px] mt-1.5" x-show="voice.msg"

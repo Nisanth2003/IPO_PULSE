@@ -2054,6 +2054,131 @@ def cmd_videos(args) -> int:
     return 0
 
 
+def _audio_base() -> str:
+    """Base URL for the pre-rendered narration, ending in '/'.
+
+    The site derives each clip's filename itself (voice.asset_name, mirrored in
+    studio.js) so all it needs is where to look. A GitHub Release on a public
+    repo is the natural home: the assets are world-readable over plain HTTPS
+    with no token and no CORS preflight — an <audio> src needs neither — and
+    they do not live in git, so daily narration never bloats the repo the way
+    committing it under frontend/ would.
+
+    IPOPULSE_AUDIO_BASE overrides. Otherwise it is derived from
+    GITHUB_REPOSITORY, which Actions always sets, so the publish workflow needs
+    no extra configuration. Locally that variable is absent and this returns ''
+    — which is correct rather than broken: with no base the page shows the
+    buttons as un-narrated and falls back to generating through /api/voice,
+    which is exactly what a machine with a backend and a key should do.
+    """
+    explicit = (os.getenv("IPOPULSE_AUDIO_BASE") or "").strip()
+    if explicit:
+        return explicit if explicit.endswith("/") else explicit + "/"
+    repo = (os.getenv("GITHUB_REPOSITORY") or "").strip().strip("/")
+    if not repo:
+        return ""
+    return f"https://github.com/{repo}/releases/download/{AUDIO_TAG}/"
+
+
+# The Release these assets hang off. A single rolling tag rather than one per
+# day: the filenames already carry a script hash, so old clips are harmless and
+# a viewer's URL keeps working after the next run. Twenty-four dated releases a
+# month would be noise in the repo's release list for no benefit.
+AUDIO_TAG = "audio"
+
+
+def cmd_narrate(args) -> int:
+    """Narrate a whole batch of scripts into Release-ready audio files.
+
+    Input is the JSON that `scripts.js` (driven by Playwright in narrate.yml)
+    writes out, because the scripts are assembled in the BROWSER — the voTake*
+    functions in frontend/js/output.js — and the sheet holds only the raw data
+    they are built from. Reimplementing 1,300 lines of that in Python would put
+    the same editorial logic in two places, which is the one thing this repo is
+    consistent about not doing. So the browser stays the author and this is the
+    consumer.
+
+        { "esds-software-solution": { "1": { "en": "...", "hi": "...", ... } } }
+
+    Files land in out/audio/ named by voice.asset_name, which is what makes them
+    findable: the site derives the same name from the script it renders. Nothing
+    is written to the sheet — there is no URL to store, only one to compute.
+
+    --budget is not optional politeness. Three open IPOs across six reels and
+    three languages measured 35,454 characters, and a free ElevenLabs plan is
+    10,000 a month, so an unbounded run is a bill or a hard stop mid-batch. The
+    default stops well short and says what it skipped.
+    """
+    import json as _json
+    from . import voice as tts
+
+    try:
+        book = _json.loads(Path(args.scripts).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as err:
+        print(f"error: could not read {args.scripts}: {err}", file=sys.stderr)
+        return 2
+
+    langs = args.langs.split(",") if args.langs else ["en", "hi", "te"]
+    only = set(args.slug.split(",")) if args.slug else None
+    out_dir = store.BACKEND_ROOT / "out" / "audio"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Plan the whole batch before spending anything, so the character count is
+    # a decision rather than a surprise discovered at item 40.
+    plan: list[tuple[str, int, str, str]] = []
+    for slug, reels in sorted(book.items()):
+        if only and slug not in only:
+            continue
+        for reel, per_lang in sorted(reels.items(), key=lambda kv: int(kv[0])):
+            for lang in langs:
+                text = (per_lang.get(lang) or "").strip()
+                if text:
+                    plan.append((slug, int(reel), lang, text))
+
+    if not plan:
+        print("Nothing to narrate — no scripts matched.")
+        return 0
+
+    total_chars = sum(len(t) for _, _, _, t in plan)
+    print(f"{len(plan)} clips, {total_chars:,} characters across "
+          f"{len({p[0] for p in plan})} IPO(s), languages: {','.join(langs)}")
+
+    made = skipped = billed = 0
+    for slug, reel, lang, text in plan:
+        name = tts.asset_name(slug, reel, lang, text)
+        dest = out_dir / name
+        if dest.exists() and not args.force:
+            # Same script, same hash, same file. Nothing to buy.
+            skipped += 1
+            continue
+        if not args.dry_run and billed + len(text) > args.budget:
+            print(f"  budget reached ({args.budget:,}) — stopping. "
+                  f"{len(plan) - made - skipped} clip(s) not made.")
+            break
+        if args.dry_run:
+            print(f"  would make {name}  ({len(text):,} chars)")
+            made += 1
+            continue
+        try:
+            audio, hit, used, fmt = tts.synthesize(text, lang=lang)
+        except tts.VoiceError as err:
+            # One language failing is not a reason to abandon the rest: a
+            # missing Telugu voice id should not cost you English.
+            print(f"  ! {slug} r{reel} {lang}: {err}", file=sys.stderr)
+            continue
+        dest.write_bytes(audio)
+        if not hit:
+            billed += len(text)
+        made += 1
+        print(f"  {name}  {len(audio):,} B  via {used}"
+              f"{' (cached)' if hit else ''}")
+
+    print(f"\n{made} made, {skipped} already present, "
+          f"{billed:,} characters billed.")
+    print(f"Files: {out_dir}")
+    return 0
+
+
 def cmd_voice(args) -> int:
     """Narrate a script with ElevenLabs, or list the voices on the account.
 
@@ -2402,6 +2527,8 @@ def write_frontend_config() -> Path:
     from . import sheets
     sid = sheets.sheet_id()
     api = (os.getenv("IPOPULSE_TRIGGER_API") or "").strip().rstrip("/")
+    # Where the pre-rendered narration lives; see _audio_base.
+    audio = _audio_base()
     gate_hash, gate_iter = _site_gate(sid)
     pat = _sealed_pat()
     dest = store.BACKEND_ROOT.parent / "frontend" / "js" / "config.js"
@@ -2428,6 +2555,7 @@ def write_frontend_config() -> Path:
         ' */\n'
         f'const SHEET_ID = "{sid}";\n'
         f'const API_BASE = "{api}";\n'
+        f'const AUDIO_BASE = "{audio}";\n'
         f'const SITE_GATE_HASH = "{gate_hash}";\n'
         f'const SITE_GATE_ITER = {gate_iter};\n'
         f'const GH_PAT_CIPHER = "{pat["cipher"]}";\n'
@@ -2838,6 +2966,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("videos", help="what the channel has published, and what is missing")
     sp.set_defaults(func=cmd_videos)
+
+    sp = sub.add_parser("narrate", help="batch-narrate a scripts JSON into "
+                                        "Release-ready audio files")
+    sp.add_argument("scripts", help="JSON from scripts.js / narrate.yml")
+    sp.add_argument("--slug", help="only these slugs (comma separated)")
+    sp.add_argument("--langs", help="default en,hi,te")
+    sp.add_argument("--budget", type=int, default=12_000,
+                    help="stop after this many BILLED characters (default "
+                         "12000; a free plan is 10000 a MONTH, and three open "
+                         "IPOs in three languages is ~35000)")
+    sp.add_argument("--dry-run", action="store_true",
+                    help="list what would be made, and what it would cost")
+    sp.add_argument("--force", action="store_true",
+                    help="re-make clips whose file already exists")
+    sp.set_defaults(func=cmd_narrate)
 
     sp = sub.add_parser("voice", help="narrate a script with ElevenLabs "
                                       "(cached; billed per character)")

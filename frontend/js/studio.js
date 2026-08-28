@@ -174,7 +174,21 @@ function studio() {
                 narration would be a worse error than no measurement at all,
                 because it would look authoritative. */
              secs: { en: 0, hi: 0, te: 0 },
+             /* WHICH IPO AND WHICH REEL THIS AUDIO IS FOR.
+                Both, and they are not optional bookkeeping. voice[] is keyed by
+                LANGUAGE alone, so without these a blob outlives the card it was
+                made for: narrate reel 1 of one IPO, hop to another, and the old
+                audio is still loaded, still enabled, and plays a script about a
+                different company over the new one. Reported 28 Aug 2026 as
+                "Telugu played and then English came" and "the page content does
+                not match the voice" — the same defect twice. Freshness is
+                checked at every point that plays or measures: voiceFresh(). */
              forReel: { en: 0, hi: 0, te: 0 },
+             forSlug: { en: '', hi: '', te: '' },
+             /* Derived Release URLs for the reel on screen — see refreshHosted.
+                Not fetched until something asks to play, so a value here means
+                "this is where it would be", not "this exists". */
+             hosted: { en: '', hi: '', te: '' },
              busy: '', msg: '', ok: true, left: null },
     cap: { rec: null, blob: null, url: '', msg: '', ok: true },
     /* Does pressing Play also speak? On by default — hearing the voice against
@@ -709,6 +723,23 @@ function studio() {
       this.scene = Math.max(0, Math.min(scene, this.scenes.length - 1));
       this.sceneProg = 0;
       this.replay();
+
+      /* Audio belongs to one (IPO, reel), so stale takes are dropped and the
+         Release URLs re-derived whenever either changes — before anything can
+         play the wrong thing.
+         GUARDED ON (slug, reelIndex) CHANGING, and that guard is not an
+         optimisation. nextScene() calls go() on every scene advance, so during
+         playback this would otherwise run three recompute()s and three SHA-256
+         digests every few seconds, mid-reel, for an answer that cannot have
+         changed. Scene changes do not change which audio is correct. */
+      const key = `${this.slug}#${this.reelIndex}`;
+      if (key !== this._audioKey) {
+        this._audioKey = key;
+        this.dropStaleVoice();
+        // Fire-and-forget: go() is synchronous and called from key handlers.
+        // The buttons read as unavailable until the digests land a few ms later.
+        this.refreshHosted().catch(() => {});
+      }
     },
     nextScene() {
       if (this.scene < this.sceneCount - 1) this.go(this.reelIndex, this.scene + 1);
@@ -835,7 +866,7 @@ function studio() {
        *
        * The reel check matters: voice.secs is keyed by language, and audio made
        * for reel 1 must not time reel 2. */
-      const measured = this.voice.forReel[this.lang] === this.reel.n
+      const measured = this.voiceFresh(this.lang)
         ? this.voice.secs[this.lang] : 0;
       const spoken = measured || (this.lang === 'en'
         ? shapeTotal
@@ -934,6 +965,10 @@ function studio() {
     startPreview() {
       this.stopPreview();
       if (!this.previewVoice || this.cap.rec) return;
+      /* Freshness, not just presence. This line is the whole reported bug: it
+         used to ask only "is there a URL for this language", and a blob from a
+         previous IPO or reel answers yes. */
+      if (!this.voiceFresh(this.lang)) return;
       const url = this.voice.urls[this.lang];
       if (!url) return;
       try {
@@ -994,10 +1029,34 @@ function studio() {
       try {
         for (const { code } of this.LANGS) {
           this.lang = code;
+          /* recompute() IS REQUIRED, and leaving it out was a real bug.
+           *
+           * The script's template strings follow `lang`, but every localised
+           * value it interpolates comes from `this.loc`, which is only rebuilt
+           * by recompute() — exactly the trap setLang's comment warns about.
+           * Assigning `lang` alone therefore produced a HYBRID: this language's
+           * sentences wrapped around the previous language's data.
+           *
+           * Measured 28 Aug 2026 on esds-software-solution reel 1 — the text
+           * this returned versus what the card actually rendered:
+           *     EN 1,998 vs 1,937     HI 717 vs 681     TE 698 vs 698
+           * Telugu matched only because it happened to be the last language
+           * assigned, so `loc` was finally correct for it. genVoice() narrates
+           * from this function, so for two languages out of three the voice was
+           * reading text the screen never showed — which is precisely the
+           * "content does not match the voice" report.
+           *
+           * Not setLang(): that restarts the narration when playing, and doing
+           * that three times inside a loop would thrash the audio. This wants
+           * the data swap and none of the side effects. */
+          this.recompute();
           out[code] = (this.script || '').trim();
         }
       } finally {
         this.lang = original;
+        // Put `loc` back in step with the language on screen. Without this the
+        // card is left localised for whichever language the loop ended on.
+        this.recompute();
       }
       return out;
     },
@@ -1095,7 +1154,33 @@ function studio() {
       this.voice.urls[code] = blob ? URL.createObjectURL(blob) : '';
       this.voice.secs[code] = 0;
       this.voice.forReel[code] = 0;
+      this.voice.forSlug[code] = '';
       if (blob) await this.measureVoice(code, blob);
+    },
+
+    /* Does the loaded audio for this language belong to what is ON SCREEN?
+     *
+     * The one question that has to be asked before playing or timing anything.
+     * A blob is only ever valid for the (IPO, reel) it was made from; keyed by
+     * language alone it silently outlives both. Everything that plays audio or
+     * derives a duration goes through here. */
+    voiceFresh(code) {
+      return !!this.voice[code]
+          && this.voice.forSlug[code] === this.slug
+          && this.voice.forReel[code] === (this.reel && this.reel.n);
+    },
+
+    /* Drop audio that no longer belongs to the card, and free its blob URL.
+       Called when the IPO or the reel changes. Without this the memory is held
+       until the tab closes, and — far worse — the stale take stays playable. */
+    dropStaleVoice() {
+      for (const { code } of this.LANGS) {
+        if (this.voice[code] && !this.voiceFresh(code)) {
+          if (this.lang === code) this.stopPreview();
+          this.setVoice(code, null);
+          this.voice.from[code] = '';
+        }
+      }
     },
 
     /* True length of a narration blob, in seconds.
@@ -1119,6 +1204,7 @@ function studio() {
         const audio = await ctx.decodeAudioData(buf);
         this.voice.secs[code] = audio.duration;
         this.voice.forReel[code] = this.reel.n;
+        this.voice.forSlug[code] = this.slug;
         // Nothing is played through this context, so it is pure overhead once
         // the decode is done. Chrome caps concurrent contexts and re-narrating
         // while tuning a number would otherwise exhaust them.
@@ -1126,11 +1212,149 @@ function studio() {
       } catch (e) { /* leave secs at 0 — see above */ }
     },
 
+    /* ── pre-rendered narration, fetched not generated ──────────────────────
+     *
+     * This is what makes audio work on GitHub Pages, where /api/voice does not
+     * exist and the ElevenLabs key must never go near a browser. A workflow
+     * narrates every reel on a runner and attaches the files to a Release; the
+     * page then works out the exact filename for the script it is showing and
+     * asks for it. No backend, no key, no manifest to keep in step.
+     *
+     * The filename carries a hash of the script, so it is self-invalidating: if
+     * the wording changes, the derived URL changes, GitHub answers 404, and the
+     * page says "not narrated yet" instead of playing yesterday's read over
+     * today's numbers. See voice.py script_hash — that contract is the whole
+     * design and the two implementations must agree exactly.
+     */
+
+    /* MIRROR OF voice.py script_hash. Same contract, and if these two ever
+       disagree by a single space every lookup 404s and the site goes quiet:
+           trim -> UTF-8 -> SHA-256 -> first 8 hex
+       Verified against the Python side on 28 Aug 2026: reel 1 of
+       esds-software-solution hashed to 9f11d49e / c5505aef / fad7d908 in both. */
+    async scriptHash(text) {
+      const bytes = new TextEncoder().encode(String(text || '').trim());
+      const bits = await crypto.subtle.digest('SHA-256', bytes);
+      return [...new Uint8Array(bits)]
+        .map((b) => ('00' + b.toString(16)).slice(-2)).join('').slice(0, 8);
+    },
+
+    /* Recompute the three URLs for the reel currently on screen.
+     *
+     * Called on every IPO and reel change. Cheap — three SHA-256s of a couple
+     * of KB — and deliberately does NOT probe the network: a HEAD per language
+     * per reel change would be three requests for a question the play button
+     * answers anyway, and GitHub's asset URLs redirect, which makes a HEAD a
+     * worse signal than an actual load. State stays '' until something tries. */
+    async refreshHosted() {
+      const base = this.audioBase;
+      const reel = this.reel && this.reel.n;
+      const slug = this.slug;
+      // A generation counter, because this is async and the user can hop IPOs
+      // faster than three digests resolve. Without it a slow refresh for the
+      // previous reel lands after the fast one and pins the wrong URLs.
+      const token = (this._hostedToken = (this._hostedToken || 0) + 1);
+
+      /* Read all three scripts FIRST, synchronously, then hash.
+         scriptFor() takes no language argument — it reads this.lang — so the
+         three texts can only be obtained by swapping it, and that swap must not
+         straddle an `await`: mid-flight the whole card would be rendering the
+         wrong language, and any other async code observing this.lang would see
+         it. scriptsByLang() already does the swap in a synchronous try/finally,
+         which is exactly the guarantee needed here. */
+      const texts = (base && slug && reel) ? this.scriptsByLang() : {};
+
+      for (const { code } of this.LANGS) {
+        const text = (texts[code] || '').trim();
+        if (!text) { this.voice.hosted[code] = ''; continue; }
+        const h = await this.scriptHash(text);
+        if (token !== this._hostedToken) return;   // superseded; drop the result
+        this.voice.hosted[code] = `${base}${slug}-r${reel}-${code}-${h}.mp3`;
+      }
+    },
+
+    /* Where the Release assets live. Injected at build time (config.js) rather
+       than hardcoded, so a fork points at its own repo without editing code —
+       the same reason SHEET_ID and API_BASE arrive that way. */
+    get audioBase() {
+      return (typeof AUDIO_BASE !== 'undefined' && AUDIO_BASE) || '';
+    },
+
+    /* Is there anything to play for this language — locally generated in this
+       session, or pre-rendered on the Release? */
+    hasAudio(code) {
+      return !!(this.voiceFresh(code) || this.voice.hosted[code]);
+    },
+
+    /* Play one language, and switch the card to it.
+     *
+     * Switching is the point rather than a side effect: hearing Telugu over an
+     * English card tells you nothing about whether the reel works. The button
+     * means "show me this version", not "play this file".
+     *
+     * A blob generated in this session wins over the hosted file: if you have
+     * just re-rendered a line, that is the take you want to hear.
+     *
+     * Fetching the hosted file rather than pointing an <audio> at the URL is
+     * deliberate — it gives us the bytes, so measureVoice can decode the real
+     * duration and the reel re-times itself to match. Streaming from a URL
+     * would leave the picture running on an estimate, which is the 41-second
+     * drift this whole path exists to remove. */
+    async playLang(code) {
+      this.voice.msg = '';
+      this.voice.ok = true;
+      if (this.lang !== code) this.lang = code;
+      this.previewVoice = true;
+      /* Re-derive before using it. The left panel edits GMP and subscription
+         live, and those numbers are IN the script — so a URL computed when the
+         reel loaded can be stale by the time anyone presses play. Three digests
+         is cheaper than playing the wrong figures. */
+      await this.refreshHosted();
+
+      // Fetch when there is no FRESH take — a stale one must be replaced, not
+      // reused, or pressing ▶ replays the previous IPO.
+      if (!this.voiceFresh(code) && this.voice.hosted[code]) {
+        this.voice.busy = code;
+        try {
+          const r = await fetch(this.voice.hosted[code], { cache: 'force-cache' });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          await this.setVoice(code, await r.blob());
+          this.voice.from[code] = 'release';
+          this.voice.fmt[code] = 'mp3';
+        } catch (err) {
+          this.voice.ok = false;
+          // 404 is the ordinary case, not a fault: it means this reel has not
+          // been narrated at this wording yet. Say that, not "HTTP 404".
+          this.voice.msg = /404/.test(err.message)
+            ? `${code.toUpperCase()} is not narrated yet for this script. `
+              + 'Run the narrate workflow, or generate it here with a backend.'
+            : `${code.toUpperCase()}: ${err.message}`;
+          return;
+        } finally {
+          this.voice.busy = '';
+        }
+      }
+
+      if (!this.voiceFresh(code)) {
+        this.voice.ok = false;
+        this.voice.msg = `Nothing to play for ${code.toUpperCase()} yet.`;
+        return;
+      }
+      // Back to scene 1 so voice and picture start together — playing from
+      // scene 4 with narration from the top is the drift bug by hand.
+      this.go(this.reelIndex, 0);
+      this.startPlay();
+    },
+
     /* The one the capture will mix in: the language on screen, because the
        card text is in that language too. */
-    get voiceReady() { return !!this.voice[this.lang]; },
+    /* Both use voiceFresh, because the recorder reads voiceReady to decide
+       whether to mix narration in — and mixing a stale take into a recording is
+       the worst place this bug could land: a published video about one company
+       narrated with another's script. */
+    get voiceReady() { return this.voiceFresh(this.lang); },
     get voiceCount() {
-      return this.LANGS.filter((l) => this.voice[l.code]).length;
+      return this.LANGS.filter((l) => this.voiceFresh(l.code)).length;
     },
 
     async startCapture() {

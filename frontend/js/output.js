@@ -694,17 +694,17 @@ listing: [
       1: [
 `${ipo.company} IPO. Price band ₹${iss.price_low} to ₹${iss.price_high}, lot size ${iss.lot_size} shares — minimum ₹${f(d.issue.min_investment)}.
 ${L.overview.join('. ')}.
-Out of the ₹${f(d.issue.total_cr)} crore issue, ₹${f(iss.fresh_cr)} crore is a FRESH ISSUE that goes into the company's growth, and ₹${f(iss.ofs_cr)} crore is an OFS — promoters cashing out. That's ${d.issue.fresh_pct}% fresh.
+Out of the ₹${f(d.issue.total_cr)} crore issue, ₹${f(iss.fresh_cr)} crore is a FRESH ISSUE that goes into the company's growth, and ${iss.ofs_cr > 0 ? `₹${f(iss.ofs_cr)} crore is an OFS — promoters cashing out` : `there is no OFS at all, so nobody is using this listing to cash out`}. That's ${d.issue.fresh_pct}% fresh.
 Opens ${dt(ipo.dates.open)}, closes ${dt(ipo.dates.close)}, lists ${dt(ipo.dates.listing)}.`,
 
 `${ipo.company} का IPO। प्राइस बैंड ₹${iss.price_low} से ₹${iss.price_high}, लॉट साइज़ ${iss.lot_size} शेयर — कम से कम ₹${f(d.issue.min_investment)}।
 ${L.overview.join('। ')}।
-₹${f(d.issue.total_cr)} करोड़ के इश्यू में ₹${f(iss.fresh_cr)} करोड़ फ्रेश इश्यू है जो कंपनी की ग्रोथ में जाएगा, और ₹${f(iss.ofs_cr)} करोड़ OFS है — यानी प्रमोटर पैसा निकाल रहे हैं। यानी ${d.issue.fresh_pct}% फ्रेश।
+₹${f(d.issue.total_cr)} करोड़ के इश्यू में ₹${f(iss.fresh_cr)} करोड़ फ्रेश इश्यू है जो कंपनी की ग्रोथ में जाएगा, और ${iss.ofs_cr > 0 ? `₹${f(iss.ofs_cr)} करोड़ OFS है — यानी प्रमोटर पैसा निकाल रहे हैं` : `OFS बिल्कुल नहीं है — कोई प्रमोटर पैसा नहीं निकाल रहा`}। यानी ${d.issue.fresh_pct}% फ्रेश।
 ${dt(ipo.dates.open)} को खुलेगा, ${dt(ipo.dates.close)} को बंद, ${dt(ipo.dates.listing)} को लिस्टिंग।`,
 
 `${ipo.company} IPO. ప్రైస్ బ్యాండ్ ₹${iss.price_low} నుంచి ₹${iss.price_high}, లాట్ సైజ్ ${iss.lot_size} షేర్లు — కనీసం ₹${f(d.issue.min_investment)}.
 ${L.overview.join('. ')}.
-₹${f(d.issue.total_cr)} కోట్ల ఇష్యూలో ₹${f(iss.fresh_cr)} కోట్లు ఫ్రెష్ ఇష్యూ — కంపెనీ గ్రోత్‌కి. ₹${f(iss.ofs_cr)} కోట్లు OFS — ప్రమోటర్లు డబ్బు తీసుకుంటున్నారు. అంటే ${d.issue.fresh_pct}% ఫ్రెష్.
+₹${f(d.issue.total_cr)} కోట్ల ఇష్యూలో ₹${f(iss.fresh_cr)} కోట్లు ఫ్రెష్ ఇష్యూ — కంపెనీ గ్రోత్‌కి. ${iss.ofs_cr > 0 ? `₹${f(iss.ofs_cr)} కోట్లు OFS — ప్రమోటర్లు డబ్బు తీసుకుంటున్నారు` : `OFS అస్సలు లేదు — ఎవరూ డబ్బు తీసుకోవడం లేదు`}. అంటే ${d.issue.fresh_pct}% ఫ్రెష్.
 ${dt(ipo.dates.open)}న ఓపెన్, ${dt(ipo.dates.close)}న క్లోజ్, ${dt(ipo.dates.listing)}న లిస్టింగ్.`,
       ],
       2: this.gmpMode === 'board' ? [

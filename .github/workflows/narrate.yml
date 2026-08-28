@@ -1,0 +1,249 @@
+name: Narrate reels
+
+# Pre-renders the narration and attaches it to a Release, so the published site
+# can PLAY audio without a backend.
+#
+# Why this exists at all. GitHub Pages serves files and runs no processes, so
+# /api/voice cannot exist there — and the ElevenLabs key must never reach a
+# browser, which rules out generating in the page even if it could. The studio
+# on Pages was therefore permanently silent. This moves generation to a runner
+# that can hold the key, and leaves behind plain public MP3s.
+#
+# How the site finds them without a manifest: every filename carries a hash of
+# the script it was made from (backend/ipopulse/voice.py script_hash, mirrored
+# in frontend/js/studio.js scriptHash). The page hashes the script it is about
+# to render and asks for exactly that file. Re-word a script and the URL changes
+# and 404s, so the page says "not narrated yet" rather than playing an old read
+# over new numbers. Nothing to store, nothing to keep in step.
+#
+# THE SCRIPTS ARE BUILT IN A BROWSER. They do not exist in the sheet — the sheet
+# holds raw data, and the voTake* functions in frontend/js/output.js assemble the
+# narration from it. So this job runs `ipopulse serve` and drives the real studio
+# with Playwright rather than reimplementing 1,300 lines of editorial JavaScript
+# in Python, which would put the same decisions in two places and let them drift.
+#
+# COST, AND WHY THIS IS MANUAL. Measured 28 Aug 2026: three open IPOs across six
+# reels and three languages is 32,916 characters. A free ElevenLabs plan is
+# 10,000 a MONTH. So this is workflow_dispatch only — never a cron — and it
+# takes a character budget it will not exceed. Run it deliberately, on the IPOs
+# you are actually about to record.
+
+on:
+  workflow_dispatch:
+    inputs:
+      status:
+        description: 'Which IPOs — a status from the board, or "all"'
+        type: choice
+        default: 'open'
+        options: [open, upcoming, closed, allotment, listed, all]
+      reels:
+        description: 'Reels to narrate (comma separated)'
+        default: '1,2,3,4,5,6'
+      langs:
+        description: 'Languages (comma separated)'
+        default: 'en,hi,te'
+      budget:
+        description: 'Hard ceiling on BILLED characters for this run'
+        default: '12000'
+      dry_run:
+        description: 'Cost it out without spending anything'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write        # required to create/update the Release and its assets
+
+# One narration run at a time. Two concurrent runs would each pass the budget
+# check against the same starting balance and jointly overspend it — the same
+# reasoning as the sequential loop in studio.js genVoice.
+concurrency:
+  group: ipopulse-narrate
+  cancel-in-progress: false
+
+jobs:
+  narrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - run: pip install -r backend/requirements.txt
+
+      # Playwright is only needed here, so it is not in requirements.txt — the
+      # eight-times-a-day data jobs should not pull a browser driver.
+      - name: Install Playwright + Chromium
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Check the voice key
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_API_KEY_2: ${{ secrets.ELEVENLABS_API_KEY_2 }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$ELEVENLABS_API_KEY" ] && [ -z "$ELEVENLABS_API_KEY_2" ] \
+             && [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error::No voice key. Set ELEVENLABS_API_KEY (or _2), or GEMINI_API_KEY."
+            exit 1
+          fi
+          echo "A voice key is present."
+
+      # config.js with NO gate password on purpose. gate.js opens automatically
+      # on localhost when no SITE_GATE_HASH is baked in (see its comment at the
+      # "No password configured" branch) — so the runner's throwaway studio needs
+      # no secret, and Playwright is not typing one. The published site's gate is
+      # written by publish.yml and is unaffected by this.
+      - name: Write a local config for the throwaway studio
+        working-directory: backend
+        env:
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+        run: python -m ipopulse.cli config
+
+      - name: Serve the studio
+        working-directory: backend
+        env:
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+        run: |
+          nohup python -m ipopulse.cli serve --port 8000 > /tmp/serve.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf -o /dev/null http://localhost:8000/api/health; then
+              echo "studio is up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::the studio never came up"; cat /tmp/serve.log; exit 1
+
+      - name: Extract the scripts from the studio
+        working-directory: backend
+        run: |
+          # --channel "" uses the bundled chromium installed above; the runner
+          # has no Google Chrome.
+          python tools/extract_scripts.py \
+            --out out/scripts.json \
+            --reels "${{ inputs.reels }}" \
+            --langs "${{ inputs.langs }}" \
+            --channel ""
+
+      # The status filter lives here rather than in the extractor because the
+      # board's statuses come from the sheet and are already computed in the
+      # payload — this just reads them back out of the same source the studio saw.
+      - name: Pick the slugs for this status
+        id: pick
+        working-directory: backend
+        run: |
+          if [ "${{ inputs.status }}" = "all" ]; then
+            echo "slug=" >> "$GITHUB_OUTPUT"
+            echo "Narrating every IPO in the book."
+          else
+            SLUGS=$(python - <<'PY'
+          import csv, io, os, urllib.request
+          sid = os.environ["SHEET_ID"]
+          url = (f"https://docs.google.com/spreadsheets/d/{sid}"
+                 "/gviz/tq?tqx=out:csv&sheet=IPOs")
+          rows = list(csv.DictReader(io.StringIO(
+              urllib.request.urlopen(url, timeout=60).read().decode("utf-8"))))
+          want = os.environ["WANT"]
+          # `status` is derived, not stored, so match on the dates the same way
+          # the board does: open means bidding is underway today.
+          import datetime as dt
+          today = dt.date.today()
+          def status(r):
+              def d(k):
+                  try: return dt.date.fromisoformat((r.get(k) or "").strip())
+                  except ValueError: return None
+                  except TypeError: return None
+              o, c, li = d("dates.open"), d("dates.close"), d("dates.listing")
+              if li and today >= li: return "listed"
+              if c and today > c: return "allotment"
+              if o and c and o <= today <= c: return "open"
+              if o and today < o: return "upcoming"
+              return "closed"
+          print(",".join(r["slug"] for r in rows if status(r) == want))
+          PY
+          )
+            echo "slug=$SLUGS" >> "$GITHUB_OUTPUT"
+            echo "Status '${{ inputs.status }}' -> ${SLUGS:-<none>}"
+          fi
+        env:
+          SHEET_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          WANT: ${{ inputs.status }}
+
+      - name: Narrate
+        working-directory: backend
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_API_KEY_2: ${{ secrets.ELEVENLABS_API_KEY_2 }}
+          ELEVENLABS_VOICE_ID: ${{ vars.ELEVENLABS_VOICE_ID }}
+          ELEVENLABS_MODEL: ${{ vars.ELEVENLABS_MODEL }}
+          ELEVENLABS_MODEL_TE: ${{ vars.ELEVENLABS_MODEL_TE }}
+          ELEVENLABS_STABILITY: ${{ vars.ELEVENLABS_STABILITY }}
+          ELEVENLABS_STYLE: ${{ vars.ELEVENLABS_STYLE }}
+          ELEVENLABS_SPEED: ${{ vars.ELEVENLABS_SPEED }}
+          IPOPULSE_VOICE_PROVIDERS: ${{ vars.IPOPULSE_VOICE_PROVIDERS }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          ARGS="out/scripts.json --budget ${{ inputs.budget }} --langs ${{ inputs.langs }}"
+          if [ -n "${{ steps.pick.outputs.slug }}" ]; then
+            ARGS="$ARGS --slug ${{ steps.pick.outputs.slug }}"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          python -m ipopulse.cli narrate $ARGS
+
+      # The scripts JSON is worth keeping even on a dry run: it is the exact text
+      # that would have been spoken, and reading it is how you catch a wrong
+      # number before paying to have it read aloud.
+      - name: Keep the scripts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scripts-${{ github.run_id }}
+          path: backend/out/scripts.json
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Publish the audio to the Release
+        if: inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          FILES=(backend/out/audio/*.mp3)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "::notice::No audio produced — nothing to publish."
+            exit 0
+          fi
+          # One rolling tag. The filenames carry a script hash, so old clips are
+          # harmless and a link a viewer already has keeps working.
+          if ! gh release view audio >/dev/null 2>&1; then
+            gh release create audio \
+              --title "Narration" \
+              --notes "Pre-rendered reel narration. Filenames carry a hash of the script they were made from; the studio derives them and plays them directly. Managed by narrate.yml." \
+              --latest=false
+          fi
+          # --clobber so re-running after a script edit replaces rather than
+          # erroring on an existing asset of the same name.
+          gh release upload audio "${FILES[@]}" --clobber
+          echo "Uploaded ${#FILES[@]} clip(s)."
+          echo "### Narration published" >> "$GITHUB_STEP_SUMMARY"
+          for f in "${FILES[@]}"; do
+            echo "- \`$(basename "$f")\`" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      # The site reads AUDIO_BASE out of config.js, and that is written by
+      # publish.yml — so the very first narration run needs a redeploy before the
+      # buttons light up. Say so rather than leaving it to be discovered.
+      - name: Remind about the redeploy
+        if: inputs.dry_run == false
+        run: |
+          echo "::notice::If the site was published before AUDIO_BASE existed, \
+          run 'Publish site' once so config.js carries it."
