@@ -33,6 +33,22 @@ const REELS = [
       // denominator can only draw bars that mean nothing, and a 5-second hold
       // on three empty tracks is worse than a 6-scene reel.
       { id: 'reservation', hold: 5 },
+      /* The anchor book, split OUT of `reservation` rather than added to it.
+       *
+       * voReservation() used to concatenate four separate ideas — the split,
+       * what the tilt means, the anchor carve-out, and the employee quota —
+       * into one scene joined with a space. Measured 28 Aug 2026 that ran
+       * 65.3 seconds of narration against a single motionless card, on a reel
+       * whose other scenes averaged 20. No amount of background motion rescues
+       * a minute on one frame; the fix is a second frame.
+       *
+       * It is also a genuinely different claim. The reservation scene answers
+       * "how is the book divided"; this one answers "how much of it was
+       * already spoken for before bidding opened", which is the part that
+       * changes how the subscription numbers should be read.
+       *
+       * Dropped when there is no anchor placement — see `scenesFor`. */
+      { id: 'anchor',  hold: 5 },
       { id: 'terms',   hold: 4 },   // price band, lot, minimum
       { id: 'dates',   hold: 4 },   // when it opens/closes/lists
     ],
@@ -132,6 +148,11 @@ function scenesFor(reel, gmpMode, ipo) {
     const hasSlices = (Number(iss.shares_qib) || 0) + (Number(iss.shares_nii) || 0)
                     + (Number(iss.shares_retail) || 0) + (Number(iss.shares_employee) || 0);
     if (!(Number(iss.shares_total) > 0 && hasSlices > 0)) drop.add('reservation');
+    /* No anchor placement, no anchor scene. Same reasoning as `reservation`:
+       a card reading "0% went to anchor investors" is not a neutral blank, it
+       is a false claim stated with total confidence. Anchor shares are also
+       absent for most SME issues, so this drops often and must drop cleanly. */
+    if (!(Number(iss.shares_anchor) > 0)) drop.add('anchor');
     if (drop.size) return reel.scenes.filter((s) => !drop.has(s.id));
   }
   return reel.scenes;

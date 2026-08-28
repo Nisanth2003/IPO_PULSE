@@ -947,6 +947,31 @@
                            (100 - d.issue.reservation.accounted_pct).toFixed(1))"></div>
             </div>
 
+            <!-- ANCHOR BOOK. Split out of `reservation`, which was carrying four
+                 ideas and 65 seconds of narration on one motionless card.
+                 Text-forward on purpose: reservation earns its stacked bar
+                 because it shows a distribution, whereas this is a single
+                 number and one consequence, and a chart of one value is
+                 decoration. Dropped entirely when there is no anchor
+                 placement (reels.js scenesFor) rather than rendering a 0%. -->
+            <div x-show="at(1,'anchor')" class="scene items-center text-center">
+              <div>
+                <div class="lbl" x-text="t('anchorBook')"></div>
+                <div class="font-black text-5xl tnum" style="color:var(--acc)"
+                     x-text="d.issue.reservation.anchor_pct+'%'"></div>
+                <div class="text-sm font-bold text-slate-300 mt-1"
+                     x-text="t('anchorOfIssue')"></div>
+              </div>
+              <div class="glass p-4 mt-1">
+                <div class="text-sm font-semibold leading-snug text-slate-200"
+                     x-text="t('anchorExplain')"></div>
+              </div>
+              <div class="glass glass-acc p-3 mt-1" x-show="d.issue.reservation.has_employee">
+                <div class="text-2xs font-bold leading-snug"
+                     x-text="t('employeeNote')"></div>
+              </div>
+            </div>
+
             <div x-show="at(1,'terms')" class="scene">
               <!-- The band drawn to scale. Two rupee figures give a viewer no
                    sense of distance; a shaded span with the grey market's

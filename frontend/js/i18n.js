@@ -143,6 +143,31 @@ const LABELS = {
   // labels below. Deliberately shares them: the categories are the same
   // categories, and a second set would drift in translation.
   reservation: ['Issue Reservation', 'इश्यू रिज़र्वेशन', 'ఇష్యూ రిజర్వేషన్'],
+  // The anchor scene, split out of `reservation` — see reels.js for why.
+  anchorBook: ['Anchor Book', 'एंकर बुक', 'యాంకర్ బుక్'],
+  anchorOfIssue: ['of the issue, placed before bidding opened',
+                  'इश्यू का हिस्सा, बिडिंग खुलने से पहले ही तय',
+                  'ఇష్యూలో ఇంత, బిడ్డింగ్ మొదలయ్యే ముందే కేటాయింపు'],
+  // anchorExplain, NOT anchorNote — that key already exists further down
+  // and is used by the reservation card with a {pct} placeholder. A second
+  // definition of the same name does not error in a JS object literal, it
+  // silently loses to the later one, so this card rendered the other
+  // string with its placeholder unsubstituted.
+  anchorExplain: ['Carved out of the institutional portion, not added to it. '
+               + 'That money is locked in for a period after listing, so it is '
+               + 'not part of the demand building on the subscription numbers.',
+               'यह संस्थागत हिस्से में से ही निकाला गया है, उसके ऊपर नहीं। '
+               + 'यह पैसा लिस्टिंग के बाद कुछ समय के लिए लॉक रहता है, इसलिए यह '
+               + 'सब्सक्रिप्शन के आंकड़ों में दिख रही मांग का हिस्सा नहीं है।',
+               'ఇది సంస్థాగత వాటా నుంచే తీసినది, దానికి అదనం కాదు. '
+               + 'ఈ డబ్బు లిస్టింగ్ తర్వాత కొంతకాలం లాక్‌లో ఉంటుంది, కాబట్టి '
+               + 'సబ్‌స్క్రిప్షన్ సంఖ్యల్లో కనిపించే డిమాండ్‌లో ఇది భాగం కాదు.'],
+  employeeNote: ['An employee quota is carved out too — normal, and it does not '
+                 + 'affect what retail is bidding into.',
+                 'एक एंप्लॉई कोटा भी अलग रखा गया है — यह सामान्य है और रिटेल की '
+                 + 'बिडिंग पर इसका असर नहीं पड़ता।',
+                 'ఉద్యోగుల కోటా కూడా విడిగా ఉంది — ఇది సాధారణం, రిటైల్ '
+                 + 'బిడ్డింగ్‌పై దీని ప్రభావం ఉండదు.'],
   // {pct} is substituted, not concatenated: Hindi and Telugu put the number in
   // a different place in the sentence than English does.
   retailSliceNote: [

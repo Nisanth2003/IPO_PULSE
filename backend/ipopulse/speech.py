@@ -99,6 +99,10 @@ def for_speech(text: str, lang: str = "en") -> str:
     out = text
     lang = (lang or "en").lower()
 
+    # 0. Acronyms first. Later passes insert Devanagari/Telugu words next to
+    #    digits, and doing this afterwards would have to match around them.
+    out = _acronyms(out, lang)
+
     # 1. Currency, before punctuation work — the patterns rely on the digits and
     #    the unit still sitting next to each other.
     out = _currency(out, lang)
@@ -128,6 +132,55 @@ def for_speech(text: str, lang: str = "en") -> str:
     out = re.sub(r"\n{3,}", "\n\n", out)
 
     return out.strip()
+
+
+# ── finance acronyms, spelled for an Indic voice ───────────────────────────
+#
+# A Latin acronym sitting in a Devanagari or Telugu sentence makes the model
+# switch to an English mouth for two syllables and switch back, and that seam is
+# a large part of what "the Hindi sounds wrong" actually is. Written in the local
+# script, the same letters are read with the same phonetics as everything around
+# them — which is also how a person says them: "आईपीओ", not an English "I-P-O"
+# dropped into a Hindi clause.
+#
+# AN ALLOWLIST, DELIBERATELY, and this is the important design decision. These
+# scripts also carry company names — ESDS, ABH, MUFG, HTLS, FPSE — and those are
+# proper nouns. Transliterating a brand makes it unrecognisable to the one
+# audience that already knows it, and worse, unsearchable. Counted across the
+# whole book: IPO 184, GMP 98, EBITDA 60, OFS 52, HNI 48, BSE 48, PAN 48,
+# QIB 36, NII 36, CAGR 34, PAT 26 — the terms of art are frequent and finite,
+# the company names are the long tail. So only the terms of art are converted
+# and everything unrecognised is left exactly as written.
+ACRONYMS = {
+    "hi": {
+        "IPO": "आईपीओ", "GMP": "जीएमपी", "OFS": "ओएफएस", "QIB": "क्यूआईबी",
+        "NII": "एनआईआई", "HNI": "एचएनआई", "BSE": "बीएसई", "NSE": "एनएसई",
+        "SME": "एसएमई", "RHP": "आरएचपी", "DRHP": "डीआरएचपी",
+        "CAGR": "सीएजीआर", "PAT": "पीएटी", "EPS": "ईपीएस", "ROE": "आरओई",
+        # Said as a word, not letters, in Indian finance media — both of these.
+        "EBITDA": "एबिटडा", "PAN": "पैन",
+    },
+    "te": {
+        "IPO": "ఐపీవో", "GMP": "జీఎంపీ", "OFS": "ఓఎఫ్ఎస్", "QIB": "క్యూఐబీ",
+        "NII": "ఎన్ఐఐ", "HNI": "హెచ్ఎన్ఐ", "BSE": "బీఎస్ఈ", "NSE": "ఎన్ఎస్ఈ",
+        "SME": "ఎస్ఎంఈ", "RHP": "ఆర్హెచ్పీ", "DRHP": "డీఆర్హెచ్పీ",
+        "CAGR": "సీఏజీఆర్", "PAT": "పీఏటీ", "EPS": "ఈపీఎస్", "ROE": "ఆర్ఓఈ",
+        "EBITDA": "ఎబిట్డా", "PAN": "పాన్",
+    },
+}
+
+
+def _acronyms(text: str, lang: str) -> str:
+    """Rewrite known finance acronyms into the local script."""
+    table = ACRONYMS.get((lang or "").lower())
+    if not table:
+        return text
+    # Longest first: without it "NSE" inside a longer token, or "PAT" inside
+    # "PATH", could be replaced piecemeal. \b on both sides does most of the
+    # work; ordering closes the rest.
+    for src in sorted(table, key=len, reverse=True):
+        text = re.sub(rf"\b{re.escape(src)}\b", table[src], text)
+    return text
 
 
 # ── deriving the delivery from the script ──────────────────────────────────
@@ -237,19 +290,27 @@ def problems(text: str, lang: str = "en") -> list[str]:
                      "the clause instead of reading '0 crore'")
     if re.search(r"।\s*।", text) or re.search(r"(?<!\.)\.\s*\.(?!\.)", text):
         found.append("doubled sentence terminator")
-    if re.search(r"\b[A-Z]{2,}[a-z]?[A-Z]*\b", text) and lang != "en":
-        acr = sorted(set(re.findall(r"\b[A-Z]{2,}[a-z]?[A-Z]*\b", text)))
-        found.append("Latin acronyms inside non-Latin text, which the voice "
-                     f"will read in English: {', '.join(acr[:6])}")
+    if lang != "en":
+        # Only the ones for_speech CANNOT fix. Reporting IPO or OFS here would
+        # be noise — the allowlist converts them — and a report you learn to
+        # ignore is worse than no report. What is left is company names and
+        # anything new, which are the cases that genuinely need a human to
+        # decide whether they should be spelled out, transliterated or left.
+        known = set(ACRONYMS.get(lang, {}))
+        acr = sorted({a for a in re.findall(r"\b[A-Z]{2,}[a-z]?[A-Z]*\b", text)
+                      if a not in known})
+        if acr:
+            found.append("Latin acronyms with no transliteration, which the "
+                         f"voice will read in English: {', '.join(acr[:6])}")
     # A sentence nobody can say in one breath is the commonest cause of a read
     # that runs out of air and flattens.
-    for sep in ("।", "."):
-        for s in text.split(sep):
-            if len(s.strip()) > 260:
-                found.append("a sentence over 260 characters — split it or the "
-                             "read flattens")
-                break
-        else:
-            continue
-        break
+    #
+    # Split on ALL terminators at once. Doing them one at a time — as this first
+    # did — splits Hindi on "." alone, and Hindi ends sentences with "।", so the
+    # whole script came back as a single 681-character "sentence" and every
+    # Indic script was reported as too long. The real longest sentence in the
+    # entire book is 230 characters.
+    if any(len(s.strip()) > 260 for s in re.split(r"[।.!?]", text)):
+        found.append("a sentence over 260 characters — split it or the "
+                     "read flattens")
     return found

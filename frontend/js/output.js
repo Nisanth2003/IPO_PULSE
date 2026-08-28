@@ -163,18 +163,30 @@ const OUTPUT = {
         + `is the pool your application would be drawn from.`);
     }
 
-    /* Said after the tilt line, because it explains something the viewer can
-       otherwise misread: a big institutional slice that was largely spoken for
-       before bidding even started. Phrased as "of that" — the anchor book is
-       carved out of the QIB portion, not added to it. */
-    if (r.anchor_pct) {
-      lines.push(`One thing worth knowing: of that institutional portion, `
-        + `${this.voPct(r.anchor_pct)} of the whole issue was placed with `
-        + `anchor investors before bidding opened. That money is committed and `
-        + `locked in for a period after listing, so it is not part of the `
-        + `demand you see building on the subscription numbers.`);
-    }
+    return lines.join(' ');
+  },
 
+  /* The anchor book — its own scene since the split (see reels.js).
+   *
+   * These two paragraphs used to be tacked onto voReservation, which made that
+   * scene four ideas long and 65 seconds of narration over one static card.
+   * They are a separate claim anyway: reservation is how the book is divided,
+   * this is how much of it was already committed before bidding opened.
+   *
+   * Phrased as "of that institutional portion" because the anchor book is
+   * carved OUT of the QIB slice, not added alongside it — stated the other way
+   * it would double-count, and the viewer would read the retail odds wrong.
+   */
+  voAnchor() {
+    const r = this.d.issue.reservation;
+    if (!r || !r.has_data || !r.anchor_pct) return '';
+    const lines = [
+      `One thing worth knowing: of that institutional portion, `
+      + `${this.voPct(r.anchor_pct)} of the whole issue was placed with `
+      + `anchor investors before bidding opened. That money is committed and `
+      + `locked in for a period after listing, so it is not part of the `
+      + `demand you see building on the subscription numbers.`,
+    ];
     if (r.has_employee) {
       lines.push(`There's an employee quota carved out too, which is normal and `
         + `does not affect what retail is bidding into.`);
@@ -358,6 +370,7 @@ split: [Number(iss.ofs_cr)
   : `Now the part most people scroll past. The whole ${this.voCrore(d.issue.total_cr)} is a fresh issue — every rupee goes into the company. There's no offer for sale here, so nobody is using this listing to cash out.`,
   this.voTakeStructure()].filter(Boolean).join(' '),
 reservation: this.voReservation(),
+        anchor: this.voAnchor(),
 terms: `${band} ${lot}${sme}`,
 // Closing line points at the long-form cut of the same IPO. Reel 1 is the
 // one people find first — it is the "what is this company" search — so it
