@@ -663,6 +663,27 @@
 
           <div class="absolute inset-0 pointer-events-none" :style="accGlow"></div>
 
+          <!-- AMBIENT MOTION. The background that keeps the frame alive between
+               scene changes — three drifting orbs, a slow market grid and a
+               light sweep, all on independent long loops so the picture never
+               repeats visibly.
+                 * Real DOM elements, NOT pseudo-elements: html2canvas renders
+                   ::before/::after unreliably, and a PNG export that loses the
+                   background would not match the recorded video.
+                 * Radial gradients, NOT filter:blur — html2canvas cannot
+                   rasterise CSS filters at all, so a blurred orb would export
+                   as a hard-edged disc.
+                 * Colour comes from --acc, so it follows all four card themes
+                   instead of pinning everything blue.
+               Sits at z-index 0; .stage-card > * puts content at 1. -->
+          <div x-show="fxMotion" class="fx" aria-hidden="true">
+            <div class="fx-grid"></div>
+            <div class="fx-orb fx-orb-1" :style="fxOrbAccent"></div>
+            <div class="fx-orb fx-orb-2"></div>
+            <div class="fx-orb fx-orb-3"></div>
+            <div class="fx-sweep"></div>
+          </div>
+
           <!-- scene progress: one segment per scene in this reel -->
           <div x-show="showProgress" class="shrink-0 flex gap-1 px-3 pt-2">
             <template x-for="(s,i) in scenes" :key="i">
@@ -2271,6 +2292,12 @@
           No logo stored for this IPO — run <b class="text-slate-300">gmp-sync</b>,
           or pin one on the Sources tab with role <b class="text-slate-300">logo</b>.
         </div>
+      </div>
+      <div class="row">
+        <!-- Off for a chroma-key shoot: drifting light behind a green screen
+             is the one case where the motion actively hurts. -->
+        <button class="btn w-full" :class="fxMotion?'btn-on':''" @click="fxMotion=!fxMotion"
+                x-text="fxMotion ? '✓ Background motion' : 'Background motion: off'"></button>
       </div>
       <div class="row">
         <button class="btn w-full" :class="showGif?'btn-on':''" @click="showGif=!showGif"

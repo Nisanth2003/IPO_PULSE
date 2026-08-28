@@ -28,6 +28,11 @@ function studio() {
     theme: 'midnight',          // card palette; see THEMES in reels.js
     showLogo: true,             // company artwork in the card header
     showGif: true,              // pinned sticker, corner of every scene
+    /* Ambient background motion — the drifting orbs, grid and sweep. On by
+       default: a still card is what made reels read as slideshows. Off is
+       worth having for a chroma-key shoot, where a moving background behind
+       the key is exactly what you do not want. */
+    fxMotion: true,
     gifSize: 4.6,               // in --fs units, so it tracks the frame
     showSafe: false, showFooter: true, showProgress: true, rounded: true,
     leftOpen: true, rightOpen: true,
@@ -156,6 +161,20 @@ function studio() {
                 and a listener comparing takes needs to know which is which. */
              fmt: { en: 'mp3', hi: 'mp3', te: 'mp3' },
              from: { en: '', hi: '', te: '' },
+             /* MEASURED duration of the narration, in seconds — the real
+                thing, decoded from the audio, not speakSeconds()'s estimate.
+                When this is set for the language on screen, the reel is timed
+                from it, so picture and voice cannot drift.
+                Measured 28 Aug 2026: a 2,062-char English script estimated at
+                173s and actually ran 132s — the picture was 31% long. The
+                estimate is a seed (see speakSeconds); this is ground truth.
+
+                `forReel` is why this is not keyed by language alone: the audio
+                belongs to ONE reel, and reel 2 timed against reel 1's
+                narration would be a worse error than no measurement at all,
+                because it would look authoritative. */
+             secs: { en: 0, hi: 0, te: 0 },
+             forReel: { en: 0, hi: 0, te: 0 },
              busy: '', msg: '', ok: true, left: null },
     cap: { rec: null, blob: null, url: '', msg: '', ok: true },
     /* Does pressing Play also speak? On by default — hearing the voice against
@@ -805,10 +824,22 @@ function studio() {
         shapeTotal += secs;
       }
 
-      // Total seconds for the language actually being read.
-      const spoken = this.lang === 'en'
+      /* Total seconds for the language actually being read.
+       *
+       * MEASURED first, estimated only as a fallback. speakSeconds() is an
+       * openly-labelled seed — 0.387 s/word, 0.15 s/akshara — and it was 31%
+       * long on the first real measurement (173s estimated, 132s spoken). Once
+       * narration exists for THIS reel in THIS language its decoded duration is
+       * the truth, so the picture is cut to the voice rather than the voice
+       * being expected to match a guess.
+       *
+       * The reel check matters: voice.secs is keyed by language, and audio made
+       * for reel 1 must not time reel 2. */
+      const measured = this.voice.forReel[this.lang] === this.reel.n
+        ? this.voice.secs[this.lang] : 0;
+      const spoken = measured || (this.lang === 'en'
         ? shapeTotal
-        : this.speakSeconds(this.scriptFor(this.reel.n), this.lang);
+        : this.speakSeconds(this.scriptFor(this.reel.n), this.lang));
 
       const out = {};
       for (const sc of this.scenes) {
@@ -816,7 +847,13 @@ function studio() {
         // it keeps its designed hold rather than collapsing to nothing.
         if (!shape[sc.id] || shapeTotal <= 0) { out[sc.id] = sc.hold || 4; continue; }
         const share = shape[sc.id] / shapeTotal;
-        out[sc.id] = Math.max(2, spoken * share + 0.6);
+        /* The +0.6 breathing room is for an ESTIMATE only. Against a measured
+           duration it is 0.6s of drift per scene — 4.2s over a seven-scene
+           reel — which is the exact error this measurement exists to remove.
+           When we know the real length, the shares must sum to it. */
+        out[sc.id] = measured
+          ? Math.max(0.8, spoken * share)
+          : Math.max(2, spoken * share + 0.6);
       }
       return out;
     },
@@ -1052,10 +1089,41 @@ function studio() {
     /* One object URL per language at a time. Every blob: URL pins its blob in
        memory until revoked, and re-rendering while tuning a number would
        otherwise leak one per attempt per language. */
-    setVoice(code, blob) {
+    async setVoice(code, blob) {
       if (this.voice.urls[code]) URL.revokeObjectURL(this.voice.urls[code]);
       this.voice[code] = blob || null;
       this.voice.urls[code] = blob ? URL.createObjectURL(blob) : '';
+      this.voice.secs[code] = 0;
+      this.voice.forReel[code] = 0;
+      if (blob) await this.measureVoice(code, blob);
+    },
+
+    /* True length of a narration blob, in seconds.
+     *
+     * decodeAudioData rather than an <audio> element's `durationchange`, and
+     * that choice is load-bearing: tested 28 Aug 2026, a 6.3 MB 24 kHz WAV
+     * from Gemini left an <audio> element stuck at readyState 0 with no error
+     * — never firing loadedmetadata, so a listener would have waited forever
+     * — while decodeAudioData read the same bytes and reported 132.05s. The
+     * decode path is the one that reliably answers this question.
+     *
+     * Failure is deliberately silent and non-fatal: a duration we could not
+     * read leaves secs at 0, scriptHolds falls back to its estimate, and the
+     * reel is merely as wrong as it was before rather than broken. */
+    async measureVoice(code, blob) {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const buf = await blob.arrayBuffer();
+        const audio = await ctx.decodeAudioData(buf);
+        this.voice.secs[code] = audio.duration;
+        this.voice.forReel[code] = this.reel.n;
+        // Nothing is played through this context, so it is pure overhead once
+        // the decode is done. Chrome caps concurrent contexts and re-narrating
+        // while tuning a number would otherwise exhaust them.
+        if (ctx.close) ctx.close();
+      } catch (e) { /* leave secs at 0 — see above */ }
     },
 
     /* The one the capture will mix in: the language on screen, because the
@@ -1442,6 +1510,17 @@ function studio() {
     get accGlow() {
       return `z-index:0;background:radial-gradient(90% 55% at 50% -8%,` +
              `${this.rgba(this.acc, 0.22)} 0%,rgba(15,23,42,0) 60%)`;
+    },
+    /* The drifting accent orb's fill, for the same reason accGlow is built
+       here: rule 1 at the top of studio.css. A color-mix() in the stylesheet
+       would follow the theme just as well and take the PNG export down with
+       it, so the tint is composed as plain rgba() and handed over in :style.
+       The other two orbs are fixed violet/cyan and stay in the CSS. */
+    get fxOrbAccent() {
+      return `background:radial-gradient(circle at 50% 50%,`
+           + `${this.rgba(this.acc, 0.26)} 0%,`
+           + `${this.rgba(this.acc, 0.08)} 42%,`
+           + `${this.rgba(this.acc, 0)} 68%)`;
     },
     get today() {
       return new Date(this.now).toLocaleDateString('en-GB',

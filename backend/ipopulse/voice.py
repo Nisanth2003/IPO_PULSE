@@ -373,6 +373,54 @@ def voice_id(lang: str = "") -> str:
     return _per_lang("ELEVENLABS_VOICE_ID", lang)
 
 
+# Which env var tunes which API field. Names are the plain-English ones a
+# person would look for, not the API's spelling.
+SETTING_ENV = (
+    ("stability", "ELEVENLABS_STABILITY"),
+    ("similarity_boost", "ELEVENLABS_SIMILARITY"),
+    ("style", "ELEVENLABS_STYLE"),
+    ("speed", "ELEVENLABS_SPEED"),
+)
+
+
+def tuned_settings(lang: str = "") -> dict[str, Any]:
+    """DEFAULT_SETTINGS with any env overrides applied, per language.
+
+    Named `tuned_settings` and not `settings` on purpose: `settings` is already
+    the parameter name on synthesize() and cached_path(), and a module-level
+    function of that name would be shadowed inside exactly the functions that
+    need to call it — silently, and only at runtime.
+
+    DEFAULT_SETTINGS encodes the playbook's calm-and-credible read (§8), and
+    that is a real editorial position, not an accident — so it stays the
+    default. But it is one position, and the opposite one is legitimate: a
+    reel wants energy, and the two knobs that decide whether a delivery has
+    any are exactly the two the default pins flat.
+
+        stability  HIGH is consistent and monotone; LOW lets the model act.
+                   0.65 will not emote no matter what the words say.
+        style      0.0 is "no exaggeration at all". This is the emotion dial.
+
+    Per-language because the three do not want the same read: Telugu on
+    eleven_v3 takes style differently from English, and being able to fix one
+    without unsettling the other is the difference between tuning and
+    guesswork. ELEVENLABS_STYLE_TE beats ELEVENLABS_STYLE for Telugu.
+
+    A value that will not parse is ignored rather than raised: a typo in .env
+    should cost you the tuning, not the whole narration.
+    """
+    out = dict(DEFAULT_SETTINGS)
+    for field, env in SETTING_ENV:
+        raw = _per_lang(env, lang)
+        if not raw:
+            continue
+        try:
+            out[field] = float(raw)
+        except ValueError:
+            pass
+    return out
+
+
 def model(lang: str = "") -> str:
     """Which model this language uses, env override winning over the default.
 
@@ -525,7 +573,11 @@ def cached_path(text: str, vid: str = "", mdl: str = "",
     else:
         vid = vid or voice_id(lang)
         mdl = mdl or model(lang)
-        merged = {**DEFAULT_SETTINGS, **(settings or {})}
+        # tuned_settings, not DEFAULT_SETTINGS: the env overrides have to be in
+        # the KEY as well as in the request, or raising ELEVENLABS_STYLE would
+        # hash to the same stem and hand back the old flat read from cache —
+        # looking like the setting had no effect.
+        merged = {**tuned_settings(lang), **(settings or {})}
     # The language is not in the key: it only ever selects a voice, a model and
     # a style, and all three ARE in the key. Adding it would cache the same
     # reading twice under two labels.
@@ -619,7 +671,8 @@ def _synthesize_one(provider: str, text: str, vid: str, mdl: str,
     # ── ElevenLabs ────────────────────────────────────────────────────────
     vid = vid or voice_id(lang)
     mdl = mdl or model(lang)
-    merged = {**DEFAULT_SETTINGS, **(settings or {})}
+    # Must match cached_path's merge exactly, or every render misses the cache.
+    merged = {**tuned_settings(lang), **(settings or {})}
 
     # ── refusals that no key can fix, checked before any of them is tried ──
 
