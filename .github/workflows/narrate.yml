@@ -187,6 +187,23 @@ jobs:
           ELEVENLABS_STYLE: ${{ vars.ELEVENLABS_STYLE }}
           ELEVENLABS_SPEED: ${{ vars.ELEVENLABS_SPEED }}
           IPOPULSE_VOICE_PROVIDERS: ${{ vars.IPOPULSE_VOICE_PROVIDERS }}
+          # ── the per-language overrides ──────────────────────────────────
+          # These are not optional extras. voice.py resolves voice, model and
+          # provider through _per_lang, so a runner that is handed only the
+          # global values quietly narrates every language with the English
+          # voice and the global provider order.
+          #
+          # _TE especially: the ElevenLabs library has NO verified Telugu voice
+          # (checked 29 Aug 2026 — te/tel/telugu all return zero results, and
+          # the voices named "Telugu" are verified in Hindi), so Telugu is
+          # routed to Gemini locally. Without this line the runner would send
+          # it back to ElevenLabs and reproduce the accent this was diagnosed
+          # to fix — silently, and only audible in a finished video.
+          IPOPULSE_VOICE_PROVIDERS_TE: ${{ vars.IPOPULSE_VOICE_PROVIDERS_TE }}
+          ELEVENLABS_VOICE_ID_HI: ${{ vars.ELEVENLABS_VOICE_ID_HI }}
+          ELEVENLABS_VOICE_ID_TE: ${{ vars.ELEVENLABS_VOICE_ID_TE }}
+          ELEVENLABS_STABILITY_HI: ${{ vars.ELEVENLABS_STABILITY_HI }}
+          ELEVENLABS_STYLE_HI: ${{ vars.ELEVENLABS_STYLE_HI }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PYTHONIOENCODING: utf-8
         run: |
