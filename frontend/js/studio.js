@@ -185,7 +185,7 @@ function studio() {
                 checked at every point that plays or measures: voiceFresh(). */
              forReel: { en: 0, hi: 0, te: 0 },
              forSlug: { en: '', hi: '', te: '' },
-             /* Derived Release URLs for the reel on screen — see refreshHosted.
+             /* Derived clip URLs for the reel on screen — see refreshHosted.
                 Not fetched until something asks to play, so a value here means
                 "this is where it would be", not "this exists". */
              hosted: { en: '', hi: '', te: '' },
@@ -1216,9 +1216,19 @@ function studio() {
      *
      * This is what makes audio work on GitHub Pages, where /api/voice does not
      * exist and the ElevenLabs key must never go near a browser. A workflow
-     * narrates every reel on a runner and attaches the files to a Release; the
-     * page then works out the exact filename for the script it is showing and
-     * asks for it. No backend, no key, no manifest to keep in step.
+     * narrates every reel on a runner, attaches the files to a Release, and
+     * publish.yml mirrors that Release into the site as audio/; the page then
+     * works out the exact filename for the script it is showing and asks for
+     * it. No backend, no key, no manifest to keep in step.
+     *
+     * AUDIO_BASE IS SAME-ORIGIN AND MUST STAY THAT WAY. playLang fetches the
+     * bytes (see its comment), and a cross-origin fetch needs the host to send
+     * Access-Control-Allow-Origin. The Release does not — checked 30 Aug 2026,
+     * no CORS header on either the github.com redirect or the asset itself —
+     * so pointing AUDIO_BASE straight at it means every fetch is blocked and
+     * the studio is silent in every language on every reel. That is exactly
+     * the bug this mirror exists to fix, and it is the same trap as the
+     * YouTube RSS feed the studio still cannot read.
      *
      * The filename carries a hash of the script, so it is self-invalidating: if
      * the wording changes, the derived URL changes, GitHub answers 404, and the
@@ -1273,9 +1283,12 @@ function studio() {
       }
     },
 
-    /* Where the Release assets live. Injected at build time (config.js) rather
-       than hardcoded, so a fork points at its own repo without editing code —
-       the same reason SHEET_ID and API_BASE arrive that way. */
+    /* Where the narration lives, relative to this page. Injected at build time
+       (config.js) rather than hardcoded, so a fork points at its own site
+       without editing code — the same reason SHEET_ID and API_BASE arrive that
+       way. Normally the bare 'audio/', which resolves under whatever path Pages
+       serves the site at. An absolute URL only works if that host sends CORS
+       headers; see the section comment above and cli.py _audio_base. */
     get audioBase() {
       return (typeof AUDIO_BASE !== 'undefined' && AUDIO_BASE) || '';
     },

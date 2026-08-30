@@ -52,6 +52,7 @@ on:
 
 permissions:
   contents: write        # required to create/update the Release and its assets
+  actions: write         # required to dispatch publish.yml at the end
 
 # One narration run at a time. Two concurrent runs would each pass the budget
 # check against the same starting balance and jointly overspend it — the same
@@ -76,10 +77,13 @@ jobs:
       - run: pip install -r backend/requirements.txt
 
       # Playwright is only needed here, so it is not in requirements.txt — the
-      # eight-times-a-day data jobs should not pull a browser driver.
-      - name: Install Playwright + Chromium
+      # eight-times-a-day data jobs should not pull a browser driver. boto3
+      # rides along for the same reason: only this job talks to the bucket, and
+      # the data jobs have no business carrying an S3 client. ffmpeg, which
+      # tools/transcode_audio.py needs, is already on ubuntu-latest.
+      - name: Install Playwright + Chromium and the bucket client
         run: |
-          pip install playwright
+          pip install playwright "boto3>=1.34,<2"
           python -m playwright install --with-deps chromium
 
       - name: Check the voice key
@@ -228,11 +232,78 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      # ── shrink the clips before they are stored ──────────────────────────
+      #
+      # Gemini TTS returns 24 kHz RIFF/WAVE bytes under the .mp3 name the site
+      # derives — the name is a hash of the SCRIPT, not of the audio, so it
+      # cannot be changed to match the container. Measured 30 Aug 2026: 5.7 MB
+      # for 118 s, about 4x the same speech as an ElevenLabs MP3.
+      #
+      # R2's free tier is 10 GB and storage is the ONLY Cloudflare limit this
+      # project can realistically hit — one run is ~54 objects against a 1M
+      # Class A allowance, so operations never bind. As WAV a full run is
+      # ~180 MB (55 runs to the cap); as MP3 ~45 MB (220 runs). That makes this
+      # the single highest-leverage step in the pipeline.
+      #
+      # In place and same filename, because the site derives that exact name.
+      - name: Shrink the narration to MP3
+        if: inputs.dry_run == false
+        run: python tools/transcode_audio.py --dir out/audio
+        working-directory: backend
+
+      # ── the cloud bucket, if one is configured ───────────────────────────
+      #
+      # Spoken through the S3 API, which R2, B2, GCS (interop) and S3 itself
+      # all understand — so the provider is a set of secrets rather than a code
+      # change, and there is nothing to unpick if it moves.
+      #
+      # THE BUCKET MUST HAVE A CORS RULE OR THIS IS ALL FOR NOTHING. studio.js
+      # fetches the bytes, so the browser needs Access-Control-Allow-Origin
+      # back. Public-read is NOT enough, and that is the exact trap that made
+      # the studio silent on the Release: verified 30 Aug 2026, a world-
+      # readable GCS object with no CORS policy returns no ACAO at all. Set
+      # this on the bucket once:
+      #
+      #   [{"AllowedOrigins": ["https://nisanth2003.github.io"],
+      #     "AllowedMethods": ["GET", "HEAD"],
+      #     "AllowedHeaders": ["*"], "MaxAgeSeconds": 3600}]
+      #
+      # `tools/r2_doctor.py` proves all of that from a laptop before a run ever
+      # spends voice quota. Then point the IPOPULSE_AUDIO_BASE repo variable at
+      # the public base URL (trailing slash) and publish.yml stops mirroring
+      # into Pages.
+      #
+      # --prune keeps the bucket at steady state. The keep-set comes from
+      # scripts.json — EVERY IPO, not the subset this run narrated — because a
+      # run is usually one status ("open") and pruning against what it uploaded
+      # would delete every other IPO's clips. r2_sync refuses to prune without
+      # it for that reason.
+      - name: Upload the audio to the bucket
+        if: inputs.dry_run == false
+        working-directory: backend
+        env:
+          IPOPULSE_S3_BUCKET: ${{ secrets.IPOPULSE_S3_BUCKET }}
+          IPOPULSE_S3_ENDPOINT: ${{ secrets.IPOPULSE_S3_ENDPOINT }}
+          IPOPULSE_S3_ACCESS_KEY_ID: ${{ secrets.IPOPULSE_S3_ACCESS_KEY_ID }}
+          IPOPULSE_S3_SECRET_ACCESS_KEY: ${{ secrets.IPOPULSE_S3_SECRET_ACCESS_KEY }}
+          IPOPULSE_S3_REGION: ${{ vars.IPOPULSE_S3_REGION }}
+        run: |
+          if [ -z "$IPOPULSE_S3_BUCKET" ]; then
+            echo "::notice::No IPOPULSE_S3_BUCKET secret - skipping the bucket, falling back to the Release."
+            exit 0
+          fi
+          python tools/r2_sync.py --dir out/audio --scripts out/scripts.json --prune
+
       - name: Publish the audio to the Release
         if: inputs.dry_run == false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IPOPULSE_S3_BUCKET: ${{ secrets.IPOPULSE_S3_BUCKET }}
         run: |
+          if [ -n "$IPOPULSE_S3_BUCKET" ]; then
+            echo "::notice::Bucket configured - skipping the Release."
+            exit 0
+          fi
           shopt -s nullglob
           FILES=(backend/out/audio/*.mp3)
           if [ ${#FILES[@]} -eq 0 ]; then
@@ -256,11 +327,33 @@ jobs:
             echo "- \`$(basename "$f")\`" >> "$GITHUB_STEP_SUMMARY"
           done
 
-      # The site reads AUDIO_BASE out of config.js, and that is written by
-      # publish.yml — so the very first narration run needs a redeploy before the
-      # buttons light up. Say so rather than leaving it to be discovered.
-      - name: Remind about the redeploy
+      # A REDEPLOY IS NOT OPTIONAL — it is how the audio reaches the site.
+      #
+      # The clips are only playable from the site's own origin (Release assets
+      # send no Access-Control-Allow-Origin, so a cross-origin fetch is blocked
+      # and every reel stays silent — see cli.py _audio_base). publish.yml
+      # mirrors this Release into frontend/audio/ on the way to Pages, so until
+      # it runs the new narration exists but nothing can play it.
+      #
+      # This used to be a `::notice::` asking someone to remember. It was worth
+      # exactly what a reminder in a log is worth.
+      - name: Publish the site so the new narration goes live
         if: inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IPOPULSE_S3_BUCKET: ${{ secrets.IPOPULSE_S3_BUCKET }}
         run: |
-          echo "::notice::If the site was published before AUDIO_BASE existed, \
-          run 'Publish site' once so config.js carries it."
+          # With a bucket there is nothing to redeploy: the site reads the
+          # clips from it at runtime, so new narration is live the moment the
+          # upload finishes. Only the Pages-mirror path needs a publish, and
+          # dispatching one anyway would burn a deploy and imply the audio was
+          # waiting on it.
+          if [ -n "$IPOPULSE_S3_BUCKET" ]; then
+            echo "::notice::Bucket configured - clips are already live, no redeploy needed."
+            exit 0
+          fi
+          if gh workflow run publish.yml --ref "${GITHUB_REF_NAME}" -f rebuild=false; then
+            echo "::notice::Publish site dispatched - the clips go live when it finishes."
+          else
+            echo "::warning::Could not dispatch publish.yml. Run 'Publish site' by hand or the narration will not reach the site."
+          fi

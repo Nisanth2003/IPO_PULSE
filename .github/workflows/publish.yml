@@ -81,13 +81,24 @@ jobs:
           GH_DISPATCH_PAT: ${{ secrets.GH_DISPATCH_PAT }}
           # Where the pre-rendered narration lives, so the site can PLAY audio
           # with no backend — /api/voice cannot exist on Pages and the voice key
-          # must never reach a browser. narrate.yml puts MP3s on a Release; the
-          # page derives each filename from a hash of the script it is showing
-          # (cli.py _audio_base, voice.py script_hash). Left unset this is '',
-          # which is not a failure: the buttons simply read "not narrated yet".
-          # GITHUB_REPOSITORY is always set by Actions, so _audio_base derives
-          # the URL itself and no configuration is needed here.
+          # must never reach a browser. narrate.yml puts MP3s on a Release, the
+          # mirror step below copies them into frontend/audio/, and the page
+          # derives each filename from a hash of the script it is showing
+          # (cli.py _audio_base, voice.py script_hash). The base must stay
+          # SAME-ORIGIN or the fetch is CORS-blocked and every reel is silent —
+          # _audio_base explains why in full. Left unset this is '', which is
+          # not a failure: the buttons simply read "not narrated yet".
+          # GITHUB_REPOSITORY is always set by Actions, so _audio_base knows it
+          # is building the published site and no configuration is needed here.
           GITHUB_REPOSITORY: ${{ github.repository }}
+          # Point the site at a DIFFERENT host for the clips — set this repo
+          # variable and nothing else changes. It must be a host that sends
+          # Access-Control-Allow-Origin, because studio.js fetches the bytes.
+          # Verified 30 Aug 2026: raw.githubusercontent.com, cdn.jsdelivr.net
+          # and GitHub Pages all send `*`; GitHub RELEASE ASSETS SEND NONE,
+          # which is what made the studio silent in the first place. Unset
+          # means the Release-mirror path below, which is same-origin.
+          IPOPULSE_AUDIO_BASE: ${{ vars.IPOPULSE_AUDIO_BASE }}
         run: |
           if [ -z "$GOOGLE_SHEETS_ID" ]; then
             echo "::error::GOOGLE_SHEETS_ID is not set - the site would load with no data."
@@ -148,6 +159,43 @@ jobs:
             exit 1
           fi
           echo "frontend/ is clean."
+
+      # THE NARRATION, mirrored onto our own origin.
+      #
+      # narrate.yml leaves the MP3s on the "audio" Release so they never enter
+      # git. They cannot be played from there: studio.js FETCHES the bytes (it
+      # cuts the reel to the decoded duration and feeds capture.js a same-origin
+      # blob), and Release assets carry no Access-Control-Allow-Origin — checked
+      # 30 Aug 2026 on both the 302 and the redirect target. A cross-origin fetch
+      # against them is blocked, which is silence on every reel in every
+      # language. See cli.py _audio_base for the whole reasoning.
+      #
+      # So the clips ride along in the Pages artifact and the site reads
+      # audio/<slug>-r<n>-<lang>-<hash>.mp3 from itself. Repo stays clean, no
+      # CORS in the picture.
+      #
+      # No Release yet is the ordinary first-run case, not a failure: the site
+      # publishes without audio and the buttons read "not narrated yet".
+      - name: Mirror the narration into the site
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # An explicit base means the clips are served from somewhere else
+          # entirely, so there is nothing to mirror and megabytes of MP3 in the
+          # Pages artifact would be dead weight.
+          if [ -n "${{ vars.IPOPULSE_AUDIO_BASE }}" ]; then
+            echo "::notice::IPOPULSE_AUDIO_BASE is set - the site reads clips from there, skipping the mirror."
+            exit 0
+          fi
+          mkdir -p frontend/audio
+          if ! gh release view audio >/dev/null 2>&1; then
+            echo "::notice::No 'audio' Release yet - publishing without narration. Run the 'Narrate reels' workflow to create it."
+            exit 0
+          fi
+          gh release download audio --dir frontend/audio --pattern '*.mp3' --clobber
+          COUNT=$(ls -1 frontend/audio/*.mp3 2>/dev/null | wc -l)
+          echo "Mirrored $COUNT clip(s) into the site."
+          echo "### Narration shipped: $COUNT clip(s)" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/configure-pages@v5
 

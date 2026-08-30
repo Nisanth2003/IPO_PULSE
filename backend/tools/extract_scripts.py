@@ -160,10 +160,29 @@ def main() -> int:
     dest.write_text(json.dumps(book, ensure_ascii=False, indent=1),
                     encoding="utf-8")
 
+    # `meta` goes to a SIDECAR, not into scripts.json.
+    #
+    # scripts.json is a bare {slug: {reel: {lang: text}}} and `ipopulse narrate`
+    # iterates it with book.items() — wrapping it as {"book":…,"meta":…} would
+    # make every slug look like a reel and break narration outright. So the
+    # status lives beside it instead, and nothing that already reads the book
+    # has to change.
+    #
+    # What needs it: tools/r2_sync.py prunes clips for IPOs that have already
+    # LISTED. Once an issue lists, its reels are finished work — nobody records
+    # a GMP video for a stock that is already trading — so those objects are
+    # dead weight against R2's 10 GB free tier. Status is derived from the
+    # dates by the board and is already in the payload the studio handed us;
+    # recomputing it in the pruner would put the same rule in two places.
+    meta_dest = dest.with_name(dest.stem + ".meta.json")
+    meta_dest.write_text(json.dumps(meta, ensure_ascii=False, indent=1),
+                         encoding="utf-8")
+
     clips = sum(len(p) for r in book.values() for p in r.values())
     chars = sum(len(t) for r in book.values() for p in r.values()
                 for t in p.values())
     print(f"{len(book)} IPO(s), {clips} clips, {chars:,} characters -> {dest}")
+    print(f"status for {len(meta)} IPO(s) -> {meta_dest}")
     by_status: dict[str, int] = {}
     for slug, m in meta.items():
         by_status[m.get("status") or "?"] = by_status.get(m.get("status") or "?", 0) + 1

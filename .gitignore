@@ -59,3 +59,8 @@ frontend/js/config.js
 # `!docs/…` line dead on arrival. Excluding the contents instead keeps that
 # escape hatch open for the day one file in here does need tracking.
 docs/*
+
+# Narration mirrored in from the "audio" Release by publish.yml, so the site
+# can fetch it same-origin (Release assets send no CORS header — see cli.py
+# _audio_base). Built on the runner every deploy; MP3s never belong in git.
+frontend/audio/

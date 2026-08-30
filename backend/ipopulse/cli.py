@@ -2058,26 +2058,55 @@ def _audio_base() -> str:
     """Base URL for the pre-rendered narration, ending in '/'.
 
     The site derives each clip's filename itself (voice.asset_name, mirrored in
-    studio.js) so all it needs is where to look. A GitHub Release on a public
-    repo is the natural home: the assets are world-readable over plain HTTPS
-    with no token and no CORS preflight — an <audio> src needs neither — and
-    they do not live in git, so daily narration never bloats the repo the way
-    committing it under frontend/ would.
+    studio.js) so all it needs is where to look.
 
-    IPOPULSE_AUDIO_BASE overrides. Otherwise it is derived from
-    GITHUB_REPOSITORY, which Actions always sets, so the publish workflow needs
-    no extra configuration. Locally that variable is absent and this returns ''
-    — which is correct rather than broken: with no base the page shows the
-    buttons as un-narrated and falls back to generating through /api/voice,
-    which is exactly what a machine with a backend and a key should do.
+    IT MUST BE SAME-ORIGIN, and that is not a preference. studio.js playLang
+    FETCHES the bytes rather than pointing an <audio> at the URL, because the
+    reel is cut to the narration's real decoded duration — and a cross-origin
+    fetch needs the server to send Access-Control-Allow-Origin. GitHub Release
+    assets send none: verified 30 Aug 2026, both the github.com 302 and the
+    release-assets.githubusercontent.com 200 come back with no CORS header at
+    all, and OPTIONS on the asset URL is a 404. So a Release URL here means the
+    fetch is blocked by the browser and every language on every reel is silent
+    — the same trap as the YouTube RSS feed the studio still cannot read.
+
+    Pointing an <audio> straight at the Release would play, but it costs both
+    of the things this path exists for: decodeAudioData never sees the bytes so
+    the scene holds fall back to the estimate, and capture.js routes narration
+    through createMediaElementSource, which outputs SILENCE for a cross-origin
+    element the server never granted — a recording that looks right and has no
+    voice on it.
+
+    So the clips live on the Release (out of git, see AUDIO_TAG) and publish.yml
+    mirrors them into frontend/audio/ on the way to Pages. The site then reads
+    them from its own origin and no CORS header is needed from anyone.
+
+    IPOPULSE_AUDIO_BASE overrides — set it to an absolute URL only if that host
+    sends `Access-Control-Allow-Origin`. Otherwise it is 'audio/' under Actions
+    and '' locally: with no base the page shows the buttons as un-narrated and
+    falls back to generating through /api/voice, which is exactly what a machine
+    with a backend and a key should do.
     """
     explicit = (os.getenv("IPOPULSE_AUDIO_BASE") or "").strip()
     if explicit:
         return explicit if explicit.endswith("/") else explicit + "/"
-    repo = (os.getenv("GITHUB_REPOSITORY") or "").strip().strip("/")
-    if not repo:
+    # GITHUB_REPOSITORY is always set by Actions and never locally, so this is
+    # "am I building the published site?" without needing new configuration.
+    if not (os.getenv("GITHUB_REPOSITORY") or "").strip():
+        # Locally, point at frontend/audio/ only if something is actually in it
+        # — `ipopulse serve` serves that path, so a local narration run is
+        # audible with no configuration. Empty when the directory is empty or
+        # absent, which is the honest answer: the buttons read "not narrated
+        # yet" and the /api/voice path stays the advice, rather than lighting
+        # up a play button that can only 404.
+        local = store.BACKEND_ROOT.parent / "frontend" / "audio"
+        if local.is_dir() and any(local.glob("*.mp3")):
+            return "audio/"
         return ""
-    return f"https://github.com/{repo}/releases/download/{AUDIO_TAG}/"
+    # Relative, so it resolves under whatever path Pages serves the site at —
+    # https://<user>.github.io/<repo>/audio/... — with no hostname to keep in
+    # step and no CORS in the picture.
+    return "audio/"
 
 
 # The Release these assets hang off. A single rolling tag rather than one per
