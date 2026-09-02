@@ -431,11 +431,16 @@ function normalise(r) {
       growth_tone: _s(an.growth_tone) || 'good',
       valuation_tone: _s(an.valuation_tone) || 'warn',
       score: _f(an.score),
-      verdict: _s(an.verdict) || 'apply',
+      // Empty, deliberately — the mirror of models.py's Analysis, where the
+      // reasoning for it is written out. Short version: nothing in the
+      // pipeline writes these, so a default here published an unearned buy
+      // call on every issue. Blank means no call has been made, and
+      // `readiness` already refuses to call reel 5 recordable without one.
+      verdict: _s(an.verdict),
       verdict_text: _s(an.verdict_text),
-      reco_retail: _s(an.reco_retail) || 'apply',
-      reco_hni: _s(an.reco_hni) || 'watch',
-      reco_long: _s(an.reco_long) || 'watch',
+      reco_retail: _s(an.reco_retail),
+      reco_hni: _s(an.reco_hni),
+      reco_long: _s(an.reco_long),
     },
     allotment: {
       status: _s(al.status) || 'expected',

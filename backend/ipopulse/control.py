@@ -136,6 +136,44 @@ JOBS: dict[str, dict[str, Any]] = {
         "argv": ["validate"],
         "schedule": "part of daily",
     },
+    "market": {
+        "label": "Pre-market briefing (reel 7)",
+        "detail": "The daily market briefing: index levels, breadth and every "
+                  "sectoral index from NSE; the overnight news in a stated "
+                  "07:30-to-07:30 IST window from seven feeds; and ten "
+                  "intraday pivot setups whose every level is arithmetic on "
+                  "the session's own high, low and close. The strongest model "
+                  "reachable writes the words and chooses which candidates "
+                  "matter — it never returns a number that reaches the sheet.",
+        # 08:00 IST, and the hour is the whole point. It has to be after the
+        # overnight news window closes at 07:30 and before the pre-open
+        # auction at 09:00, so the briefing has the complete overnight picture
+        # and nothing from the session it is about to describe. `readiness`
+        # expires the reel at 09:15, which leaves 75 minutes to record it.
+        #
+        # Deliberately NOT in the `daily` chain. That chain runs at 10:00 and
+        # 18:35 — both after the open — and a briefing built then is a
+        # description of a session the viewer can already see.
+        "argv": ["market", "--write"],
+        "schedule": "08:00 IST daily",
+    },
+    "dedupe": {
+        "label": "One offer, one row",
+        "detail": "Finds rows that describe the same offer — by the logo the "
+                  "desk publishes, by one name being the other plus a legal "
+                  "suffix, or by an identical bidding window and issue size — "
+                  "and shows the fold that would repair them. Free, keyless, "
+                  "no AI.",
+        # Dry run on purpose, and it is the one job here deliberately denied
+        # its --write. Every other repair in the chain fills a blank; a merge
+        # destroys a row, and a chain step that quietly destroyed data while
+        # nobody was watching is a worse failure than the duplicate it fixed.
+        # The prevention lives at the discovery doors, which refuse to create
+        # the second row at all — this is the report that says whether that is
+        # still working.
+        "argv": ["dedupe"],
+        "schedule": "part of daily",
+    },
     "grade": {
         "label": "Grade the data",
         "detail": "Scores every stored GMP and subscription figure against "
@@ -225,7 +263,15 @@ CHAINS = {
     # record anything today", and it is only worth asking once the run has
     # finished writing — asked earlier it reports gaps the same run then fills.
     # It exits 0 without --strict, so it cannot break the chain it reports on.
-    "daily": ["sync", "verify", "facts", "enrich", "doctor", "build", "validate"],
+    # `dedupe` sits right after `sync` for the same reason `verify` does: sync
+    # is the step that discovers, so a second row for an offer already tracked
+    # is challenged in the run that would have created it rather than five
+    # days later. It runs before `enrich` so a pile-up is visible before the
+    # model budget is spent twice on one company, and it is a dry run, so it
+    # reports and cannot break the chain — see the job's comment for why the
+    # write is withheld.
+    "daily": ["sync", "verify", "dedupe", "facts", "enrich", "doctor",
+              "build", "validate"],
     # gmp-sync runs BEFORE the model-based refresh: it is free, keyless and
     # deterministic, so anything it can supply should not cost a Gemini call
     # or need vetting. `gmp` then fills only what InvestorGain did not cover.

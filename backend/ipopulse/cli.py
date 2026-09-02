@@ -40,7 +40,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from . import store
+from . import dedupe, store
 from .sheets import SheetUnavailable
 from .workbook import WorkbookLocked
 from .ai import (ALLOTMENT_STEPS, OVERVIEW_BULLETS, AiUnavailable, Gemini,
@@ -101,6 +101,139 @@ def cmd_remove(args) -> int:
     store.remove(args.slug)
     print(f"Removed {args.slug}. Previous workbook kept at "
           f"{store.OUT_DIR / 'ipo-pulse.prev.xlsx'}")
+    return 0
+
+
+def _print_plan(p: dict[str, Any]) -> None:
+    """A merge plan as a reviewable diff."""
+    lose = p["losing"]
+    print(f"\n  keep {p['keep']}   ←   fold in {p['drop']}")
+    if not p["changes"]:
+        print("    nothing to gain — the dropped row holds nothing the "
+              "keeper is missing")
+    for c in p["changes"]:
+        was = "(blank)" if c["from"] in (None, "", 0, 0.0) else str(c["from"])
+        print(f"    {c['field']:<34} {was[:26]:<28} → {str(c['to'])[:34]}")
+    for c in p.get("conflicts") or []:
+        print(f"    ? {c['at']}: keeping {c['kept']}, "
+              f"discarding {c['dropped']}")
+    print(f"    dropping: company name {lose['company'][:40]!r}"
+          + (f", exchange {lose['exchange']}" if lose["exchange"] else ""))
+
+
+def cmd_dedupe(args) -> int:
+    """Fold every set of rows that describe one offer into a single row.
+
+    Dry run unless `--write`, and that default is not politeness. A merge is
+    the one repair in this project that destroys data — every other fixer
+    fills a blank — so the diff is meant to be read before it is applied.
+
+    Which row survives is decided by `dedupe.choose`: the one that knows more,
+    then the shorter slug. `--keep` overrides it when the automatic pick is
+    wrong, which is worth having because completeness is a count and not a
+    judgement.
+    """
+    ipos = store.load_all()
+    found = dedupe.groups(ipos)
+    if not found:
+        print(f"No duplicates among {len(ipos)} row(s). "
+              "Every offer is stored once.")
+        return 0
+
+    by_slug = {i.slug: i for i in ipos}
+    print(f"{len(found)} duplicate group(s) among {len(ipos)} row(s):")
+    plans = []
+    for group in found:
+        rows = [by_slug[s] for s in group["slugs"]]
+        print(f"\n{', '.join(group['slugs'])}")
+        print(f"  why: {group['why']} ({group['confidence']})")
+        for r in rows:
+            print(f"    {r.slug:<50} completeness {dedupe.completeness(r):>4}"
+                  f"  {len(r.gmp_history)} GMP, {len(r.subscription)} sub")
+        if args.keep and args.keep in group["slugs"]:
+            keeper = by_slug[args.keep]
+            losers = [r for r in rows if r.slug != args.keep]
+        else:
+            keeper, losers = dedupe.choose(rows)
+        for loser in losers:
+            p = dedupe.plan(keeper, loser)
+            _print_plan(p)
+            plans.append(p)
+
+    if not args.write:
+        print(f"\n(dry run — nothing written. {len(plans)} merge(s) ready; "
+              f"re-run with --write)")
+        return 0
+
+    # A snapshot before the first write, not after. `remove` takes one too,
+    # but a merge is two writes and the interesting state is the one before
+    # either of them.
+    snap = store.backup()
+    print(f"\nsnapshot: {snap}" if snap else "\nsnapshot: nothing to back up")
+    for p in plans:
+        dedupe.apply(p)
+        print(f"  merged {p['drop']} into {p['keep']}")
+
+    # Read the store back rather than trusting the writes. A scheduled job
+    # that overlapped this run would have rewritten the tab underneath it, and
+    # a merge that silently half-applied is worse than one that failed.
+    after = {i.slug: i for i in store.load_all()}
+    ok = True
+    for p in plans:
+        if p["drop"] in after:
+            print(f"  ! {p['drop']} is still on the sheet — the write did not "
+                  f"take. Another job may have been writing at the same time.")
+            ok = False
+        elif p["keep"] not in after:
+            print(f"  ! {p['keep']} is gone — restore from {snap}")
+            ok = False
+    print("\nVerified against the sheet." if ok else "\nVERIFY FAILED.")
+    if ok:
+        print("Next:  ipopulse facts && ipopulse build")
+    return 0 if ok else 1
+
+
+def cmd_merge(args) -> int:
+    """Fold one named row into another. `dedupe` for a pair it did not find.
+
+    The manual door, for the case `same_offer` cannot see — two rows for one
+    offer under a brand name and a legal name with no shared token, no shared
+    logo and a calendar that has not been filled in yet. `dedupe` handles
+    everything it can recognise; this handles the rest, and it does not ask
+    `same_offer` for permission because the point of it is that the answer
+    would be no.
+    """
+    try:
+        keep, drop = store.load(args.keep), store.load(args.drop)
+    except FileNotFoundError as exc:
+        print(f"{exc}")
+        return 1
+    if keep.slug == drop.slug:
+        print("Those are the same row.")
+        return 2
+
+    confidence, why = dedupe.same_offer(dedupe.signature(keep),
+                                        dedupe.signature(drop))
+    print(f"{keep.slug} ({dedupe.completeness(keep)}) ← "
+          f"{drop.slug} ({dedupe.completeness(drop)})")
+    print(f"  automatic signals: {why} ({confidence})" if confidence
+          else "  automatic signals: none — this is your call, not the "
+               "matcher's")
+    p = dedupe.plan(keep, drop)
+    _print_plan(p)
+
+    if not args.write:
+        print("\n(dry run — nothing written. Re-run with --write)")
+        return 0
+    snap = store.backup()
+    print(f"\nsnapshot: {snap}" if snap else "\nsnapshot: nothing to back up")
+    dedupe.apply(p)
+    after = {i.slug for i in store.load_all()}
+    if args.drop in after or args.keep not in after:
+        print(f"! the write did not take as expected — restore from {snap}")
+        return 1
+    print(f"Merged {args.drop} into {args.keep}, verified against the sheet.")
+    print("Next:  ipopulse facts && ipopulse build")
     return 0
 
 
@@ -179,14 +312,34 @@ def cmd_sync(args) -> int:
             print(f"  ! catalogue unavailable: {exc}")
             catalogue = []
         known = set(store.list_slugs())
+        # Everything already stored, loaded once, because the collision check
+        # below needs the whole store and this loop can be 40 rows long.
+        stored = store.load_all()
         for rec in catalogue:
             slug = rec.get("slug")
             if not slug or slug in known:
                 continue
+            # `slug in known` only catches a row we would file under the exact
+            # same slug. NSE publishes legal names, so its slug for an issue
+            # InvestorGain already gave us is a different string for the same
+            # company — which is how 'rays-of-belief' acquired a twin called
+            # 'rays-of-belief-limited-for-profit-social-enterpr'. Ask the one
+            # definition of "same offer" before creating anything.
+            if not getattr(args, "allow_duplicate", False):
+                hit = dedupe.collides(rec, stored)
+                if hit:
+                    print(f"  = {slug} is {hit['slug']} ({hit['company']}) — "
+                          f"{hit['why']}, {hit['confidence']}. Not scaffolded; "
+                          f"this provider's facts will merge into that row. "
+                          f"Override with --allow-duplicate.")
+                    if hit["slug"] not in slugs:
+                        slugs.append(hit["slug"])
+                    continue
             store.scaffold(slug, overwrite=True)
             print(f"  + discovered {slug} ({rec.get('company', '')})")
             known.add(slug)
             slugs.append(slug)
+            stored.append(store.load(slug))
 
     for slug in slugs:
         raw = store.load(slug).to_dict()
@@ -325,6 +478,18 @@ def cmd_import(args) -> int:
         try:
             base = store.load(slug).to_dict()
         except FileNotFoundError:
+            # An outside spreadsheet is the one door where a human chose the
+            # name, so this warns and proceeds rather than refusing: they may
+            # genuinely be adding a second row on purpose, and `import` is
+            # not a scheduled job that runs unattended. The watchdog will
+            # still report the pair.
+            hit = dedupe.collides(incoming, store.load_all())
+            if hit:
+                print(f"  ! {slug} looks like {hit['slug']} "
+                      f"({hit['company']}) — {hit['why']}, "
+                      f"{hit['confidence']}. Creating it anyway because you "
+                      f"named it; run `ipopulse dedupe` if that was not "
+                      f"deliberate.")
             store.scaffold(slug, overwrite=True)
             base = store.load(slug).to_dict()
             print(f"  + created {slug}")
@@ -1249,6 +1414,24 @@ def cmd_gmp_sync(args) -> int:
             slug = slugify(row["name"].replace("&amp;", "&"))
             if not slug or slug in set(store.list_slugs()):
                 continue
+            # The same guard as `sync --discover`, and needed here for the
+            # same reason from the other direction: a row reaches this loop
+            # only because `match_slug` did not recognise it, and a string
+            # matcher's false negative is precisely what a second row for one
+            # offer is made of. `ipos` is the store as loaded at the top of
+            # this command, which is what the matcher was given too.
+            if not getattr(args, "allow_duplicate", False):
+                hit = dedupe.collides(row, ipos)
+                if hit:
+                    print(f"  = {slug} is {hit['slug']} ({hit['company']}) — "
+                          f"{hit['why']}, {hit['confidence']}. Not scaffolded. "
+                          f"Override with --allow-duplicate.")
+                    # File this board row against the existing slug so the GMP
+                    # pass below still collects it. Without this the premium
+                    # the row was carrying is simply dropped — refusing the
+                    # duplicate must not also refuse the data.
+                    matched.setdefault(hit["slug"], row)
+                    continue
             if args.write:
                 store.scaffold(slug, overwrite=True)
                 ipo = store.load(slug)
@@ -1985,6 +2168,119 @@ def cmd_validate(args) -> int:
         print(f"\n{total_err} contradiction(s) that would render as a "
               f"confident wrong number.")
     return 1 if (total_err and args.strict) else 0
+
+
+def cmd_market(args) -> int:
+    """Build (and store) the daily pre-market briefing — reel 7's record.
+
+    Dry run unless `--write`, like every other command here that touches the
+    sheet. Unlike them, the dry run is genuinely useful on its own: the whole
+    briefing prints, so the morning's read can be checked before anything is
+    committed to a row a reel will be recorded from.
+    """
+    from . import briefing, outlook
+    from .providers import market as mkt
+
+    day = args.day or briefing.today()
+
+    if args.show:
+        try:
+            b = briefing.load(day)
+        except FileNotFoundError as exc:
+            print(f"{exc}")
+            return 1
+        _print_briefing(b)
+        return 0
+
+    session = mkt.trading_day(date.fromisoformat(day))
+    if not session["trading"] and not args.force:
+        # Not an error: a briefing for a day with no session is a page of
+        # yesterday's numbers presented as this morning's, which is the exact
+        # failure the watchdog exists to catch on the IPO side.
+        print(f"{day} is not a trading day ({session['why']}) — nothing to "
+              f"brief. Use --force to build one anyway.")
+        return 0
+
+    if briefing.exists(day) and not args.replace:
+        print(f"{day} already has a briefing. `--show` to read it, "
+              f"`--replace --write` to rebuild it.")
+        return 1
+
+    try:
+        b = outlook.build(day=day, model=args.model, verbose=True)
+    except AiUnavailable as exc:
+        print(f"  ! {exc}")
+        return 1
+    except RuntimeError as exc:
+        print(f"  ! {exc}")
+        return 1
+
+    print()
+    _print_briefing(b)
+
+    if not args.write:
+        print("\n(dry run — nothing written. Re-run with --write)")
+        return 0
+
+    try:
+        where = briefing.save(b, replace=args.replace)
+    except (FileExistsError, RuntimeError) as exc:
+        print(f"  ! {exc}")
+        return 1
+    print(f"\nWritten to {where}")
+    print("Next:  ipopulse build")
+    return 0
+
+
+def _print_briefing(b) -> None:
+    """One briefing, as the morning read it should be checked against."""
+    arrow = {"up": "▲", "down": "▼"}.get(b.bias, "▬")
+    print(f"── {b.date} {arrow} {b.bias.upper()}"
+          + ("" if b.trading else f"  [CLOSED: {b.why_closed}]"))
+    print(f"   NIFTY {b.nifty:,.2f} ({b.nifty_pct:+.2f}%)   "
+          f"BANK NIFTY {b.banknifty:,.2f} ({b.banknifty_pct:+.2f}%)   "
+          f"breadth {b.advances}/{b.declines}")
+    if b.partial:
+        print(f"   ! partial data: {b.partial}")
+    if b.outlook:
+        print(f"\n   {b.outlook}")
+
+    if b.news:
+        print("\n   OVERNIGHT")
+        for n in b.news:
+            tick = f"  [{', '.join(n.tickers)}]" if n.tickers else ""
+            pic = "" if n.image else "  (no image yet)"
+            print(f"    {n.idx}. {n.headline}{tick}{pic}")
+            if n.why:
+                print(f"       {n.why}")
+            print(f"       {n.at[11:16] if n.at else '':5}  {n.source[:52]}")
+
+    if b.sectors:
+        strong = [s for s in b.sectors if s.stance == "strong"]
+        weak = [s for s in b.sectors if s.stance == "weak"]
+        fmt = lambda rows: ", ".join(
+            f"{s.sector.replace('NIFTY ', '')} {s.pct:+.2f}%" for s in rows)
+        print(f"\n   STRONG  {fmt(strong) or '—'}")
+        print(f"   WEAK    {fmt(weak[::-1]) or '—'}")
+
+    for side, label in (("long", "LONG SETUPS"), ("short", "SHORT SETUPS")):
+        rows = b.side(side)
+        if not rows:
+            continue
+        print(f"\n   {label}")
+        for s in rows:
+            print(f"    {s.rank}. {s.symbol:<12} entry {s.entry:>10,.2f}  "
+                  f"target {s.target:>10,.2f} ({s.reward:+.2f}%)  "
+                  f"stop {s.stop:>10,.2f} ({s.risk:.2f}%)  rr {s.rr}")
+            if s.reason:
+                print(f"       {s.reason}")
+            print(f"       voids: {s.invalidates}")
+
+    if b.levels_note:
+        print(f"\n   {b.levels_note}")
+    if b.notes:
+        print(f"   ({b.notes})")
+    print(f"   words by {b.model or 'nobody'}")
 
 
 def cmd_monitor(args) -> int:
@@ -2793,6 +3089,22 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--yes", action="store_true", help="skip the confirmation")
     sp.set_defaults(func=cmd_remove)
 
+    sp = sub.add_parser("dedupe", help="fold rows that describe one offer "
+                                       "into one row")
+    sp.add_argument("--write", action="store_true",
+                    help="apply the merges (dry run without it)")
+    sp.add_argument("--keep", metavar="SLUG",
+                    help="override which row survives, when the automatic "
+                         "pick (most complete, then shortest slug) is wrong")
+    sp.set_defaults(func=cmd_dedupe)
+
+    sp = sub.add_parser("merge", help="fold one named IPO row into another")
+    sp.add_argument("keep", help="the slug that survives")
+    sp.add_argument("drop", help="the slug folded into it and then removed")
+    sp.add_argument("--write", action="store_true",
+                    help="apply it (dry run without it)")
+    sp.set_defaults(func=cmd_merge)
+
     sp = sub.add_parser("list", help="show tracked IPOs")
     sp.set_defaults(func=cmd_list)
 
@@ -2824,6 +3136,10 @@ def build_parser() -> argparse.ArgumentParser:
                     help="let fetched values overwrite hand-typed ones")
     sp.add_argument("--discover", action="store_true",
                     help="also scaffold IPOs the provider lists but we do not track")
+    sp.add_argument("--allow-duplicate", action="store_true",
+                    help="scaffold a discovered row even when it looks "
+                         "like "
+                         "an offer already tracked under another slug")
     sp.add_argument("--no-translate", action="store_true")
     sp.add_argument("--model", default=default_model())
     sp.set_defaults(func=cmd_sync)
@@ -2940,6 +3256,10 @@ def build_parser() -> argparse.ArgumentParser:
                          "yet — NSE only lists them once they are about to open")
     sp.add_argument("--mainboard-only", action="store_true",
                     help="with --discover, skip SME issues")
+    sp.add_argument("--allow-duplicate", action="store_true",
+                    help="scaffold a discovered row even when it looks "
+                         "like "
+                         "an offer already tracked under another slug")
     sp.set_defaults(func=cmd_gmp_sync)
 
     sp = sub.add_parser("enrich", help="fill whatever each IPO is still missing "
@@ -2985,6 +3305,23 @@ def build_parser() -> argparse.ArgumentParser:
                     help="exit 1 on any error-level finding, so a failed "
                          "timer run is visible as a failed task")
     sp.set_defaults(func=cmd_monitor)
+
+    sp = sub.add_parser("market", help="build the daily pre-market briefing "
+                                       "(reel 7) — indices, news, setups")
+    sp.add_argument("--day", help="ISO date; defaults to today in IST")
+    sp.add_argument("--write", action="store_true",
+                    help="store it (dry run without it)")
+    sp.add_argument("--replace", action="store_true",
+                    help="rebuild a day that already has a briefing")
+    sp.add_argument("--show", action="store_true",
+                    help="print the stored briefing instead of building one")
+    sp.add_argument("--force", action="store_true",
+                    help="build even on a day the exchange is shut")
+    sp.add_argument("--model",
+                    help="override the model. Defaults to the strongest one "
+                         "reachable, not the cheap one the rest of the "
+                         "pipeline uses — this reel is judged on accuracy")
+    sp.set_defaults(func=cmd_market)
 
     sp = sub.add_parser("grade", help="score the stored numbers against InvestorGain")
     sp.add_argument("--days", type=int, default=7,

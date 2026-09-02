@@ -67,7 +67,10 @@ def _span(tab: str) -> str:
     only two-thirds of it before a rewrite — leaving live cells from the
     previous save sitting past the new data.
     """
-    width = len(tables.TABS.get(tab, [])) or 26
+    # ALL_TABS, not TABS: the Market* tabs need a width here too, and
+    # getting it wrong is the failure this docstring describes — a
+    # range too narrow clears part of a row and leaves the rest live.
+    width = len(tables.ALL_TABS.get(tab, [])) or 26
     return f"{tab}!A1:{_col_letter(width)}{MAX_ROWS}"
 
 
@@ -165,7 +168,7 @@ def ensure_tabs(service=None) -> list[str]:
     """Create any missing tab. Returns the ones created."""
     service = service or _connect()
     have = set(_tab_titles(service))
-    missing = [name for name in tables.TABS if name not in have]
+    missing = [name for name in tables.ALL_TABS if name not in have]
     if missing:
         service.spreadsheets().batchUpdate(
             spreadsheetId=sheet_id(),
@@ -288,6 +291,124 @@ def drop(slug: str) -> bool:
         return False
     del current[slug]
     write_records(current)
+    return True
+
+
+# ── the market briefing: a second record type, deliberately at arm's length ─
+#
+# Everything above is keyed by IPO slug. Reel 7's briefing is keyed by date,
+# and it gets its own cache slot and its own reader and writer rather than
+# being folded into `records()` / `write_records()`.
+#
+# The separation is not tidiness. `write_records` clears and rewrites all
+# eight IPO tabs from one in-memory snapshot with no lock, so two writers
+# sharing that path means either one can revert the other's whole book. These
+# functions touch the four Market* tabs and nothing else — `_span` is called
+# only on names from `MARKET_TABS`, so the clear range cannot reach an IPO tab
+# even if this code is wrong about everything else.
+#
+# The cache is separate for the same reason: `invalidate()` on one record type
+# must not drop the other's, and a briefing write must not leave
+# `_cache["records"]` claiming to hold a store it never read.
+
+_market_cache: dict[str, Any] = {"loaded": False, "records": {}}
+
+
+def _fetch_market() -> dict[str, list[list]]:
+    """The four Market* tabs in one round trip.
+
+    Does not inherit `_fetch`'s all-tabs-empty retry, and that is correct
+    rather than an omission: an empty *IPO* store is impossible and therefore
+    diagnostic of a mid-write read, but an empty Market store is the honest
+    state of this sheet until the first briefing is ever written. Retrying it
+    would add four seconds to every run before the feature has any data.
+    """
+    service = _connect()
+    have = set(_tab_titles(service))
+    wanted = [name for name in tables.MARKET_TABS if name in have]
+    if not wanted:
+        return {}
+    try:
+        res = service.spreadsheets().values().batchGet(
+            spreadsheetId=sheet_id(),
+            ranges=[_span(name) for name in wanted],
+            valueRenderOption="UNFORMATTED_VALUE",
+        ).execute()
+    except Exception as exc:
+        raise _explain(exc) from exc
+    return {name: block.get("values", [])
+            for name, block in zip(wanted, res.get("valueRanges", []))}
+
+
+def market_records(force: bool = False) -> dict[str, dict]:
+    """Every stored briefing, keyed by ISO date, held for the process."""
+    if force or not _market_cache["loaded"]:
+        _market_cache.update(
+            loaded=True, records=tables.from_market_tables(_fetch_market()))
+    return _market_cache["records"]
+
+
+def invalidate_market() -> None:
+    _market_cache.update(loaded=False, records={})
+
+
+def write_market_records(updated: dict[str, dict]) -> None:
+    """Replace the four Market* tabs with `updated`. Touches nothing else."""
+    service = _connect()
+    ensure_tabs(service)
+    grid = tables.to_market_tables(updated)
+
+    # Belt and braces on the one mistake that would be expensive. `grid` comes
+    # from `to_market_tables`, which cannot emit an IPO tab — but this function
+    # is the only writer in the module whose ranges are computed from a dict
+    # rather than a constant, so it states the constraint rather than trusting
+    # it. An assertion here is cheaper than restoring the book from a backup.
+    stray = [name for name in grid if name not in tables.MARKET_TABS]
+    if stray:
+        raise RuntimeError(
+            f"refusing to write: {', '.join(stray)} is not a Market tab. "
+            f"This writer must never clear an IPO tab.")
+
+    try:
+        service.spreadsheets().values().batchClear(
+            spreadsheetId=sheet_id(),
+            body={"ranges": [_span(name) for name in grid]},
+        ).execute()
+        service.spreadsheets().values().batchUpdate(
+            spreadsheetId=sheet_id(),
+            body={
+                "valueInputOption": "RAW",
+                "data": [{"range": f"{name}!A1", "values": rows}
+                         for name, rows in grid.items()],
+            },
+        ).execute()
+    except Exception as exc:
+        raise _explain(exc) from exc
+
+    _market_cache.update(loaded=True, records=updated)
+
+
+def upsert_market(day: str, record: dict) -> None:
+    """Write one day's briefing, keeping every other day.
+
+    Read-modify-write of the whole Market tab set, the same way `upsert` does
+    for IPOs. It is the same trade: simple and correct against a single
+    writer, last-write-wins against two. The mitigation is scheduling — this
+    runs at 08:00 IST, the IPO chain at 10:00 — plus `briefing.py` re-reading
+    after it writes, which is the check the IPO side learned to do the hard
+    way when a scheduled job reverted an edit made while it ran.
+    """
+    current = dict(market_records())
+    current[day] = record
+    write_market_records(current)
+
+
+def drop_market(day: str) -> bool:
+    current = dict(market_records())
+    if day not in current:
+        return False
+    del current[day]
+    write_market_records(current)
     return True
 
 

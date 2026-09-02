@@ -513,7 +513,14 @@ verdict: [
 // arrives forty seconds later, after the viewer has heard "apply", is not
 // the thing the rule asks for. See docs/YOUTUBE-PLAYBOOK.md.
 `Before I give you the calls, the part that has to sit right next to them. I am not a SEBI-registered research analyst or investment adviser. I hold no position in this issue. What follows is my opinion on public information, published openly to everyone — it is not personalised advice, and it is not a solicitation to buy or sell anything.`,
-`With that said — for retail, ${this.t('r_' + ipo.analysis.reco_retail)}. For HNI, ${this.t('r_' + ipo.analysis.reco_hni)}. And holding it long term, ${this.t('r_' + ipo.analysis.reco_long)}.`,
+// Only spoken when all three calls have actually been made. They default to
+// empty now (see models.py's Analysis), and `t('r_')` would have read out a
+// missing label key — but the real reason for the guard is that a
+// half-answered set of recommendations is worse than none: the viewer cannot
+// tell which of the three was withheld and which was a considered "no".
+(ipo.analysis.reco_retail && ipo.analysis.reco_hni && ipo.analysis.reco_long)
+  ? `With that said — for retail, ${this.t('r_' + ipo.analysis.reco_retail)}. For HNI, ${this.t('r_' + ipo.analysis.reco_hni)}. And holding it long term, ${this.t('r_' + ipo.analysis.reco_long)}.`
+  : `I am not going to hand you a call on this one yet. The published data does not support one, and inventing a verdict to fill the slot is exactly how these channels lose people money.`,
 ].filter(Boolean).join(' '),
 who: [
 this.voTakeAllotmentOdds(),
@@ -788,17 +795,17 @@ ${fin.pe ? `₹${iss.price_high} వద్ద ఇది ${fin.pe} రెట్�
       ],
       5: [
 `Final verdict on ${ipo.company}. IPO Pulse score: ${Number(d.score.effective).toFixed(1)} out of 10. ${this.verdictText}.
-Retail — ${this.t('r_' + ipo.analysis.reco_retail)}. HNI — ${this.t('r_' + ipo.analysis.reco_hni)}. Long term — ${this.t('r_' + ipo.analysis.reco_long)}.
+${this.hasRecos ? `Retail — ${this.t('r_' + ipo.analysis.reco_retail)}. HNI — ${this.t('r_' + ipo.analysis.reco_hni)}. Long term — ${this.t('r_' + ipo.analysis.reco_long)}.` : `No call on this one yet — the published data does not support one.`}
 The issue closes ${dt(ipo.dates.close)} at ${ipo.dates.close_time}. Apply before the cut-off.
 This is not investment advice — do your own research.`,
 
 `${ipo.company} पर फाइनल फैसला। IPO पल्स स्कोर: 10 में से ${Number(d.score.effective).toFixed(1)}। ${this.verdictText}।
-रिटेल — ${this.t('r_' + ipo.analysis.reco_retail)}। HNI — ${this.t('r_' + ipo.analysis.reco_hni)}। लॉन्ग टर्म — ${this.t('r_' + ipo.analysis.reco_long)}।
+${this.hasRecos ? `रिटेल — ${this.t('r_' + ipo.analysis.reco_retail)}। HNI — ${this.t('r_' + ipo.analysis.reco_hni)}। लॉन्ग टर्म — ${this.t('r_' + ipo.analysis.reco_long)}।` : `इस पर अभी कोई कॉल नहीं — पब्लिश्ड डेटा इसे सपोर्ट नहीं करता।`}
 इश्यू ${dt(ipo.dates.close)} को ${ipo.dates.close_time} बजे बंद होगा। कट-ऑफ से पहले अप्लाई करें।
 यह निवेश सलाह नहीं है — खुद रिसर्च करें।`,
 
 `${ipo.company}పై తుది తీర్పు. IPO పల్స్ స్కోర్: 10కి ${Number(d.score.effective).toFixed(1)}. ${this.verdictText}.
-రిటైల్ — ${this.t('r_' + ipo.analysis.reco_retail)}. HNI — ${this.t('r_' + ipo.analysis.reco_hni)}. లాంగ్ టర్మ్ — ${this.t('r_' + ipo.analysis.reco_long)}.
+${this.hasRecos ? `రిటైల్ — ${this.t('r_' + ipo.analysis.reco_retail)}. HNI — ${this.t('r_' + ipo.analysis.reco_hni)}. లాంగ్ టర్మ్ — ${this.t('r_' + ipo.analysis.reco_long)}.` : `దీనిపై ఇప్పటికి కాల్ లేదు — పబ్లిష్ అయిన డేటా దానికి సరిపోదు.`}
 ఇష్యూ ${dt(ipo.dates.close)}న ${ipo.dates.close_time}కి ముగుస్తుంది. కట్-ఆఫ్‌కి ముందే అప్లై చేయండి.
 ఇది పెట్టుబడి సలహా కాదు — మీరే పరిశోధించండి.`,
       ],

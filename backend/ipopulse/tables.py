@@ -122,6 +122,70 @@ TABS: dict[str, list[str]] = {
     "Sources": SRC_COLS,
 }
 
+# ── the daily market briefing ──────────────────────────────────────────────
+#
+# Reel 7's record, and the first thing in this store that is not an IPO. It is
+# keyed by DATE, not by slug, and it lives in its own tabs read and written by
+# its own functions — `to_market_tables` / `from_market_tables` below, and
+# `sheets.market_records` / `write_market_records`.
+#
+# Kept separate rather than folded into the eight tabs above, and the reason is
+# concrete: `to_tables` and `from_tables` build exactly one root dict whose
+# keys are slugs, and every series tab resolves its parent through that dict
+# (a row whose slug is unknown is silently dropped). Filing a briefing under a
+# pseudo-slug like `market-2026-09-02` would put a row in the IPOs tab that
+# every consumer of `store.load_all()` — the dropdown, `readiness`, `doctor`,
+# `dedupe` — then has to recognise and filter back out. A slug that lies about
+# what it names is a worse cost than four more tabs.
+#
+# `write_market_records` clears only these tabs. That is load-bearing: the
+# IPO writer already replaces all eight of its tabs on every save with no
+# lock, and a second writer whose clear range overlapped the first would
+# double the blast radius of a bug that already exists.
+
+# One row per trading day: the outlook, the numbers behind it, the model and
+# the disclosure. Everything scalar about the day.
+MARKET_COLS = [
+    "date", "trading", "why_closed", "at",
+    "nifty", "nifty_pct", "nifty_prev", "banknifty", "banknifty_pct",
+    "advances", "declines", "unchanged",
+    "bias", "outlook", "levels_note", "model", "partial", "notes",
+]
+
+# The five overnight stories. `image` is a URL to a generated illustration,
+# never a publisher's own photo — the reel is monetised and an RSS image is
+# somebody's copyright. `window_from`/`window_to` stamp the 07:30-to-07:30 IST
+# span the story was collected in, so a briefing can prove what it looked at.
+MARKET_NEWS_COLS = ["date", "idx", "headline", "body", "why", "sector",
+                    "tickers", "source", "url", "image", "at"]
+
+# Every sectoral index for the day, strongest first. Stored rather than
+# recomputed because the reel is recorded hours after the numbers were read,
+# and `allIndices` will have moved on by then — the briefing has to be able to
+# show the market it was actually written about.
+MARKET_SECTOR_COLS = ["date", "sector", "pct", "last", "stance"]
+
+# The intraday setups: five long, five short. Every level here is arithmetic
+# on exchange data (`providers/market.levels`), never a model's number — see
+# that module's header for why that line is drawn where it is.
+MARKET_SETUP_COLS = ["date", "side", "rank", "symbol", "last", "entry",
+                     "target", "stop", "pivot", "r1", "s1", "pct",
+                     "close_pos", "reason", "invalidates"]
+
+MARKET_TABS: dict[str, list[str]] = {
+    "Market": MARKET_COLS,
+    "MarketNews": MARKET_NEWS_COLS,
+    "MarketSectors": MARKET_SECTOR_COLS,
+    "MarketSetups": MARKET_SETUP_COLS,
+}
+
+# Every tab this store owns, for the two places that need a width or a
+# creation list regardless of which record type a tab belongs to (`_span`
+# and `ensure_tabs`). Deliberately NOT what `_fetch` or `to_tables` iterate —
+# those stay on `TABS` so the IPO path is untouched by any of this.
+ALL_TABS: dict[str, list[str]] = {**TABS, **MARKET_TABS}
+
+
 # The list-valued fields, as paths into to_dict().
 # Adding one here needs no column change and no matching edit in data.js: the
 # Lists tab is keyed by field NAME, and the browser side splits that name on '.'
@@ -422,3 +486,162 @@ def to_tables(records: dict[str, dict]) -> dict[str, list[list]]:
             tables["Sources"].append([slug, role, str(url)])
 
     return tables
+
+
+# ── the market briefing round-trip ─────────────────────────────────────────
+#
+# The same shape as the IPO pair above and the same rules — blank means
+# absent, dates go in as text, prose keeps its whitespace — but keyed by date
+# and reading only the four Market* tabs. Two independent functions rather
+# than a branch inside the IPO pair, because those two build one root dict
+# whose keys are slugs and every series tab in them resolves its parent
+# through that dict.
+
+def from_market_tables(tabs: dict[str, list[list]]) -> dict[str, dict]:
+    """{tab: rows-including-header} -> {date: plain dict for Briefing}."""
+    out: dict[str, dict] = {}
+
+    for row in _dicts(tabs.get("Market") or [], MARKET_COLS):
+        day = _txt(row.get("date"))
+        if not day:
+            continue
+        rec: dict[str, Any] = {"date": day}
+        for col in MARKET_COLS:
+            if col == "date":
+                continue
+            cell = row.get(col)
+            if _blank(cell):
+                continue                  # absent, not zero and not False
+            # `outlook`, `levels_note` and `notes` are prose the model wrote
+            # and a human may have edited; the rest is structural.
+            rec[col] = _raw(cell) if col in ("outlook", "levels_note", "notes") \
+                else _txt(cell)
+        out[day] = rec
+
+    def at(day: Any) -> dict | None:
+        return out.get(_txt(day))
+
+    for row in _dicts(tabs.get("MarketNews") or [], MARKET_NEWS_COLS):
+        rec = at(row.get("date"))
+        if rec is None:
+            continue
+        rec.setdefault("news", []).append({
+            "idx": _txt(row.get("idx")),
+            # The story itself is prose and round-trips exactly. A headline
+            # with a trailing space is a headline somebody typed.
+            "headline": _raw(row.get("headline")),
+            "body": _raw(row.get("body")),
+            "why": _raw(row.get("why")),
+            "sector": _txt(row.get("sector")),
+            "tickers": [t.strip() for t in _txt(row.get("tickers")).split(",")
+                        if t.strip()],
+            "source": _txt(row.get("source")),
+            "url": _txt(row.get("url")),
+            "image": _txt(row.get("image")),
+            "at": _txt(row.get("at")),
+        })
+
+    for row in _dicts(tabs.get("MarketSectors") or [], MARKET_SECTOR_COLS):
+        rec = at(row.get("date"))
+        if rec is None:
+            continue
+        rec.setdefault("sectors", []).append({
+            "sector": _txt(row.get("sector")),
+            "pct": _txt(row.get("pct")),
+            "last": _txt(row.get("last")),
+            "stance": _txt(row.get("stance")),
+        })
+
+    for row in _dicts(tabs.get("MarketSetups") or [], MARKET_SETUP_COLS):
+        rec = at(row.get("date"))
+        if rec is None:
+            continue
+        rec.setdefault("setups", []).append({
+            "side": _txt(row.get("side")),
+            "rank": _txt(row.get("rank")),
+            "symbol": _txt(row.get("symbol")),
+            "last": _txt(row.get("last")),
+            "entry": _txt(row.get("entry")),
+            "target": _txt(row.get("target")),
+            "stop": _txt(row.get("stop")),
+            "pivot": _txt(row.get("pivot")),
+            "r1": _txt(row.get("r1")),
+            "s1": _txt(row.get("s1")),
+            "pct": _txt(row.get("pct")),
+            "close_pos": _txt(row.get("close_pos")),
+            "reason": _raw(row.get("reason")),
+            "invalidates": _raw(row.get("invalidates")),
+        })
+
+    return out
+
+
+def to_market_tables(records: dict[str, dict]) -> dict[str, list[list]]:
+    """{date: dict} -> {tab: rows-including-header}, oldest day first.
+
+    Ascending by date on purpose: this tab grows by one briefing every trading
+    day and is meant to be scrolled by a human. Newest-first would put the
+    header next to the oldest row and move every row down every morning.
+    """
+    order = sorted(records)
+    tabs: dict[str, list[list]] = {name: [list(cols)]
+                                   for name, cols in MARKET_TABS.items()}
+
+    for day in order:
+        d = records[day] or {}
+        tabs["Market"].append([
+            _date_cell(day),
+            *[_cell_for(col, d.get(col)) for col in MARKET_COLS[1:]],
+        ])
+
+        for i, item in enumerate(d.get("news") or [], 1):
+            tickers = item.get("tickers")
+            tabs["MarketNews"].append([
+                _date_cell(day), _num_cell(item.get("idx") or i),
+                item.get("headline") or None, item.get("body") or None,
+                item.get("why") or None, item.get("sector") or None,
+                ",".join(tickers) if isinstance(tickers, list)
+                else (tickers or None),
+                item.get("source") or None, item.get("url") or None,
+                item.get("image") or None, item.get("at") or None,
+            ])
+
+        for row in d.get("sectors") or []:
+            tabs["MarketSectors"].append([
+                _date_cell(day), row.get("sector") or None,
+                _num_cell(row.get("pct")), _num_cell(row.get("last")),
+                row.get("stance") or None,
+            ])
+
+        for row in d.get("setups") or []:
+            tabs["MarketSetups"].append([
+                _date_cell(day), row.get("side") or None,
+                _num_cell(row.get("rank")), row.get("symbol") or None,
+                _num_cell(row.get("last")), _num_cell(row.get("entry")),
+                _num_cell(row.get("target")), _num_cell(row.get("stop")),
+                _num_cell(row.get("pivot")), _num_cell(row.get("r1")),
+                _num_cell(row.get("s1")), _num_cell(row.get("pct")),
+                _num_cell(row.get("close_pos")),
+                row.get("reason") or None, row.get("invalidates") or None,
+            ])
+
+    return tabs
+
+
+# Which columns on the Market tab are numbers and which are text. Spelled out
+# rather than inferred, because `trading` is a boolean and `advances` is a
+# count, and `_num_cell(True)` is 1 — a briefing that says the market was
+# open on day 1 is not what anybody meant.
+_MARKET_NUM = {"nifty", "nifty_pct", "nifty_prev", "banknifty", "banknifty_pct",
+               "advances", "declines", "unchanged"}
+
+
+def _cell_for(col: str, value: Any) -> Any:
+    if col == "trading":
+        # Written as the words, not TRUE/FALSE: Sheets renders a real boolean
+        # as a checkbox in some locales and `_txt` on that gives 'TRUE' in
+        # others. One spelling, ours, round-trips the same everywhere.
+        return None if value in (None, "") else ("yes" if value else "no")
+    if col in _MARKET_NUM:
+        return _num_cell(value)
+    return value or None

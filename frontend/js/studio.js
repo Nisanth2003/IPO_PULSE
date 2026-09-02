@@ -1765,11 +1765,27 @@ function studio() {
     },
 
     // ── view helpers ───────────────────────────────────────────────────
-    get verdict() { return VERDICTS[this.ipo?.analysis?.verdict] || VERDICTS.apply; },
+    // `VERDICTS.none`, never `VERDICTS.apply`. An unknown or empty verdict is
+    // the absence of a call and has to render as one — falling back to
+    // `apply` is how a field nobody ever wrote got published as a buy
+    // recommendation on every issue. See models.py's Analysis.
+    get verdict() { return VERDICTS[this.ipo?.analysis?.verdict] || VERDICTS.none; },
     get verdictText() {
       const custom = this.ipo?.analysis?.verdict_text;
       if (custom) return custom;
       return this.verdict.text[LANG_INDEX[this.lang] ?? 0] || this.verdict.text[0];
+    },
+    /**
+     * Have all three per-segment calls actually been made?
+     *
+     * All three or none, which is stricter than testing them one at a time on
+     * purpose: a script that names a call for retail and skips HNI leaves the
+     * viewer unable to tell a withheld answer from a considered one. The
+     * narration in output.js reads this rather than the fields.
+     */
+    get hasRecos() {
+      const a = this.ipo?.analysis || {};
+      return !!(a.reco_retail && a.reco_hni && a.reco_long);
     },
     get moveIcon() {
       return { surge: '🚀', drop: '🔴', stable: '🟢' }[this.d?.gmp.movement] || '🟢';

@@ -328,6 +328,16 @@ const VERDICTS = {
   longterm: { hex: '#F59E0B', text: ['LONG TERM ONLY', 'सिर्फ़ लॉन्ग टर्म के लिए', 'దీర్ఘకాలానికి మాత్రమే'] },
   risky:    { hex: '#F59E0B', text: ['RISKY — APPLY SMALL', 'रिस्की — छोटा दांव लगाएँ', 'రిస్క్ — చిన్నగా అప్లై చేయండి'] },
   avoid:    { hex: '#EF4444', text: ['AVOID / SKIP', 'अवॉइड करें / स्किप करें', 'స్కిప్ చేయండి'] },
+  // What an IPO with no verdict typed against it shows. It exists because
+  // the fallback used to be `VERDICTS.apply`: an empty verdict rendered as
+  // APPLY FOR LISTING GAIN in green, so making the stored default empty
+  // (see models.py's Analysis) would have changed nothing on screen.
+  //
+  // Grey rather than amber on purpose — amber is a cautious call, and this
+  // is the absence of one. `readiness` already blocks reel 5 for an issue in
+  // this state, so nobody should reach it by accident; it is the safety net
+  // for recording anyway, and it must not look like a decision.
+  none:     { hex: '#94A3B8', text: ['NO CALL — NOT REVIEWED YET', 'कोई कॉल नहीं — रिव्यू बाकी है', 'కాల్ లేదు — ఇంకా రివ్యూ కాలేదు'] },
 };
 
 const DEFAULT_STEPS = {

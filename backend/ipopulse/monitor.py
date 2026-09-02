@@ -102,98 +102,19 @@ def _remember(fp: dict[str, Any]) -> None:
 def duplicates(ipos: list[Ipo]) -> list[dict[str, Any]]:
     """Two rows for one company.
 
-    Discovery runs against three catalogues that spell names differently, and
-    a near-miss in the slug matcher scaffolds a second row rather than filling
-    the first. Both then collect GMP and both appear in the dropdown, and the
-    only visible symptom is the same company twice — which reads as a display
-    bug rather than as two half-filled records.
+    The signals themselves live in `dedupe`, not here, and that is the fix for
+    the bug this check kept finding but could not stop. Discovery used to ask
+    the name matcher whether a catalogue row was one of ours, get a no, and
+    scaffold a second row — while this function, three modules away, held a
+    perfectly good definition of "same company" that nothing at the door ever
+    consulted. Both now read the one definition, so a pair this would report
+    is a pair discovery already refused to create.
 
-    ── Why names alone are not enough ────────────────────────────────────
-
-    Name matching catches `skyways-air` / `skyways-air-services`, where one is a
-    prefix of the other. It cannot catch a company filed under its BRAND: the
-    sheet carried both `purple-style-labs` and `pernia-s-pop-up-studio` as
-    separate mainboard issues, and they share not one character. They were the
-    same offer — same open, close and listing dates, same ₹680 Cr, same lot,
-    the same logo file, and NSE's own symbol for Purple Style Labs is
-    PERNIASPOP. No string comparison of those two names will ever agree.
-
-    So two more signals, both from upstream rather than from spelling:
-
-      * **the logo URL** — the desk publishes one image per offer, so two rows
-        pointing at the same file are two rows for the same offer. This is the
-        strongest of the three and the cheapest.
-      * **the calendar plus the size** — identical open, close AND total is a
-        coincidence worth a second look even without either of the above. Two
-        genuinely different issues can share a window; sharing the window and
-        the rupee size is what makes it a finding.
-
-    Each match carries `why`, so a report says which signal fired rather than
-    asserting a duplicate and leaving somebody to work out the basis.
+    Kept as a name here because the watchdog is where it is *reported*, and
+    `check()` below is the only caller.
     """
-    groups: list[tuple[set[str], str]] = []
-
-    def join(slugs: set[str], why: str) -> None:
-        if len(slugs) > 1:
-            groups.append((slugs, why))
-
-    # ── by name, including the prefix case
-    by_name: dict[str, list[str]] = {}
-    for i in ipos:
-        # Squash to letters: 'skyways-air' and 'skyways-air-services' collide
-        # on the shorter name being a prefix of the longer, which is exactly
-        # the shape the matcher gets wrong.
-        key = "".join(ch for ch in (i.company or i.slug).lower() if ch.isalnum())
-        by_name.setdefault(key, []).append(i.slug)
-    keys = sorted(by_name)
-    for n, key in enumerate(keys):
-        group = set(by_name[key])
-        for other in keys[n + 1:]:
-            if other.startswith(key) or key.startswith(other):
-                group |= set(by_name[other])
-        join(group, "the same name")
-
-    # ── by the logo the desk publishes for the offer
-    by_logo: dict[str, set[str]] = {}
-    for i in ipos:
-        logo = ((i.sources or {}).get("logo") or "").strip().lower()
-        if logo:
-            by_logo.setdefault(logo, set()).add(i.slug)
-    for slugs in by_logo.values():
-        join(slugs, "the same logo file upstream")
-
-    # ── by an identical calendar and size
-    by_shape: dict[tuple, set[str]] = {}
-    for i in ipos:
-        d = i.dates
-        shape = (str(d.open or ""), str(d.close or ""), round(i.issue.total_cr, 2))
-        if all(shape[:2]) and shape[2]:
-            by_shape.setdefault(shape, set()).add(i.slug)
-    for slugs in by_shape.values():
-        join(slugs, "identical open, close and issue size")
-
-    # Merge overlapping groups so one pair is reported once with every reason
-    # that found it, rather than three times under three headings.
-    merged: list[tuple[set[str], set[str]]] = []
-    for slugs, why in groups:
-        for existing in merged:
-            if existing[0] & slugs:
-                existing[0].update(slugs)
-                existing[1].add(why)
-                break
-        else:
-            merged.append((set(slugs), {why}))
-
-    out: list[dict[str, Any]] = []
-    for slugs, whys in merged:
-        out.append({"company": sorted(slugs)[0],
-                    "slugs": sorted(slugs),
-                    "why": " and ".join(sorted(whys))})
-    # A pair matches from both sides; keep one entry per set of slugs.
-    unique: dict[tuple, dict] = {}
-    for d in out:
-        unique[tuple(d["slugs"])] = d
-    return list(unique.values())
+    from .dedupe import groups
+    return groups(ipos)
 
 
 def check(now: datetime | None = None) -> dict[str, Any]:
@@ -312,11 +233,20 @@ def check(now: datetime | None = None) -> dict[str, Any]:
                 flag("error", ipo.slug, p["what"], p["detail"])
 
     # ── 4. the same company stored twice
+    #
+    # This should now be unreachable for anything discovery created — the
+    # doors refuse a colliding row. It stays an error rather than a warning
+    # because the pairs it can still catch are the ones that got in another
+    # way (a hand-typed row, an `import` from an outside spreadsheet, or a
+    # name that only became a collision once a later sync filled in the
+    # calendar), and those are exactly the ones nobody is watching for.
     for dup in duplicates(ipos):
         flag("error", "-", "Duplicate record",
-             f"{' and '.join(dup['slugs'])} share {dup['why']} — both collect "
-             f"data and both appear in the dropdown. `ipopulse verify` says "
-             f"which one an exchange can account for")
+             f"{' and '.join(dup['slugs'])} share {dup['why']} "
+             f"({dup['confidence']}) — both collect data and both appear in "
+             f"the dropdown. Fold them with `ipopulse dedupe` (dry run) then "
+             f"`ipopulse dedupe --write`; `ipopulse verify` says which one an "
+             f"exchange can account for")
 
     # ── 5. reel readiness, rolled up
     from .compute import derive

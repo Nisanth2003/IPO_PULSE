@@ -282,12 +282,31 @@ class Analysis:
     risk: str = ""
     growth_tone: str = "good"        # good | warn | bad
     valuation_tone: str = "warn"
-    score: float = 0.0               # 0-10
-    verdict: str = "apply"           # apply|both|longterm|risky|avoid
+    score: float = 0.0               # 0-10; a manual override, 0 = derive it
+    # ── these four default to EMPTY, and that is the whole point ──────────
+    #
+    # They used to default to `apply` / `apply` / `watch` / `watch`. Nothing
+    # in the pipeline ever writes them — `analyse` does not ask the model for
+    # a verdict and no other command sets one — so every row on the sheet
+    # carried that triple, and reel 5, whose entire job is the verdict, spoke
+    # it aloud in three languages for 28 issues including two that are
+    # loss-making. A default that nobody chose was being published as a
+    # recommendation to buy a security.
+    #
+    # This is the sheet's own rule about numbers ("a blank cell means absent,
+    # never 0 — a written 0 invents a fact") applied to a string, at the one
+    # door that was not enforcing it. Empty means *no call has been made*,
+    # which is a state the pipeline needs to be able to represent.
+    #
+    # Nothing else has to change to make that safe: `readiness` already
+    # requires a non-empty verdict and all three recommendations before it
+    # will call reel 5 recordable. That gate has been correct all along and
+    # simply never fired, because the default made it impossible to fail.
+    verdict: str = ""                # apply|both|longterm|risky|avoid
     verdict_text: str = ""           # optional override
-    reco_retail: str = "apply"       # apply|watch|avoid
-    reco_hni: str = "watch"
-    reco_long: str = "watch"
+    reco_retail: str = ""            # apply|watch|avoid
+    reco_hni: str = ""
+    reco_long: str = ""
 
     @classmethod
     def from_dict(cls, d: dict) -> "Analysis":
@@ -304,11 +323,11 @@ class Analysis:
             growth_tone=d.get("growth_tone", "good") or "good",
             valuation_tone=d.get("valuation_tone", "warn") or "warn",
             score=_f(d.get("score")),
-            verdict=d.get("verdict", "apply") or "apply",
+            verdict=d.get("verdict", "") or "",
             verdict_text=d.get("verdict_text", "") or "",
-            reco_retail=d.get("reco_retail", "apply") or "apply",
-            reco_hni=d.get("reco_hni", "watch") or "watch",
-            reco_long=d.get("reco_long", "watch") or "watch",
+            reco_retail=d.get("reco_retail", "") or "",
+            reco_hni=d.get("reco_hni", "") or "",
+            reco_long=d.get("reco_long", "") or "",
         )
 
 
@@ -419,3 +438,225 @@ class Ipo:
     @property
     def latest_sub(self) -> SubDay | None:
         return self.subscription[-1] if self.subscription else None
+
+
+# ── the daily market briefing ──────────────────────────────────────────────
+#
+# Reel 7's record. Keyed by date, not by slug, and deliberately not part of
+# the `Ipo` tree — see `tables.MARKET_TABS` for why a pseudo-slug was rejected.
+#
+# Every numeric field here that a viewer might act on (`entry`, `target`,
+# `stop`, and the pivot levels behind them) is computed by
+# `providers/market.levels` from exchange data. The model writes `reason` and
+# `invalidates` — the words — and chooses which candidates are interesting.
+# It does not write a price. See `providers/market.py`'s header for why that
+# line is drawn exactly there.
+
+@dataclass
+class NewsItem:
+    """One overnight story: a picture, a headline, and why it matters."""
+
+    idx: int = 0
+    headline: str = ""
+    body: str = ""
+    why: str = ""                    # the market read, not the news itself
+    sector: str = ""
+    tickers: list[str] = field(default_factory=list)
+    source: str = ""
+    url: str = ""
+    # A generated illustration, never the publisher's own photo. An RSS image
+    # is somebody's copyright and this channel is monetised.
+    image: str = ""
+    at: str = ""                     # when the story broke, ISO, IST
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "NewsItem":
+        d = d or {}
+        return cls(
+            idx=int(_f(d.get("idx"))),
+            headline=d.get("headline", "") or "",
+            body=d.get("body", "") or "",
+            why=d.get("why", "") or "",
+            sector=d.get("sector", "") or "",
+            tickers=_list(d.get("tickers")),
+            source=d.get("source", "") or "",
+            url=d.get("url", "") or "",
+            image=d.get("image", "") or "",
+            at=d.get("at", "") or "",
+        )
+
+
+@dataclass
+class SectorMark:
+    """One sectoral index for the day. `stance` is strong | weak | flat."""
+
+    sector: str = ""
+    pct: float = 0.0
+    last: float = 0.0
+    stance: str = ""
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SectorMark":
+        d = d or {}
+        return cls(sector=d.get("sector", "") or "", pct=_f(d.get("pct")),
+                   last=_f(d.get("last")), stance=d.get("stance", "") or "")
+
+
+@dataclass
+class TradeSetup:
+    """One intraday setup. `side` is long | short.
+
+    `entry`, `target` and `stop` are levels off the day's own pivot band, and
+    `pivot` / `r1` / `s1` are stored beside them so the arithmetic is visible
+    on the sheet rather than only in the code that produced it — an editor or
+    a viewer can check any level against the exchange's own high, low and
+    close.
+
+    `invalidates` is the condition that voids the setup, and it is a required
+    part of the idea rather than a nicety: a level with no invalidation reads
+    as a prediction, and a level with one reads as an observation about a
+    range. The second is what this reel is allowed to claim.
+    """
+
+    side: str = ""
+    rank: int = 0
+    symbol: str = ""
+    last: float = 0.0
+    entry: float = 0.0
+    target: float = 0.0
+    stop: float = 0.0
+    pivot: float = 0.0
+    r1: float = 0.0
+    s1: float = 0.0
+    pct: float = 0.0
+    close_pos: float = 0.0
+    reason: str = ""
+    invalidates: str = ""
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "TradeSetup":
+        d = d or {}
+        return cls(
+            side=(d.get("side", "") or "").lower(),
+            rank=int(_f(d.get("rank"))),
+            symbol=(d.get("symbol", "") or "").upper(),
+            last=_f(d.get("last")), entry=_f(d.get("entry")),
+            target=_f(d.get("target")), stop=_f(d.get("stop")),
+            pivot=_f(d.get("pivot")), r1=_f(d.get("r1")), s1=_f(d.get("s1")),
+            pct=_f(d.get("pct")), close_pos=_f(d.get("close_pos")),
+            reason=d.get("reason", "") or "",
+            invalidates=d.get("invalidates", "") or "",
+        )
+
+    @property
+    def reward(self) -> float:
+        """Distance to target as a percentage of entry, signed by side."""
+        if not (self.entry and self.target):
+            return 0.0
+        return round(100 * (self.target - self.entry) / self.entry
+                     * (1 if self.side == "long" else -1), 2)
+
+    @property
+    def risk(self) -> float:
+        """Distance to stop as a percentage of entry."""
+        if not (self.entry and self.stop):
+            return 0.0
+        return round(abs(100 * (self.entry - self.stop) / self.entry), 2)
+
+    @property
+    def rr(self) -> float:
+        """Reward against risk. 0.0 when either leg is missing.
+
+        Worth surfacing because it is the one number that can disqualify a
+        setup on its own arithmetic, whatever the reasoning attached to it
+        sounds like: a 0.4% target against a 1.2% stop is a bad idea.
+        """
+        return round(self.reward / self.risk, 2) if self.risk else 0.0
+
+
+@dataclass
+class Briefing:
+    """One trading day's pre-market briefing — the whole of reel 7."""
+
+    date: date | None = None
+    trading: bool = True
+    why_closed: str = ""
+    at: str = ""                     # the exchange timestamp the data carried
+    nifty: float = 0.0
+    nifty_pct: float = 0.0
+    nifty_prev: float = 0.0
+    banknifty: float = 0.0
+    banknifty_pct: float = 0.0
+    advances: int = 0
+    declines: int = 0
+    unchanged: int = 0
+    bias: str = ""                   # up | down | flat
+    outlook: str = ""                # the prose for the opening scene
+    levels_note: str = ""            # the disclosure spoken before the setups
+    model: str = ""                  # which model wrote the words, on the row
+    partial: str = ""                # which feeds were missing, if any
+    notes: str = ""
+    news: list[NewsItem] = field(default_factory=list)
+    sectors: list[SectorMark] = field(default_factory=list)
+    setups: list[TradeSetup] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Briefing":
+        d = d or {}
+        raw = d.get("trading")
+        return cls(
+            date=_d(d.get("date")),
+            # 'yes'/'no' on the sheet, a bool in memory, and a missing flag
+            # means trading — a briefing exists only for a day somebody built
+            # one for, and defaulting an absent flag to "closed" would hide
+            # the record rather than describe it.
+            trading=raw if isinstance(raw, bool)
+            else str("yes" if raw is None else raw).strip().lower()
+            not in ("no", "false", "0"),
+            why_closed=d.get("why_closed", "") or "",
+            at=d.get("at", "") or "",
+            nifty=_f(d.get("nifty")), nifty_pct=_f(d.get("nifty_pct")),
+            nifty_prev=_f(d.get("nifty_prev")),
+            banknifty=_f(d.get("banknifty")),
+            banknifty_pct=_f(d.get("banknifty_pct")),
+            advances=int(_f(d.get("advances"))),
+            declines=int(_f(d.get("declines"))),
+            unchanged=int(_f(d.get("unchanged"))),
+            bias=(d.get("bias", "") or "").lower(),
+            outlook=d.get("outlook", "") or "",
+            levels_note=d.get("levels_note", "") or "",
+            model=d.get("model", "") or "",
+            partial=d.get("partial", "") or "",
+            notes=d.get("notes", "") or "",
+            news=sorted((NewsItem.from_dict(x) for x in (d.get("news") or [])),
+                        key=lambda n: n.idx),
+            sectors=sorted(
+                (SectorMark.from_dict(x) for x in (d.get("sectors") or [])),
+                key=lambda s: -s.pct),
+            # Longs first, then shorts, each by rank. The order is
+            # load-bearing, not cosmetic: the two board scenes render this
+            # list in slices, so a shuffled list puts a short setup on the
+            # longs card. Same reasoning as the GMP sort above.
+            setups=sorted(
+                (TradeSetup.from_dict(x) for x in (d.get("setups") or [])),
+                key=lambda s: (s.side != "long", s.rank)),
+        )
+
+    def to_dict(self) -> dict:
+        def conv(o):
+            if isinstance(o, dict):
+                return {k: conv(v) for k, v in o.items()}
+            if isinstance(o, (list, tuple)):
+                return [conv(v) for v in o]
+            if isinstance(o, date):
+                return o.isoformat()
+            return o
+        return conv(asdict(self))
+
+    @property
+    def key(self) -> str:
+        """The store key: the ISO date."""
+        return self.date.isoformat() if self.date else ""
+
+    def side(self, which: str) -> list[TradeSetup]:
+        return [s for s in self.setups if s.side == which]

@@ -178,6 +178,36 @@ def match_slug(name: str, url: str, slugs: list[str],
     want = _tokens(name)
     if not want:
         return None
+
+    # ── containment, before the overlap score
+    #
+    # Jaccard puts the union in the denominator, so a name that is one of ours
+    # *plus* its legal description scores badly however certain the match is.
+    # 'Rays of Belief Limited- For Profit Social Enterprise' against our 'Rays
+    # of Belief' overlaps on all three of our tokens and still scores 3/7 =
+    # 0.43 — under the 0.5 floor. The matcher returned None, discovery took
+    # that as "new company", and the sheet carried Rays of Belief twice for
+    # five days with the financials on one row and the fresh-issue split on
+    # the other.
+    #
+    # One token set being a subset of the other is a different and stronger
+    # statement than a good overlap ratio, so it is tested first and is not
+    # subject to the ratio floor. Two guards keep it honest: the smaller set
+    # needs at least two real tokens (a single shared word is a coincidence,
+    # and `_NOISE` has already removed the words most likely to be shared),
+    # and two of ours containing the same name is an ambiguity, not a match —
+    # the whole point of returning None is that a GMP filed against the wrong
+    # company is far worse than a GMP not filed.
+    contained = []
+    for slug in slugs:
+        have = _tokens(companies.get(slug, "")) | _tokens(slug)
+        if len(have) < 2 or len(want) < 2:
+            continue
+        if have <= want or want <= have:
+            contained.append(slug)
+    if len(contained) == 1:
+        return contained[0]
+
     scored: list[tuple[float, str]] = []
     for slug in slugs:
         have = _tokens(companies.get(slug, "")) | _tokens(slug)
