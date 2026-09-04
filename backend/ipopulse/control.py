@@ -618,6 +618,154 @@ def handle(handler, method: str) -> bool:
         })
         return True
 
+    # ── YouTube: publish one reel from the studio ──────────────────────────
+    #
+    # The browser cannot upload to YouTube itself and should not be able to.
+    # Doing so would mean a refresh token — a credential that can upload, edit
+    # and delete on the channel — living in page JavaScript, on a site that is
+    # also published to GitHub Pages. So the studio collects the details and
+    # this process does the work.
+    #
+    # Which means the button only exists where this process does: a local
+    # `ipopulse serve`. On the public Pages site there is no /api at all, and
+    # `/api/youtube/status` simply never answers — the panel says so rather
+    # than offering a button that cannot work.
+
+    if path == "/api/youtube/status":
+        from . import pubqueue as q
+        from . import youtube_upload as yt
+        _json(handler, 200, {
+            "configured": yt.configured(),   # is there an OAuth client?
+            "authorised": yt.authorised(),   # has someone clicked allow?
+            "queue": q.summary(),
+        })
+        return True
+
+    if path == "/api/youtube/publish" and method == "POST":
+        import base64
+        import tempfile
+        from pathlib import Path
+
+        from . import pubqueue as q
+        from . import youtube_upload as yt
+
+        body = _body(handler)
+        slug = str(body.get("slug") or "").strip()
+        reel = int(body.get("reel") or 0)
+        lang = str(body.get("lang") or "en").strip()
+        title = str(body.get("title") or "").strip()
+        desc = str(body.get("description") or "")
+        privacy = str(body.get("privacy") or "unlisted").strip()
+        tags = [str(t) for t in (body.get("tags") or [])][:40]
+        dry = bool(body.get("dry_run"))
+
+        if not (slug and reel and title):
+            _json(handler, 400,
+                  {"error": "slug, reel and title are all required."})
+            return True
+        if privacy not in ("private", "unlisted", "public"):
+            _json(handler, 400, {"error": f"bad visibility: {privacy}"})
+            return True
+
+        # The optional narration, sent as base64 by the panel's file picker.
+        #
+        # Written to a temp file rather than streamed: ffmpeg needs a seekable
+        # path, and a reel's narration is a few hundred kilobytes — small
+        # enough that the simple thing is also the right one.
+        audio_path = None
+        blob = body.get("audio_b64") or ""
+        if blob:
+            try:
+                raw = base64.b64decode(blob.split(",")[-1], validate=False)
+            except Exception:
+                _json(handler, 400,
+                      {"error": "the audio did not decode; re-pick the file."})
+                return True
+            if len(raw) > 40 * 1024 * 1024:
+                _json(handler, 400, {"error": "audio over 40 MB — that is not "
+                                              "narration for a Short."})
+                return True
+            fd, tmp = tempfile.mkstemp(suffix=".mp3")
+            os.close(fd)
+            Path(tmp).write_bytes(raw)
+            audio_path = Path(tmp)
+
+        try:
+            # ── render, with the generated cards and whatever audio came in
+            sys.path.insert(0, str(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__)))))
+            from tools import render as renderer          # noqa: E402
+
+            from . import art, store
+            try:
+                ipo = store.load(slug)
+                opener, endcard = art.for_reel(ipo, reel, lang)
+                company = ipo.company or slug
+            except Exception:
+                opener = endcard = None
+                company = slug
+
+            out = (store.OUT_DIR / "video" /
+                   f"{slug}-r{reel}-{lang}.mp4")
+            httpd, tmpdir, url = renderer._serve_gateless(port=8772)
+            try:
+                got = renderer.render(url, slug, reel, lang, out,
+                                      audio=audio_path, opener=opener,
+                                      endcard=endcard)
+            finally:
+                httpd.shutdown()
+                import shutil as _sh
+                _sh.rmtree(tmpdir, ignore_errors=True)
+
+            # ── queue it, then approve it with the visibility the panel chose
+            #
+            # Still goes through the queue even though it is about to upload,
+            # and that is deliberate: the queue is the record of what was
+            # published, with what title, at whose instruction. A path that
+            # skipped it would leave uploads with no history.
+            item = q.add(slug=slug, reel=reel, lang=lang, video=out,
+                         company=company, seconds=got["seconds"],
+                         title=title, description=desc, tags=tags,
+                         notes="published from the studio")
+            if dry:
+                _json(handler, 200, {
+                    "dry_run": True, "id": item["id"],
+                    "video": str(out), "seconds": got["seconds"],
+                    "scenes": got["scenes"], "privacy": privacy,
+                    "audio": bool(audio_path),
+                })
+                return True
+
+            if not yt.authorised():
+                _json(handler, 400, {
+                    "error": "Not authorised with YouTube yet. Run "
+                             "`ipopulse publish --authorise` once in a "
+                             "terminal, then try again.",
+                    "id": item["id"], "video": str(out)})
+                return True
+
+            q.approve(item["id"], privacy=privacy)
+            sent = yt.upload(out, title=title, description=desc, tags=tags,
+                             privacy=privacy)
+            q.mark_uploaded(item["id"], sent["id"], sent["url"])
+            _json(handler, 200, {
+                "ok": True, "id": item["id"], "video_id": sent["id"],
+                "url": sent["url"], "privacy": sent["privacy"],
+                "thumbnail": sent.get("thumbnail"),
+                "thumbnail_error": sent.get("thumbnail_error", ""),
+                "seconds": got["seconds"],
+            })
+        except Exception as err:
+            _json(handler, 400, {"error": str(err)[:400]})
+        finally:
+            if audio_path and audio_path.exists():
+                try:
+                    audio_path.unlink()
+                except OSError:
+                    pass
+        return True
+
+
     if path == "/api/run" and method == "POST":
         body = _body(handler)
         # {"job": "sync"} for one, {"jobs": [...]} for a sequence in order.
