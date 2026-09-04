@@ -35,12 +35,34 @@ def where() -> str:
     return f"Google Sheet {sid[:8]}…" if sid else "no sheet configured"
 
 
+def _view() -> dict[str, dict]:
+    """The store as this process currently believes it — buffer included.
+
+    **Reads must see this process's own unflushed writes.** Without that,
+    `batched()` is a trap rather than an optimisation: `cmd_gmp_sync` sets a
+    newly discovered company, then immediately calls `load_all()` to bring
+    the new rows into the GMP pass — and got the pre-save row back, because
+    the save was still in the buffer. Every newly discovered IPO on 4 Sep
+    ended up carrying another company's details for exactly this reason.
+
+    Read-your-own-writes is not an optimisation to add later; a buffer that
+    does not honour it silently changes the meaning of every save/reload pair
+    in the codebase, and there are several.
+    """
+    base = sheets.records()
+    if not _buffer:
+        return base
+    merged = dict(base)
+    merged.update(_buffer)
+    return merged
+
+
 def list_slugs() -> list[str]:
-    return sorted(sheets.records())
+    return sorted(_view())
 
 
 def load(slug: str) -> Ipo:
-    rec = sheets.records().get(slug)
+    rec = _view().get(slug)
     if rec is None:
         raise FileNotFoundError(f"No IPO '{slug}' in the sheet")
     return Ipo.from_dict(dict(rec))
@@ -48,7 +70,7 @@ def load(slug: str) -> Ipo:
 
 def load_all() -> list[Ipo]:
     out = []
-    for slug, rec in sorted(sheets.records().items()):
+    for slug, rec in sorted(_view().items()):
         try:
             out.append(Ipo.from_dict(dict(rec)))
         except Exception as exc:                  # keep one bad row from
@@ -140,9 +162,16 @@ def iter_ipos() -> Iterator[Ipo]:
         yield load(slug)
 
 
+def _scaffold_record(slug: str) -> dict:
+    return Ipo.from_dict({
+        "slug": slug,
+        "financials": {"years": ["FY23", "FY24", "FY25"]},
+    }).to_dict()
+
+
 def scaffold(slug: str, overwrite: bool = False) -> str:
     """Add a blank row for `slug`."""
-    if slug in sheets.records() and not overwrite:
+    if slug in _view() and not overwrite:
         raise FileExistsError(
             f"{slug} is already in the sheet (use --force to reset it)")
 
@@ -150,8 +179,21 @@ def scaffold(slug: str, overwrite: bool = False) -> str:
     # to Mainboard, which is the trap that once left four SME issues judged
     # against mainboard lot sizes. `sync --provider nse` corrects it from the
     # exchange series; until then treat the badge on a new row as unverified.
-    sheets.upsert(Ipo.from_dict({
+    blank = Ipo.from_dict({
         "slug": slug,
         "financials": {"years": ["FY23", "FY24", "FY25"]},
-    }))
+    })
+
+    # Through the buffer when batching, NOT straight to the sheet.
+    #
+    # This used to call `sheets.upsert` unconditionally, which inside a batch
+    # did two harmful things: it spent a real write request per discovered
+    # IPO — the exact cost `batched()` exists to avoid, and enough on its own
+    # to reach the 60-per-minute quota during a discovery run — and it reset
+    # `_cache` from the sheet, so the buffer and the cache disagreed for the
+    # rest of the run.
+    if _buffer is not None:
+        _buffer[slug] = blank.to_dict()
+        return f"{where()} (buffered)"
+    sheets.upsert(blank)
     return where()

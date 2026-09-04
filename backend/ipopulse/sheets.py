@@ -180,8 +180,11 @@ def _tab_titles(service, book_id: str | None = None) -> list[str]:
     which have to inspect a book that is deliberately NOT the one
     `GOOGLE_SHEETS_ID` points at.
     """
-    meta = service.spreadsheets().get(
-        spreadsheetId=book_id or sheet_id()).execute()
+    # Retried: this is the first call every command makes, so a transient
+    # 503 here took down `brief`, `list` and everything else with a raw
+    # googleapiclient traceback rather than a sentence.
+    meta = _with_retry(lambda: service.spreadsheets().get(
+        spreadsheetId=book_id or sheet_id()).execute())
     return [s["properties"]["title"] for s in meta.get("sheets", [])]
 
 
@@ -214,14 +217,11 @@ def _fetch() -> dict[str, list[list]]:
     wanted = [name for name in tables.TABS if name in have]
     if not wanted:
         return {}
-    try:
-        res = service.spreadsheets().values().batchGet(
-            spreadsheetId=sheet_id(),
-            ranges=[_span(name) for name in wanted],
-            valueRenderOption="UNFORMATTED_VALUE",
-        ).execute()
-    except Exception as exc:
-        raise _explain(exc) from exc
+    res = _with_retry(lambda: service.spreadsheets().values().batchGet(
+        spreadsheetId=sheet_id(),
+        ranges=[_span(name) for name in wanted],
+        valueRenderOption="UNFORMATTED_VALUE",
+    ).execute())
     out = {name: block.get("values", [])
            for name, block in zip(wanted, res.get("valueRanges", []))}
 
@@ -293,6 +293,29 @@ def invalidate() -> None:
 MIN_KEEP_FRACTION = 0.67
 
 
+def _clearable(grid: dict[str, list[list]]) -> dict[str, list[list]]:
+    """`None` -> `""` on the way to the API, so a blank actually blanks.
+
+    The two layers disagree about how to say "nothing here" and the mismatch
+    silently ate writes. `tables.py` expresses absence as Python `None` —
+    correct, and what `_opt_num_cell` returns for a zero that means "nobody
+    supplied this". But **Sheets reads `null` in a values array as "leave
+    this cell as it is"**, not as "clear it". An empty string is what clears.
+
+    So a field could be filled but never emptied. Veegaland's phantom
+    `ofs_cr` of 93 crore was written as `None`, the API skipped the cell, and
+    the 93 survived a repair that reported itself as having worked — `facts`
+    printed `ofs_cr: 93.0 -> 0.0` and the sheet did not change.
+
+    Done here rather than in `tables.py` on purpose: `None` is the right
+    in-memory word for absent, and `""` is the API's idiom for the same
+    thing. This is the boundary between them.
+    """
+    return {name: [["" if cell is None else cell for cell in row]
+                   for row in rows]
+            for name, rows in grid.items()}
+
+
 def _trim(service, book_id: str, grid: dict[str, list[list]]) -> None:
     """Clear whatever sits BELOW the rows just written, per tab.
 
@@ -314,20 +337,54 @@ def _trim(service, book_id: str, grid: dict[str, list[list]]) -> None:
     try:
         service.spreadsheets().values().batchClear(
             spreadsheetId=book_id, body={"ranges": stale}).execute()
+        return
     except Exception as exc:
-        # "exceeds grid limits" means the new data fills the tab to its last
-        # row, so there is nothing below it to clear. That is success, not a
-        # failure, and printing it as one trains people to ignore this line.
-        if "exceeds grid limits" in str(exc):
-            return
-        print(f"  · wrote the data; could not trim the old tail ({exc})",
-              flush=True)
+        # A batchClear is ALL OR NOTHING. One invalid range fails the whole
+        # call, so a single tab whose data already fills its grid ("exceeds
+        # grid limits") silently prevented every other tab from being
+        # trimmed. That is how a deleted row survived: the write put 29
+        # records down, the tail was never cleared, and the 30th row was
+        # still there to be read back.
+        #
+        # So fall back to clearing one range at a time. Now a tab with
+        # nothing to trim costs one ignored error instead of cancelling the
+        # work for all the others.
+        if "exceeds grid limits" not in str(exc):
+            print(f"  · batch trim failed ({str(exc)[:90]}); "
+                  f"trimming tab by tab", flush=True)
+
+    for one in stale:
+        try:
+            service.spreadsheets().values().batchClear(
+                spreadsheetId=book_id, body={"ranges": [one]}).execute()
+        except Exception as exc:
+            if "exceeds grid limits" in str(exc):
+                continue          # nothing below the data; genuinely fine
+            print(f"  · could not trim {one.split('!')[0]} "
+                  f"({str(exc)[:70]})", flush=True)
 
 
-def _is_rate_limit(exc: Exception) -> bool:
+def _is_transient(exc: Exception) -> bool:
+    """Worth waiting out rather than failing on.
+
+    Two kinds. **Rate limits** (429) are our own doing and clear within the
+    minute. **503 / UNAVAILABLE** is Google's, and it happens: two `brief`
+    runs in a row died on a 503 from `spreadsheets.get`, which is not a
+    condition any caller can fix by being told about it.
+
+    Everything else — a bad range, a revoked key, a missing spreadsheet —
+    would fail identically five times, so it is raised at once.
+    """
     text = str(exc)
-    return ("RATE_LIMIT_EXCEEDED" in text or "429" in text
-            or "Quota exceeded" in text)
+    status = getattr(getattr(exc, "resp", None), "status", None)
+    return (status in (429, 500, 502, 503, 504)
+            or "RATE_LIMIT_EXCEEDED" in text or "429" in text
+            or "Quota exceeded" in text
+            or "currently unavailable" in text or "UNAVAILABLE" in text)
+
+
+# Kept as an alias: the write path reads better saying "rate limit".
+_is_rate_limit = _is_transient
 
 
 def _with_retry(fn, tries: int = 5):
@@ -350,9 +407,11 @@ def _with_retry(fn, tries: int = 5):
         try:
             return fn()
         except Exception as exc:
-            if not _is_rate_limit(exc) or attempt == tries - 1:
+            if not _is_transient(exc) or attempt == tries - 1:
                 raise _explain(exc) from exc
-            print(f"  · Sheets write quota reached; waiting {delay:.0f}s "
+            why = ("write quota reached" if "Quota" in str(exc)
+                   or "RATE_LIMIT" in str(exc) else "Sheets is unavailable")
+            print(f"  · {why}; waiting {delay:.0f}s "
                   f"(attempt {attempt + 1} of {tries})", flush=True)
             time.sleep(delay)
             delay *= 2
@@ -416,7 +475,7 @@ def write_records(updated: dict[str, dict], force: bool = False) -> None:
                 "valueInputOption": "RAW",   # never let Sheets reinterpret a
                                              # date string or a leading zero
                 "data": [{"range": f"{name}!A1", "values": rows}
-                         for name, rows in grid.items()],
+                         for name, rows in _clearable(grid).items()],
             },
         ).execute()
         _trim(service, sheet_id(), grid)
@@ -525,7 +584,7 @@ def write_market_records(updated: dict[str, dict]) -> None:
             body={
                 "valueInputOption": "RAW",
                 "data": [{"range": f"{name}!A1", "values": rows}
-                         for name, rows in grid.items()],
+                         for name, rows in _clearable(grid).items()],
             },
         ).execute()
         _trim(service, sheet_id(), grid)
@@ -632,7 +691,8 @@ def _write_grid(book_id: str, grid: dict[str, list[list]]) -> None:
             spreadsheetId=book_id,
             body={"valueInputOption": "RAW",
                   "data": [{"range": f"{name}!A1", "values": rows}
-                           for name, rows in grid.items()]}).execute()
+                           for name, rows in _clearable(grid).items()]}
+        ).execute()
         _trim(service, book_id, grid)
 
     _with_retry(_attempt)

@@ -2144,6 +2144,49 @@ def _cmd_facts_body(args) -> int:
                 issue[key] = cats[key]
                 wrote.append(key)
 
+        # ── how the issue is sized, from the desk rather than from a model
+        #
+        # Overwritten when it disagrees, unlike everything else in this
+        # command, and the reason is the same as for the ticker: these are
+        # published figures with one right answer, and the desk is the
+        # authority on them.
+        #
+        # They used to come from a Gemini lookup and from parsing NSE's
+        # prose, which is the inversion of this project's rule — the model
+        # fills what InvestorGain does not cover, never the reverse. The cost
+        # was a phantom `ofs_cr` of 93 crore pasted across ten unrelated IPOs
+        # and a `fresh_cr` of 274.18 across three, with `doctor` then
+        # recomputing every total from those two so the contradiction check
+        # went green over numbers that were simply wrong.
+        #
+        # Every change is printed, so an overwrite is auditable rather than
+        # silent.
+        size = {**ig.issue_size(row), **ig.price_band(row)}
+        for key, val in size.items():
+            was = issue.get(key)
+            if was is not None and abs(float(was or 0) - float(val)) < 0.01:
+                continue
+            if was:
+                print(f"  ~ {slug:<32} {key}: {was} -> {val} (desk)")
+            issue[key] = val
+            wrote.append(key)
+
+        # ── the timetable, from the same desk
+        #
+        # Authoritative for the same reason as the band: six rows held a
+        # refund date that fell BEFORE their own allotment, which is a
+        # calendar that cannot happen. Taking all three from one timetable
+        # keeps them consistent by construction rather than by luck.
+        info = ig.allotment(row)
+        dates = raw.setdefault("dates", {})
+        for key in ("allotment", "refund", "listing"):
+            val = info.get(key)
+            if val and dates.get(key) != val:
+                if dates.get(key):
+                    print(f"  ~ {slug:<32} {key}: {dates[key]} -> {val} (desk)")
+                dates[key] = val
+                wrote.append(key)
+
         # ── the exchange's own name for the issue
         #
         # NSE symbol, BSE scrip code and ISIN, off the same detail record
@@ -2620,6 +2663,64 @@ def cmd_publish(args) -> int:
     return 0
 
 
+def cmd_brief(args) -> int:
+    """Flatten the store into documents a notebook can read.
+
+    Gemini Notebook has no API, so this produces the thing its four doors all
+    want — one self-contained document per IPO — and you add it with a drag or
+    a paste. `--public` writes into the website instead, which makes it a URL
+    the notebook can fetch itself; read `brief.py`'s header before using that,
+    because a file beside index.html is NOT behind the password gate.
+    """
+    from . import brief, briefing
+
+    made: list = []
+    if args.market:
+        days = [args.market] if args.market != "all" else briefing.list_days()
+        for day in days:
+            try:
+                b = briefing.load(day)
+            except FileNotFoundError:
+                print(f"  ! no briefing stored for {day}")
+                continue
+            made.append(brief.write(brief.for_briefing(b),
+                                    f"market-{day}.md", public=args.public))
+    else:
+        slugs = args.slug or store.list_slugs()
+        for slug in slugs:
+            try:
+                ipo = store.load(slug)
+            except FileNotFoundError:
+                print(f"  ! no such IPO: {slug}")
+                continue
+            made.append(brief.write(brief.for_ipo(ipo), f"{slug}.md",
+                                    public=args.public))
+
+    if not made:
+        print("Nothing written.")
+        return 1
+
+    total = sum(p.stat().st_size for p in made)
+    for p in made:
+        print(f"  {p.stat().st_size / 1024:6.1f} KB  {p}")
+    print()
+    print(f"{len(made)} document(s), {total / 1024:.0f} KB total.")
+    print(f"in: {made[0].parent}")
+
+    if args.public:
+        print()
+        print("These are on the WEBSITE and not behind the password gate.")
+        print("Commit and deploy, then add them in Gemini Notebook with")
+        print("  Add sources -> Websites -> paste the URL")
+    else:
+        print()
+        print("Add them in Gemini Notebook with")
+        print("  Add sources -> Upload files -> select this folder's .md files")
+        print("Then Studio -> Audio Overview, which generates in Hindi and")
+        print("Telugu as well as English.")
+    return 0
+
+
 def cmd_monitor(args) -> int:
     """Did the data actually arrive today? The watchdog behind the timers."""
     from . import monitor as watch
@@ -2643,9 +2744,21 @@ def cmd_grade(args) -> int:
     r = grader.collect(days=args.days)
     for line in grader.report(r):
         print(line)
-    # Non-zero only under --strict, so a weekly run cannot fail a chain it is
-    # not part of, but a pre-record gate can still use it.
-    bad = r["gmp_bad"] or r["sub_bad"] or r["orphans"]
+    # Non-zero only under --strict, so the daily chain sees the report without
+    # a disagreement stopping the publish behind it — a GMP that moved since
+    # the last read is normal drift, not a reason to skip a build.
+    #
+    # `impossible` is the exception and always fails. Those are not
+    # disagreements with a source; they are records that contradict
+    # themselves — a price band whose low is above its high, a refund before
+    # its own allotment, a book more than 110% reserved. Nothing downstream
+    # can render those correctly, so a run that produced one should be visibly
+    # red whether or not anyone asked for strictness.
+    if r["impossible"]:
+        print(f"\n! {len(r['impossible'])} record(s) contradict themselves — "
+              f"these cannot render correctly in any reel.")
+        return 1
+    bad = (r["gmp_bad"] or r["sub_bad"] or r["orphans"] or r["terms_bad"])
     return 1 if (bad and args.strict) else 0
 
 
@@ -3663,6 +3776,17 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--dry-run", action="store_true",
                     help="with --upload, list what would go and send nothing")
     sp.set_defaults(func=cmd_publish)
+
+    sp = sub.add_parser("brief", help="write per-IPO documents for a "
+                                      "notebook / Gemini Notebook")
+    sp.add_argument("slug", nargs="*", help="which IPOs; default all")
+    sp.add_argument("--market", metavar="DAY",
+                    help="a market briefing instead: an ISO date, or 'all'")
+    sp.add_argument("--public", action="store_true",
+                    help="write into frontend/brief/ so it becomes a public "
+                         "URL. NOT behind the password gate — this publishes "
+                         "the analysis before a video does")
+    sp.set_defaults(func=cmd_brief)
 
     sp = sub.add_parser("migrate", help="rebuild the store in a new "
                                         "spreadsheet and verify it")

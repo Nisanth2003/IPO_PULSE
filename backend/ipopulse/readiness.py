@@ -474,6 +474,38 @@ def problems(ipo: Ipo, now: datetime | None = None) -> list[dict[str, str]]:
             bad("warn", "Financials", f"{yr}: PAT ₹{pat:g} Cr exceeds EBITDA ₹{ebitda:g} Cr")
         if rev < 0:
             bad("error", "Financials", f"{yr}: negative revenue")
+    # ── the book has to add up
+    #
+    # Reel 1's reservation scene draws each slice as a percentage of
+    # `shares_total`, so a total smaller than its own parts renders bars past
+    # 100% and a caption claiming the book was 162% reserved. Found by reading
+    # a flattened brief, where "100.0% to QIB, 37.5% to NII, 25.0% to retail"
+    # is obviously wrong in a way three numbers in a spreadsheet row are not.
+    #
+    # Two rows had it: `shares_qib` had been written equal to `shares_total`,
+    # which also made the anchor carve-out 100% of the issue.
+    slices = (iss.shares_qib + iss.shares_nii + iss.shares_retail
+              + iss.shares_employee + iss.shares_shareholders)
+    # 1.10, not 1.02. The desk's own figures overshoot the stated total by
+    # 3-7% on most issues — a definitional gap, not corruption: subtracting
+    # the anchor book overshoots the other way (to 21-64%), so it is not a
+    # double count either. Real corruption looked nothing like this; the two
+    # rows that were genuinely wrong came in at 172% and 267%.
+    #
+    # A threshold tight enough to fire on every row is worse than no
+    # threshold, because it trains everyone to ignore the line.
+    if iss.shares_total and slices > iss.shares_total * 1.10:
+        bad("error", "Reservation",
+            f"the slices add to {slices:,.0f} shares but the issue total says "
+            f"{iss.shares_total:,.0f} — reel 1 would draw the book as "
+            f"{100 * slices / iss.shares_total:.0f}% reserved")
+    # The anchor book is a SUBSET of the QIB slice, never the whole issue.
+    if iss.shares_anchor and iss.shares_total             and iss.shares_anchor >= iss.shares_total:
+        bad("error", "Reservation",
+            f"anchor investors are recorded as taking every share in the "
+            f"issue ({iss.shares_anchor:,.0f}); the anchor book is part of "
+            f"the QIB slice, not the whole offer")
+
     if f.eps and iss.price_high:
         if f.eps < 0:
             # Not a bad number — a company with no earnings to price. Worth

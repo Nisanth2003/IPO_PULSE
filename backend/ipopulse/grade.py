@@ -36,6 +36,72 @@ def _band(pct: float) -> str:
     return "F"
 
 
+
+# The terms the desk is authoritative for, and how close counts as agreeing.
+#
+# Added after 5 Sep 2026, when a phantom OFS of 93 crore sat on ten unrelated
+# IPOs, three rows held a price band whose low was above its high, and six had
+# a refund date before their own allotment — none of it visible, because this
+# grader only ever compared GMP and subscription. The numbers that describe
+# the OFFER were never checked against anything.
+#
+# Tolerances are per-field rather than one number: a rupee-crore total that
+# differs by 0.01 is rounding, a lot size that differs by 1 share is not.
+TERMS: list[tuple[str, str, float]] = [
+    ("total_cr", "issue size", 0.5),
+    ("fresh_cr", "fresh issue", 0.5),
+    ("ofs_cr", "offer for sale", 0.5),
+    ("price_low", "band low", 0.5),
+    ("price_high", "band high", 0.5),
+]
+
+
+def _terms_check(ipo, row, ig) -> list[tuple[str, Any, Any]]:
+    """Stored issue terms against the desk's. [] when they agree."""
+    desk = {**ig.issue_size(row), **ig.price_band(row)}
+    out = []
+    for key, label, tol in TERMS:
+        if key not in desk:
+            continue                      # the desk does not publish it
+        ours = float(getattr(ipo.issue, key, 0) or 0)
+        theirs = float(desk[key])
+        if abs(ours - theirs) > tol:
+            out.append((label, ours, theirs))
+    return out
+
+
+def _impossible(ipo) -> list[str]:
+    """Things that cannot be true of any IPO, whatever the desk says.
+
+    Separate from the desk comparison on purpose: these need no yardstick.
+    An issue the desk has stopped carrying still cannot have a band whose low
+    is above its high, and those are exactly the rows a reconciliation would
+    otherwise fall silent on.
+    """
+    out = []
+    iss, d, f = ipo.issue, ipo.dates, ipo.financials
+    if iss.price_low and iss.price_high and iss.price_low > iss.price_high:
+        out.append(f"band low {iss.price_low:g} is above high {iss.price_high:g}")
+    if d.refund and d.allotment and d.refund < d.allotment:
+        out.append(f"refund {d.refund} falls before allotment {d.allotment}")
+    if d.listing and d.allotment and d.listing < d.allotment:
+        out.append(f"listing {d.listing} falls before allotment {d.allotment}")
+    if d.open and d.close and d.close < d.open:
+        out.append(f"close {d.close} falls before open {d.open}")
+    if iss.shares_total:
+        sl = (iss.shares_qib + iss.shares_nii + iss.shares_retail
+              + iss.shares_employee + iss.shares_shareholders)
+        if sl > iss.shares_total * 1.10:
+            out.append(f"the book is {100 * sl / iss.shares_total:.0f}% reserved")
+    if f.years and len(f.years) != len(set(f.years)):
+        out.append(f"the year axis repeats itself: {', '.join(f.years)}")
+    for key in ("revenue", "ebitda", "pat", "net_worth", "total_debt"):
+        vals = getattr(f, key, None) or []
+        if vals and f.years and len(vals) != len(f.years):
+            out.append(f"{key} has {len(vals)} values for {len(f.years)} years")
+    return out
+
+
 def collect(days: int = 7) -> dict[str, Any]:
     """Compare every stored figure against InvestorGain. Read-only."""
     from .providers import investorgain as ig
@@ -46,16 +112,40 @@ def collect(days: int = 7) -> dict[str, Any]:
         "sub_total": 0, "sub_match": 0, "sub_bad": [],
         "orphans": [], "unmatched": [], "stale": [], "ipos": 0,
         "window_days": days,
+        # Issue terms, and the same rows grouped by where each issue is in
+        # its own life — which is how the question actually gets asked:
+        # "is anything wrong with what is open right now?"
+        "terms_total": 0, "terms_match": 0, "terms_bad": [],
+        "impossible": [], "by_status": {},
     }
 
     for ipo in store.load_all():
         r["ipos"] += 1
+        status = derive(ipo)["dates"]["status"]
+        r["by_status"].setdefault(status, {"n": 0, "clean": 0, "slugs": []})
+        r["by_status"][status]["n"] += 1
+
+        # Checked before the desk lookup, because an issue the desk no longer
+        # carries still must not hold a band that inverts.
+        wrong = _impossible(ipo)
+        if wrong:
+            r["impossible"].append((ipo.slug, status, wrong))
+
         m = ig.resolve(ipo.slug, ipo.company or "")
         if not m:
             # Not automatically wrong — a listed issue can age out — but it
             # means nothing here can be checked, so it is reported.
             r["unmatched"].append(ipo.slug)
+            if not wrong:
+                r["by_status"][status]["clean"] += 1
+            else:
+                r["by_status"][status]["slugs"].append(ipo.slug)
             continue
+
+        for label, ours, theirs in _terms_check(ipo, m, ig):
+            r["terms_total"] += 1
+            r["terms_bad"].append((ipo.slug, status, label, ours, theirs))
+        r["terms_total"] += 0
 
         theirs = {p["date"]: p["gmp"] for p in ig.history(m)}
         for p in ipo.gmp_history:
@@ -83,9 +173,13 @@ def collect(days: int = 7) -> dict[str, Any]:
             else:
                 r["sub_bad"].append((ipo.slug, s.day, s.total, their_sub[s.day]))
 
+        if not wrong and not any(b[0] == ipo.slug for b in r["terms_bad"]):
+            r["by_status"][status]["clean"] += 1
+        else:
+            r["by_status"][status]["slugs"].append(ipo.slug)
+
         # A live issue whose premium has not moved in days is either genuinely
         # flat or not being read at all, and the card cannot tell you which.
-        status = derive(ipo)["dates"]["status"]
         if status in ("open", "upcoming") and ipo.gmp_history:
             newest = max((p.date for p in ipo.gmp_history if p.date), default=None)
             if newest and newest < since:
@@ -102,6 +196,14 @@ def collect(days: int = 7) -> dict[str, Any]:
     r["grade"] = _band(r["overall_pct"])
     if r["orphans"] and r["grade"] == "A":
         r["grade"] = "B"
+    # An issue term that disagrees with the desk, or a record that
+    # contradicts itself, is not allowed to leave an A on the board. The
+    # whole failure of 5 Sep was a grade that stayed green while ten IPOs
+    # carried a phantom OFS — because nothing here looked at the terms.
+    if r["terms_bad"] and r["grade"] in ("A", "B"):
+        r["grade"] = "C"
+    if r["impossible"]:
+        r["grade"] = "F" if len(r["impossible"]) > 3 else "D"
     return r
 
 
@@ -114,6 +216,32 @@ def report(r: dict[str, Any]) -> list[str]:
         f"  GMP          {r['gmp_match']}/{r['gmp_total']} days match  ({r['gmp_pct']:.1f}%)",
         f"  Subscription {r['sub_match']}/{r['sub_total']} days match  ({r['sub_pct']:.1f}%)",
     ]
+
+    # By status first, because that is how the question gets asked: not
+    # "how is the data" but "is anything wrong with what is open right now".
+    order = ["open", "upcoming", "closed", "allotment", "listed"]
+    rows = [(k, v) for k, v in sorted(
+        r["by_status"].items(),
+        key=lambda kv: order.index(kv[0]) if kv[0] in order else 9)]
+    if rows:
+        out += ["", "  BY STATUS"]
+        for name, v in rows:
+            mark = "ok" if v["clean"] == v["n"] else f"{v['n'] - v['clean']} to check"
+            out.append(f"    {name:<12}{v['clean']}/{v['n']} clean   {mark}")
+            if v["slugs"]:
+                out.append(f"    {'':12}{', '.join(sorted(set(v['slugs']))[:6])}")
+
+    if r["impossible"]:
+        out += ["", f"  {len(r['impossible'])} IPO(s) hold something that cannot "
+                    f"be true of any issue:"]
+        for slug, status, why in r["impossible"][:10]:
+            out.append(f"    {slug:<32}[{status}]")
+            out += [f"      - {w}" for w in why]
+    if r["terms_bad"]:
+        out += ["", f"  {len(r['terms_bad'])} issue term(s) disagree with the desk "
+                    f"— ours vs theirs:"]
+        out += [f"    {s:<30}[{st[:9]:<9}] {lab:<15}{a:g} vs {b:g}"
+                for s, st, lab, a, b in r["terms_bad"][:14]]
     if r["gmp_bad"]:
         out += ["", f"  {len(r['gmp_bad'])} GMP day(s) disagree — ours vs theirs:"]
         out += [f"    {s:<32}{d}  {a:g} vs {b:g}" for s, d, a, b in r["gmp_bad"][:12]]
@@ -131,6 +259,12 @@ def report(r: dict[str, Any]) -> list[str]:
     if r["unmatched"]:
         out += ["", f"  {len(r['unmatched'])} IPO(s) InvestorGain could not be asked about: "
                     + ", ".join(r["unmatched"][:8])]
-    if not (r["gmp_bad"] or r["sub_bad"] or r["orphans"] or r["stale"]):
-        out += ["", "  Nothing to fix. Every stored figure matches the desk."]
+    if not (r["gmp_bad"] or r["sub_bad"] or r["orphans"] or r["stale"]
+            or r["terms_bad"] or r["impossible"]):
+        out += ["", "  Nothing to fix. Every stored figure matches the desk, "
+                    "and nothing contradicts itself."]
+    else:
+        out += ["", "  Repair what the desk can settle:  ipopulse facts",
+                "  Nothing here is fixed automatically — a grader that "
+                "repaired what it measured would always report an A."]
     return out
