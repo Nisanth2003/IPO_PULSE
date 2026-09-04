@@ -459,6 +459,49 @@ def valuation(row_or_url: Any) -> dict[str, Any]:
     return out
 
 
+def identity(row_or_url: Any) -> dict[str, Any]:
+    """The exchange's own name for this issue: NSE symbol, BSE code, ISIN.
+
+    The thing name matching should never have been standing in for. An IPO is
+    identified by a ticker — `MOMSBELIEF` is Rays of Belief and nothing else —
+    and this desk carries it on the same detail record `facts` already reads,
+    so it costs no extra request.
+
+    Why it matters more than any string signal: the sheet has carried the same
+    company twice three times, and every one of those pairs shares a ticker
+    while sharing almost nothing else. `purple-style-labs` and
+    `pernia-s-pop-up-studio` have not one character in common as names — and
+    NSE's symbol for both is PERNIASPOP. `rays-of-belief` and its 48-character
+    twin were stamped `BSE:4775` and `NSE:MOMSBELIEF` respectively, because
+    `sources.exchange` records whichever exchange answered first; asking this
+    desk instead gives the same symbol for both.
+
+    Empty fields are omitted rather than written blank, and that is not
+    incidental — `isin` and `bse_scripcode` fill in only as an issue nears
+    listing, so a pre-listing IPO legitimately has a symbol and no ISIN. A
+    blank stored here would be an identity that matches every other blank.
+    """
+    d = detail(row_or_url) or {}
+    if not d:
+        return {}
+    out: dict[str, Any] = {}
+    # nse_symbol is the populated one before listing; nse_script_symbol and
+    # the bse_* trio are all spellings this API carries and mostly leaves
+    # empty, so each is a fallback rather than a separate fact.
+    for key, fields in (
+        ("nse_symbol", ("nse_symbol", "nse_script_symbol", "nse_cd")),
+        ("bse_code", ("bse_scripcode", "bse_script_code", "bse_script_id",
+                      "bse_cd")),
+        ("isin", ("isin",)),
+    ):
+        for field in fields:
+            val = str(d.get(field) or "").strip()
+            if val:
+                out[key] = val.upper()
+                break
+    return out
+
+
 def categories(row_or_url: Any) -> dict[str, Any]:
     """Shares reserved per category, and the minimum bid each one must make.
 

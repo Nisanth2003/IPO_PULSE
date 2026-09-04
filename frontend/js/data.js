@@ -179,10 +179,16 @@ const DATA = {
       if (rec && metric && _s(row.value).trim()) rec.benchmarks[metric] = _f(row.value);
     }
 
+    /* `value` with a `url` fallback — the mirror of tables.py's SRC_COLS.
+       The column was renamed when `facts` started writing NSE symbols and
+       ISINs into it; a sheet written before that is still headed `url`, and
+       reading only the new name would silently drop every source on it,
+       taking reel 1's logo and the duplicate check's ticker with it. */
     for (const row of rows('Sources')) {
       const rec = at(row.slug);
-      const role = _s(row.role).trim(), url = _s(row.url).trim();
-      if (rec && role && url) rec.sources[role] = url;
+      const role = _s(row.role).trim();
+      const value = _s(row.value).trim() || _s(row.url).trim();
+      if (rec && role && value) rec.sources[role] = value;
     }
 
     const out = {};

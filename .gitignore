@@ -60,6 +60,13 @@ frontend/js/config.js
 # escape hatch open for the day one file in here does need tracking.
 docs/*
 
+# The exception the rule above was shaped to allow. This one is not a working
+# document — it is the systems overview somebody reads to understand how the
+# pipeline fits together, so it has to be visible in the repo and on GitHub
+# rather than sitting on one machine's disk.
+!docs/HOW-IT-WORKS.html
+!docs/RUNNING.md
+
 # Narration mirrored in from the "audio" Release by publish.yml, so the site
 # can fetch it same-origin (Release assets send no CORS header — see cli.py
 # _audio_base). Built on the runner every deploy; MP3s never belong in git.

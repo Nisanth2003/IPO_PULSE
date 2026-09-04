@@ -103,10 +103,17 @@ def signature(rec: Any) -> dict[str, Any]:
     with no data on one side never fires rather than firing on two blanks.
     """
     if isinstance(rec, Ipo):
+        src = rec.sources or {}
         return {
             "slug": rec.slug,
             "name": rec.company or rec.slug,
-            "logo": ((rec.sources or {}).get("logo") or "").strip().lower(),
+            "logo": (src.get("logo") or "").strip().lower(),
+            # The exchange's own identifiers, written by `facts`. These are
+            # checked before anything else in `same_offer` — see the note
+            # there about why a ticker beats every string signal.
+            "nse_symbol": (src.get("nse_symbol") or "").strip().upper(),
+            "bse_code": (src.get("bse_code") or "").strip().upper(),
+            "isin": (src.get("isin") or "").strip().upper(),
             "open": str(rec.dates.open or ""),
             "close": str(rec.dates.close or ""),
             "total": round(float(rec.issue.total_cr or 0), 2),
@@ -117,10 +124,19 @@ def signature(rec: Any) -> dict[str, Any]:
     d = rec or {}
     dates = d.get("dates") or {}
     issue = d.get("issue") or {}
+    # A discovery row carries no ticker of its own — InvestorGain's board does
+    # not publish one — so a caller that has fetched `investorgain.identity()`
+    # merges it into the row before asking. `collides` does exactly that.
+    src = d.get("sources") or {}
     return {
         "slug": d.get("slug") or d.get("slug_ig") or "",
         "name": d.get("name") or d.get("company") or "",
         "logo": str(d.get("logo") or "").strip().lower(),
+        "nse_symbol": str(d.get("nse_symbol")
+                          or src.get("nse_symbol") or "").strip().upper(),
+        "bse_code": str(d.get("bse_code")
+                        or src.get("bse_code") or "").strip().upper(),
+        "isin": str(d.get("isin") or src.get("isin") or "").strip().upper(),
         "open": str(d.get("open") or dates.get("open") or ""),
         "close": str(d.get("close") or dates.get("close") or ""),
         "total": round(float(d.get("issue_size_cr")
@@ -135,6 +151,45 @@ def same_offer(a: dict[str, Any], b: dict[str, Any]) -> tuple[str, str]:
     the sentence a report can print, so nothing has to assert a duplicate and
     leave somebody to work out the basis.
     """
+    # ── the exchange's own identifier for the issue
+    #
+    # First, and it should always have been first. An IPO is identified by a
+    # ticker, not by a name: MOMSBELIEF is Rays of Belief and nothing else,
+    # PERNIASPOP is Purple Style Labs however the row spells the company. The
+    # signals below are all attempts to infer identity from things that
+    # merely correlate with it — spelling, an image filename, a calendar —
+    # and every duplicate this project has had would have been caught here
+    # instead, exactly, with no threshold to tune.
+    #
+    # ISIN is the strongest of the three (one security, one ISIN, both
+    # exchanges publish it) but fills in only as an issue nears listing, so
+    # the symbol carries the pre-listing case and that is the case discovery
+    # actually runs in.
+    #
+    # `facts` writes these; a row that has never had `facts` run against it
+    # has none of them and falls through to the string signals unchanged.
+    for field, why in (("isin", "the same ISIN"),
+                       ("nse_symbol", "the same NSE symbol"),
+                       ("bse_code", "the same BSE scrip code")):
+        if a.get(field) and a[field] == b.get(field):
+            return "certain", f"{why} ({a[field]})"
+
+    # ── and a ticker that DISAGREES settles it the other way
+    #
+    # The signals below infer identity from things that correlate with it, and
+    # the name-prefix rule has a real false-positive mode: Reliance Power and
+    # Reliance Powergrid would collide on it. Two rows the exchange gives
+    # different symbols are two different companies, whatever their names
+    # share — so a known-and-different identifier stops the comparison here
+    # rather than letting a weaker signal overrule the exchange.
+    #
+    # Only when BOTH sides have one. An absent symbol is not a disagreement,
+    # and most upcoming issues have none until the desk publishes a detail
+    # record.
+    for field in ("isin", "nse_symbol", "bse_code"):
+        if a.get(field) and b.get(field) and a[field] != b[field]:
+            return "", ""
+
     # ── the logo the desk publishes for the offer
     if a["logo"] and a["logo"] == b["logo"]:
         return "certain", "the same logo file upstream"
@@ -230,6 +285,24 @@ def collides(candidate: Any, ipos: list[Ipo]) -> dict[str, Any] | None:
     sig = signature(candidate)
     if not (sig["name"] or sig["logo"]):
         return None                     # nothing to compare on; not our call
+
+    # Ask the desk for this row's ticker before comparing any string.
+    #
+    # One extra request, and only for a row that is about to become a new
+    # entry in the store — which is a handful per run at most, against an
+    # enrich budget of six model calls for every row wrongly created. The
+    # board itself carries no symbol, so without this the strongest signal in
+    # `same_offer` is simply blank on the one side that matters.
+    #
+    # Best-effort: an unreachable desk leaves the string signals to decide,
+    # which is what they did before this existed.
+    if not sig["nse_symbol"]:
+        try:
+            from .providers import investorgain as _ig
+            sig.update({k: v.upper() for k, v in
+                        (_ig.identity(candidate) or {}).items()})
+        except Exception:
+            pass
     best: dict[str, Any] | None = None
     for ipo in ipos:
         confidence, why = same_offer(sig, signature(ipo))
