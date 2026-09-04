@@ -292,6 +292,150 @@ function studio() {
      * job runner, and unlike the GitHub PAT there is no per-repo scoping to
      * fall back on if the browser is someone else's. Closing the tab ends it.
      */
+
+    /* ── Publish to YouTube ────────────────────────────────────────────
+     *
+     * Fill in the details, optionally attach the narration, look at what is
+     * about to go out, then confirm. The backend renders the reel, files it
+     * in the publish queue and uploads it.
+     *
+     * The browser deliberately does none of that itself. Uploading needs a
+     * refresh token that can upload, edit and delete on the channel, and a
+     * credential like that has no business in page JavaScript on a site that
+     * is also published to GitHub Pages. So this panel collects intent and
+     * `/api/youtube/publish` acts on it — which is also why the button is
+     * hidden unless `hasBackend`: on the public site there is no /api at all,
+     * and offering a button that cannot work is worse than not offering one.
+     */
+    yt: {
+      open: false, busy: false, msg: '', ok: true, step: '',
+      title: '', desc: '', tags: '', privacy: 'unlisted',
+      audioName: '', audioB64: '', audioKB: 0,
+      preview: null, result: null, status: null,
+    },
+
+    async ytOpen() {
+      const y = this.yt;
+      y.open = true; y.msg = ''; y.ok = true;
+      y.preview = null; y.result = null;
+      // Prefilled from the studio's own packaging rather than composed here.
+      // `output.js` already builds the title and description from the same
+      // record the cards are drawn from; writing them a second time in this
+      // panel would be a second implementation free to disagree with the one
+      // on screen.
+      y.title = (this.ytTitles && this.ytTitles[0]) || '';
+      y.desc = this.ytDescription || '';
+      y.tags = (this.ytHashtags || []).join(' ');
+      try {
+        y.status = await this._apiCall('/api/youtube/status');
+      } catch (e) {
+        y.status = null;
+        y.msg = /signed in/i.test(e.message)
+          ? 'Sign in first — open "Run a job" and enter the password.'
+          : e.message;
+        y.ok = false;
+      }
+    },
+
+    ytClose() { this.yt.open = false; },
+
+    /* The narration file, optional.
+     *
+     * Read to base64 in the browser and posted as JSON, rather than a
+     * multipart upload: the endpoint already speaks JSON and a reel's
+     * narration is a few hundred kilobytes. Capped at 40 MB server-side —
+     * anything larger is not narration for a Short.
+     */
+    ytPickAudio(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      const y = this.yt;
+      if (!file) { y.audioName = ''; y.audioB64 = ''; y.audioKB = 0; return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        y.audioB64 = String(reader.result || '');
+        y.audioName = file.name;
+        y.audioKB = Math.round(file.size / 1024);
+        y.preview = null;          // the preview is stale once audio changes
+      };
+      reader.onerror = () => { y.msg = 'Could not read that file.'; y.ok = false; };
+      reader.readAsDataURL(file);
+    },
+
+    ytClearAudio() {
+      Object.assign(this.yt, { audioName: '', audioB64: '', audioKB: 0,
+                               preview: null });
+    },
+
+    _ytPayload(dry) {
+      return JSON.stringify({
+        slug: this.slug, reel: this.reel.n, lang: this.lang,
+        title: this.yt.title.trim(),
+        description: this.yt.desc,
+        tags: this.yt.tags.split(/[\s,]+/).filter(Boolean),
+        privacy: this.yt.privacy,
+        audio_b64: this.yt.audioB64 || '',
+        dry_run: !!dry,
+      });
+    },
+
+    /** Render it and report what would go, without uploading. */
+    async ytBuildPreview() {
+      const y = this.yt;
+      if (!y.title.trim()) { y.msg = 'A title is required.'; y.ok = false; return; }
+      y.busy = true; y.ok = true; y.result = null;
+      y.step = 'Rendering the reel — this takes about a minute…';
+      try {
+        y.preview = await this._apiCall('/api/youtube/publish',
+          { method: 'POST', body: this._ytPayload(true) });
+        y.msg = 'Rendered. Check the details below, then confirm.';
+      } catch (e) {
+        y.msg = e.message; y.ok = false; y.preview = null;
+      } finally {
+        y.busy = false; y.step = '';
+      }
+    },
+
+    /** The confirm. This is the click that publishes. */
+    async ytPublish() {
+      const y = this.yt;
+      if (!y.title.trim()) { y.msg = 'A title is required.'; y.ok = false; return; }
+      // Public is the one choice worth a second question. Unlisted is a
+      // mistake you can fix quietly; public on a finance channel is not.
+      if (y.privacy === 'public' &&
+          !confirm('Upload as PUBLIC?\n\n' + y.title +
+                   '\n\nAnyone will be able to see it immediately.')) return;
+      y.busy = true; y.ok = true;
+      y.step = 'Rendering, then uploading — do not close this tab…';
+      try {
+        y.result = await this._apiCall('/api/youtube/publish',
+          { method: 'POST', body: this._ytPayload(false) });
+        y.msg = 'Uploaded.';
+        y.status = await this._apiCall('/api/youtube/status').catch(() => y.status);
+      } catch (e) {
+        y.msg = e.message; y.ok = false;
+      } finally {
+        y.busy = false; y.step = '';
+      }
+    },
+
+    /** What the preview card shows, so the template stays declarative. */
+    get ytSummary() {
+      const y = this.yt, p = y.preview;
+      return {
+        company: (this.ipo && this.ipo.company) || this.slug,
+        reel: `Reel ${this.reel.n} — ${this.t(this.reel.key)}`,
+        lang: { en: 'English', hi: 'Hindi', te: 'Telugu' }[this.lang] || this.lang,
+        title: y.title.trim(),
+        titleLen: y.title.trim().length,
+        descLines: (y.desc || '').split('\n').filter(Boolean).length,
+        tags: y.tags.split(/[\s,]+/).filter(Boolean),
+        privacy: y.privacy,
+        audio: y.audioName ? `${y.audioName} (${y.audioKB} KB)` : 'none',
+        seconds: p ? p.seconds : null,
+        scenes: p ? p.scenes : null,
+      };
+    },
+
     async _apiCall(path, opts = {}) {
       const r = await fetch(`${this.api}${path}`, {
         ...opts,

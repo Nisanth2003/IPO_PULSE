@@ -188,6 +188,13 @@
          it on open is what makes "nothing to paste" true on a fresh load. -->
     <button x-show="!hasBackend" x-cloak class="btn btn-acc" @click="ghOpen()"
             title="Run a job on GitHub Actions">⚡ Run job</button>
+    <!-- Publish to YouTube. Only where a backend exists: the upload needs a
+         channel credential this page must never hold, so the work happens in
+         the local server and this button just collects the details. -->
+    <button x-show="hasBackend" x-cloak class="btn"
+            style="background:#dc2626;color:#fff;border-color:#ef4444"
+            @click="ytOpen()"
+            :title="'Upload reel ' + reel.n + ' to YouTube'">▶ YouTube</button>
   </div>
 
 </header>
@@ -2660,5 +2667,173 @@
 </div>
 
 </div>
+
+<!-- ── Publish to YouTube ────────────────────────────────────────────────
+     Details in, optional narration attached, a look at what is about to go
+     out, then one confirm. The render and the upload both happen in the local
+     server; nothing on this page ever holds a channel credential. -->
+<div x-show="yt.open" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4"
+     @click="ytClose()" data-html2canvas-ignore
+     style="background:rgba(2,6,23,.78);backdrop-filter:blur(3px)">
+  <div class="w-full max-w-xl rounded-2xl p-5 max-h-[92vh] overflow-y-auto"
+       style="background:#0F172A;border:1px solid rgba(255,255,255,.14)" @click.stop>
+
+    <div class="flex items-start justify-between gap-3 mb-4">
+      <div>
+        <div class="font-black text-lg">Publish to YouTube</div>
+        <div class="text-2xs text-slate-400 mt-0.5"
+             x-text="ytSummary.company + ' · ' + ytSummary.reel + ' · ' + ytSummary.lang"></div>
+      </div>
+      <button class="btn" @click="ytClose()">✕</button>
+    </div>
+
+    <!-- not authorised yet -->
+    <template x-if="yt.status && !yt.status.authorised">
+      <div class="rounded-xl p-3 mb-4 text-xs"
+           style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4)">
+        <div class="font-bold text-amber-300 mb-1">Not connected to a channel yet</div>
+        <div class="text-slate-300">Run this once in a terminal, then reopen:</div>
+        <div class="font-mono text-2xs mt-1 text-amber-200">python -m ipopulse.cli publish --authorise</div>
+      </div>
+    </template>
+
+    <!-- ── the details -->
+    <template x-if="!yt.result">
+      <div class="space-y-3">
+        <div>
+          <div class="flex items-center justify-between">
+            <label class="lbl">Title</label>
+            <span class="text-2xs" :class="ytSummary.titleLen > 100 ? 'text-red-400' : 'text-slate-500'"
+                  x-text="ytSummary.titleLen + ' / 100'"></span>
+          </div>
+          <input x-model="yt.title" class="inp w-full" placeholder="Required">
+        </div>
+
+        <div>
+          <label class="lbl">Description</label>
+          <textarea x-model="yt.desc" rows="5" class="inp w-full font-mono text-2xs"></textarea>
+        </div>
+
+        <div>
+          <label class="lbl">Tags <span class="text-slate-500">(space separated)</span></label>
+          <input x-model="yt.tags" class="inp w-full font-mono text-2xs">
+        </div>
+
+        <!-- optional narration -->
+        <div class="rounded-xl p-3"
+             style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
+          <div class="flex items-center justify-between mb-1">
+            <label class="lbl mb-0">Narration audio <span class="text-slate-500">— optional</span></label>
+            <button x-show="yt.audioName" class="btn text-2xs" @click="ytClearAudio()">remove</button>
+          </div>
+          <input type="file" accept="audio/*" class="text-2xs w-full"
+                 @change="ytPickAudio($event)">
+          <div class="text-2xs mt-1"
+               :class="yt.audioName ? 'text-emerald-400' : 'text-slate-500'"
+               x-text="yt.audioName
+                 ? ('attached: ' + yt.audioName + '  (' + yt.audioKB + ' KB)')
+                 : 'No audio — the reel will be silent. Leave empty if you will add voice later.'"></div>
+        </div>
+
+        <div>
+          <label class="lbl">Visibility</label>
+          <div class="flex gap-2">
+            <template x-for="v in ['private','unlisted','public']" :key="v">
+              <button class="btn flex-1 capitalize"
+                      :class="yt.privacy === v ? 'btn-acc' : ''"
+                      :style="yt.privacy === v && v === 'public'
+                              ? 'background:#dc2626;color:#fff;border-color:#ef4444' : ''"
+                      @click="yt.privacy = v; yt.preview = null" x-text="v"></button>
+            </template>
+          </div>
+          <div class="text-2xs text-slate-500 mt-1"
+               x-text="yt.privacy === 'public'
+                 ? 'Anyone can see it the moment it finishes uploading.'
+                 : (yt.privacy === 'unlisted'
+                    ? 'Only people with the link. Safe default.'
+                    : 'Only you.')"></div>
+        </div>
+
+        <!-- ── the preview -->
+        <div class="rounded-xl p-3"
+             style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.3)">
+          <div class="font-bold text-xs mb-2 text-sky-300">What will be uploaded</div>
+          <table class="w-full text-2xs">
+            <tbody class="align-top">
+              <tr><td class="text-slate-400 pr-3 py-0.5 whitespace-nowrap">Video</td>
+                  <td x-text="ytSummary.company + ' — ' + ytSummary.reel"></td></tr>
+              <tr><td class="text-slate-400 pr-3 py-0.5">Language</td>
+                  <td x-text="ytSummary.lang"></td></tr>
+              <tr><td class="text-slate-400 pr-3 py-0.5">Title</td>
+                  <td class="font-semibold" x-text="ytSummary.title || '(none yet)'"></td></tr>
+              <tr><td class="text-slate-400 pr-3 py-0.5">Description</td>
+                  <td x-text="ytSummary.descLines + ' line(s)'"></td></tr>
+              <tr><td class="text-slate-400 pr-3 py-0.5">Tags</td>
+                  <td x-text="ytSummary.tags.length + ': ' + ytSummary.tags.slice(0,6).join(' ')"></td></tr>
+              <tr><td class="text-slate-400 pr-3 py-0.5">Audio</td>
+                  <td x-text="ytSummary.audio"></td></tr>
+              <tr><td class="text-slate-400 pr-3 py-0.5">Visibility</td>
+                  <td class="font-bold uppercase"
+                      :class="ytSummary.privacy === 'public' ? 'text-red-400' : 'text-emerald-400'"
+                      x-text="ytSummary.privacy"></td></tr>
+              <tr x-show="ytSummary.seconds">
+                  <td class="text-slate-400 pr-3 py-0.5">Rendered</td>
+                  <td x-text="ytSummary.seconds + 's · ' + ytSummary.scenes + ' scenes'"></td></tr>
+            </tbody>
+          </table>
+          <div x-show="!yt.preview" class="text-2xs text-slate-400 mt-2">
+            Length is known only after rendering — press Render preview to find out
+            before committing.
+          </div>
+        </div>
+
+        <div x-show="yt.step" class="text-2xs text-sky-300" x-text="yt.step"></div>
+        <div x-show="yt.msg" class="text-2xs"
+             :class="yt.ok ? 'text-emerald-400' : 'text-red-400'" x-text="yt.msg"></div>
+
+        <div class="flex gap-2 pt-1">
+          <button class="btn flex-1" :disabled="yt.busy" @click="ytBuildPreview()"
+                  x-text="yt.busy ? 'Working…' : 'Render preview'"></button>
+          <button class="btn flex-1"
+                  style="background:#dc2626;color:#fff;border-color:#ef4444"
+                  :disabled="yt.busy || !yt.title.trim() || (yt.status && !yt.status.authorised)"
+                  @click="ytPublish()"
+                  x-text="yt.busy ? 'Uploading…' : 'Confirm &amp; upload'"></button>
+        </div>
+      </div>
+    </template>
+
+    <!-- ── done -->
+    <template x-if="yt.result">
+      <div class="rounded-xl p-4 text-center"
+           style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.4)">
+        <div class="text-3xl mb-2">✓</div>
+        <div class="font-black text-lg text-emerald-300">It's uploaded</div>
+        <div class="text-2xs text-slate-400 mt-1"
+             x-text="ytSummary.title"></div>
+        <div class="text-2xs mt-2">
+          <span class="font-bold uppercase"
+                :class="yt.result.privacy === 'public' ? 'text-red-400' : 'text-emerald-400'"
+                x-text="yt.result.privacy"></span>
+          <span class="text-slate-500" x-text="' · ' + yt.result.seconds + 's'"></span>
+        </div>
+        <a class="btn btn-acc mt-3 inline-block" target="_blank" rel="noopener"
+           :href="yt.result.url" x-text="yt.result.url"></a>
+        <div x-show="yt.result.thumbnail_error"
+             class="text-2xs text-amber-400 mt-2">
+          Thumbnail not set — a custom thumbnail needs a verified channel.
+          The video is up either way.
+        </div>
+        <div class="flex gap-2 mt-4">
+          <button class="btn flex-1" @click="yt.result = null; yt.preview = null">
+            Publish another</button>
+          <button class="btn flex-1" @click="ytClose()">Close</button>
+        </div>
+      </div>
+    </template>
+
+  </div>
+</div>
+
 </body>
 </html>

@@ -160,23 +160,44 @@ body {
   will-change: transform, opacity;
 }
 
-/* And the content itself breathes, so the type is not pinned to the pixel.
-   Comma-joined with sceneIn rather than a separate rule: `animation` is a
-   shorthand, so a second declaration would REPLACE the entrance instead of
-   adding to it. `both` on the first keeps its fill behaviour intact. */
+/* The scene no longer "breathes", and that removal is the fix for a real
+   defect rather than a change of taste.
+
+   It used to carry `sceneBreathe 23s infinite` alongside the entrance — a
+   continuous scale from 1 to 1.012 plus a -0.5% drift — on the reasoning that
+   the type should not be "pinned to the pixel". On a screen that reads as
+   life. Recorded, it does not: scaling text by fractional amounts forces the
+   browser to resample every glyph at a non-integer size on every frame, and a
+   video encoder turns that into visible shimmer. Reported 4 Sep 2026 as the
+   text and components "shaking" in a screen recording, which is exactly what
+   it was.
+
+   It also quietly hurt `tools/render.py`. That screenshots one frame per
+   scene, so each still was caught at an arbitrary point in a 23-second cycle —
+   meaning consecutive scenes were rendered at slightly different scales, a
+   size jump with no cause a viewer could name.
+
+   Motion has not gone; it has moved to where it costs nothing. The orbs
+   (fxOrb1-3), the grid drift, the sweep and the card glow all still run —
+   they are backgrounds, and nobody has to read them. Nothing that animates
+   now sits underneath text. */
 @keyframes sceneBreathe {
   0%   { transform: translate3d(0, 0, 0) scale(1) }
   50%  { transform: translate3d(0, -0.5%, 0) scale(1.012) }
   100% { transform: translate3d(0, 0, 0) scale(1) }
 }
 .anim .scene {
-  animation: sceneIn .52s cubic-bezier(.16,.84,.28,1) both,
-             sceneBreathe 23s ease-in-out 1s infinite;
+  animation: sceneIn .52s cubic-bezier(.16,.84,.28,1) both;
 }
 
 /* A held number is where the eye rests, so it gets the one accent that is
    allowed to be seen moving. Scoped to .hero-num — add that class to the big
-   figure in a scene to opt it in. */
+   figure in a scene to opt it in.
+
+   This one is safe where `sceneBreathe` was not, and the difference is worth
+   naming: it animates `text-shadow` only. No transform, no geometry, so the
+   glyphs are never re-rasterised at a new size and there is nothing for an
+   encoder to shimmer. Animate colour and shadow over text; never scale. */
 @keyframes heroPulse {
   0%, 100% { text-shadow: 0 0 18px rgba(96,165,250,.00) }
   50%      { text-shadow: 0 0 26px rgba(96,165,250,.30) }
@@ -189,7 +210,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .stage-card::before { animation: none; }
   .anim .hero-num { animation: none; }
-  .anim .scene { animation: sceneIn .52s cubic-bezier(.16,.84,.28,1) both; }
+  /* `.anim .scene` needs no override now — the endless loop it used to
+     carry is gone for everyone, not just for this preference. */
 }
 
 @keyframes livedot { 0%,100% { opacity:1; transform:scale(1) } 50% { opacity:.35; transform:scale(.82) } }

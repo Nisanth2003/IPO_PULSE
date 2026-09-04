@@ -127,6 +127,22 @@ async ([slug, reel, lang]) => {
   d.reelIndex = reel - 1;
   d.scene = 0;
   d.focus = true;                 // hides the panels; the frame is all that
+
+  // Freeze every animation before any screenshot is taken.
+  //
+  // A still is one instant of a moving page, so anything on a loop is
+  // sampled at whatever phase it happened to be in — and consecutive scenes
+  // then differ by however much that animation moves. The scene-level
+  // "breathe" (a 1.012 scale on a 23-second cycle) made every card a
+  // slightly different size for no reason a viewer could name. That rule is
+  // gone now, but this stays: it makes the render deterministic against ALL
+  // animation, including any added later, so the same record always produces
+  // the same file.
+  const freeze = document.createElement('style');
+  freeze.textContent =
+    '*,*::before,*::after{animation:none!important;' +
+    'transition:none!important}';
+  document.head.appendChild(freeze);
   await new Promise(r => setTimeout(r, 400));
 
   return {
