@@ -1061,43 +1061,75 @@ Follow for the allotment alert.`,
    */
   get thumbnailPrompt() {
     if (!this.ipo || !this.d) return '';
-    const d = this.d, g = d.gmp, s = d.subscription, n = this.reel.n;
+    const n = this.reel.n;
     const name = this.voShortName.toUpperCase();
-    const up = !g.has_data || Number(g.pct) >= 0;
 
-    // One hook per reel: the single figure this video is about.
-    let big = '', small = '';
-    if (n === 3 && s.has_data) { big = `${s.total}x`; small = `DAY ${s.day} SUBSCRIPTION`; }
-    else if (n === 5) { big = `${Number(d.score.effective || 0).toFixed(1)}/10`; small = 'FINAL VERDICT'; }
-    else if (n === 6) { big = 'ALLOTMENT'; small = 'HOW TO CHECK'; }
-    else if (g.has_data) { big = `₹${g.gmp}`; small = `GMP · ${g.pct}%`; }
-    else { big = 'IPO REVIEW'; small = 'FULL DETAILS'; }
+    /* The hook is the QUESTION, never the answer.
+     *
+     * This used to lead with the figure — a giant "₹32" for the GMP, "8.4/10"
+     * for the verdict — on the theory that one number earns the click. It does
+     * the opposite. A viewer who can read the premium off the thumbnail has
+     * already been told the thing the video exists to tell them, and scrolls
+     * on. The number is the payoff; spending it in the thumbnail leaves the
+     * video with nothing to pay.
+     *
+     * Checked against a channel doing this well (@TheIPOPulseIndia, 76 shorts,
+     * same beat, same language mix): not one thumbnail carries a number, a
+     * percentage or a date. Every one is the company name, an urgency banner,
+     * and three labelled chips naming the questions answered — "LATEST GMP",
+     * "ALLOTMENT CHANCES", "LISTING EXPECTATIONS". The label sells the answer
+     * without giving it away. Their titles follow the identical rule.
+     *
+     * Dates are excluded for a second reason on top of that one: a thumbnail
+     * is permanent and a date is not. "3 SEP" is wrong from the 4th onward and
+     * turns an evergreen asset into a stale one. Relative words — TODAY,
+     * TOMORROW, FINAL DAY — carry the same urgency and never expire.
+     */
+    const HOOKS = {
+      1: { banner: 'ISSUE DETAILS',      chips: ['PRICE BAND', 'LOT SIZE', 'ISSUE DATES'] },
+      2: { banner: 'LATEST GMP',         chips: ['TODAY’S GMP', 'LISTING ESTIMATE', 'GAIN PER LOT'] },
+      3: { banner: 'SUBSCRIPTION UPDATE',chips: ['QIB · NII · RETAIL', 'DEMAND TREND', 'FINAL DAY NUMBERS'] },
+      4: { banner: 'APPLY OR SKIP?',     chips: ['FINANCIALS', 'VALUATION', 'RED FLAGS'] },
+      5: { banner: 'FINAL VERDICT',      chips: ['LATEST GMP', 'ALLOTMENT CHANCES', 'LISTING EXPECTATIONS'] },
+      6: { banner: 'ALLOTMENT OUT',      chips: ['HOW TO CHECK', 'ALLOTMENT CHANCES', 'LISTING DATE'] },
+      7: { banner: 'MARKET TODAY',       chips: ['TOP 5 NEWS', 'SECTORS IN FOCUS', 'LEVELS TO WATCH'] },
+    };
+    const hook = HOOKS[n] || HOOKS[1];
 
-    const mood = up
-      ? 'confident and optimistic; accent colour emerald green (#22C55E); a subtle upward arrow motif'
-      : 'cautious and serious; accent colour red (#EF4444); a subtle downward arrow motif';
+    /* The urgency line, derived from where the issue actually is in its own
+     * calendar. Relative words only — see above. */
+    const status = this.d.dates.status;
+    const URGENCY = {
+      upcoming:  'OPENS SOON',
+      open:      'OPEN NOW',
+      closed:    'CLOSES TODAY',
+      allotment: 'ALLOTMENT EXPECTED TODAY',
+      listed:    'LISTING DAY',
+    };
+    const urgency = URGENCY[status] || hook.banner;
 
-    // Written as narrative sentences rather than a keyword list, and naming
-    // a font STYLE rather than a font, which is what Google's own prompting
-    // guide for this model asks for. Set the ratio with the model's
-    // aspect-ratio control (16:9, 2K) rather than trusting the words —
-    // it defaults to square otherwise.
     return [
-`Create a high-contrast YouTube thumbnail for an Indian stock-market channel, in a modern financial-media style, designed to stay legible at small size on a phone.`,
+`Create a vertical 9:16 YouTube Shorts thumbnail for an Indian IPO channel. Premium financial-media style: rich, high-contrast, designed to be legible as a small tile on a phone.`,
 ``,
-`The subject is an IPO video about ${this.ipo.company}. The design should be clean and premium rather than cartoonish — a deep navy, near-black background with a subtle gradient, ${mood}.`,
+`Background: a deep navy blue gradient with a large soft glowing emerald-green upward arrow behind everything, a faint candlestick-chart texture, and a modern glass office tower photographed from below on the right third. Add restrained metallic gold accents. Cinematic and corporate, not cartoonish.`,
 ``,
-`Render this text exactly as written, and no other text anywhere in the image:`,
-`  · the headline "${big}", very large, dominating the right two-thirds of the frame`,
-`  · beneath it, smaller, "${small}"`,
-`  · in the top-left corner, small, "${name}"`,
-`Set all of it in a clean, heavy, geometric sans-serif, bright white with a strong drop shadow or thin dark outline so it holds up against the dark background.`,
+`Render this text EXACTLY as written and nothing else:`,
+`  · "${name}" across the top, very large, heavy condensed uppercase, in two tones — white for the first word and metallic gold for the rest`,
+`  · directly beneath it the word "IPO", boxed`,
+`  · below that, a navy banner with a thin gold border reading "${urgency}", in white and gold uppercase`,
+`  · down the left side, three white rounded pill-shaped chips stacked vertically, each with a small circular colour icon on its left — a blue chart icon, a green target icon, an orange calendar icon — reading, top to bottom:`,
+`      "${hook.chips[0]}"`,
+`      "${hook.chips[1]}"`,
+`      "${hook.chips[2]}"`,
 ``,
-`Leave the left third visually simple and slightly darker, as clear space for a presenter cut-out to be composited in later. Keep every important element inside the middle 75% of the frame, away from the edges where the player's UI and duration badge sit.`,
+`HARD CONSTRAINTS — these are the point of the design:`,
+`  · Do NOT put any number, digit, price, percentage, multiple, rupee figure or date anywhere in the image. Not in the banner, not in the chips, not in the background. The chips name the questions the video answers; they must never show the answers.`,
+`  · No calendar dates and no month names. Urgency is expressed only by the relative words already given.`,
+`  · No words implying a promise: avoid "guaranteed", "sure shot", "profit", "multibagger", "jackpot".`,
+`  · Keep every element inside the middle 80% of the frame — Shorts overlays the bottom third with the title, channel name and action buttons, so leave that area quiet.`,
+`  · Set all text in a heavy geometric sans-serif with a dark outline so it survives being shrunk to 160px wide.`,
 ``,
-`Constraints: it must still read at 320 pixels wide, so nothing small or fine. Do not invent any number, percentage, date or currency figure that is not in the text above, and do not draw a chart implying a specific return. Do not use the words "guaranteed", "sure shot", "profit" or "multibagger". No stock-photo watermark.`,
-``,
-`— Use the aspect-ratio control to set 16:9 at 2K, not the prompt text. Attach your last thumbnail as a reference image to hold the palette and logo position steady across uploads.`,
+`— Set 9:16 with the model’s aspect-ratio control, not in the prompt text; it defaults to square. Attach the previous thumbnail as a reference image so the palette, type weight and chip positions stay identical across uploads — a channel is recognised by its thumbnails before its name.`,
       ].join('\n');
   },
 

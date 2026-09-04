@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPO Pulse — How It Works</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#080c16; --panel:#0e1524; --panel2:#131c30; --line:#1e2a42;
+    --ink:#e8eef8; --muted:#93a3bd; --dim:#64748b;
+    --mint:#22c55e; --gold:#e8b633; --sky:#60a5fa; --rose:#f87171;
+    --violet:#a78bfa; --cyan:#22d3ee; --amber:#f59e0b;
+    --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 "Segoe UI",system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px 120px}
+
+  header{
+    padding:64px 0 40px; border-bottom:1px solid var(--line); margin-bottom:48px;
+    background:radial-gradient(900px 400px at 20% -10%, rgba(34,197,94,.13), transparent 70%);
+  }
+  header h1{font-size:44px;line-height:1.1;margin:0 0 12px;letter-spacing:-.02em}
+  header h1 span{color:var(--mint)}
+  header p{margin:0;color:var(--muted);font-size:19px;max-width:70ch}
+  .stamp{font:12px var(--mono);color:var(--dim);letter-spacing:.12em;
+         text-transform:uppercase;margin-bottom:18px}
+
+  h2{font-size:27px;margin:64px 0 6px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .n{font:13px var(--mono);color:var(--mint);display:block;
+        letter-spacing:.16em;margin-bottom:8px}
+  h3{font-size:18px;margin:34px 0 10px;color:var(--ink)}
+  .lede{color:var(--muted);margin:0 0 26px;font-size:17px;max-width:78ch}
+  p{max-width:78ch}
+  a{color:var(--sky)}
+
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+       padding:26px 22px;margin:24px 0;overflow-x:auto}
+  .fig .mermaid{display:flex;justify-content:center;min-width:640px}
+  .cap{font-size:13.5px;color:var(--dim);margin-top:14px;text-align:center;
+       font-style:italic}
+
+  .grid{display:grid;gap:14px;margin:22px 0}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);
+        border-radius:12px;padding:18px 20px}
+  .card h4{margin:0 0 8px;font-size:15.5px;display:flex;align-items:center;gap:9px}
+  .card p{margin:0;font-size:14.5px;color:var(--muted);line-height:1.6}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+
+  code{font:13.5px var(--mono);background:var(--panel2);color:var(--gold);
+       padding:2px 6px;border-radius:5px;border:1px solid var(--line)}
+  .card code{font-size:12.5px}
+
+  table{width:100%;border-collapse:collapse;margin:20px 0;font-size:14.5px}
+  th,td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line);
+        vertical-align:top}
+  th{color:var(--dim);font-size:12px;text-transform:uppercase;
+     letter-spacing:.1em;font-weight:600}
+  tbody tr:hover{background:var(--panel)}
+  td.mono{font:13px var(--mono);color:var(--mint);white-space:nowrap}
+  td.t{font:13px var(--mono);color:var(--gold);white-space:nowrap}
+
+  .rule{border-left:3px solid var(--gold);background:rgba(232,182,51,.06);
+        padding:16px 20px;border-radius:0 10px 10px 0;margin:22px 0}
+  .rule b{color:var(--gold)}
+  .rule p{margin:0;font-size:15px;color:var(--muted)}
+  .gap{border-left-color:var(--rose);background:rgba(248,113,113,.07)}
+  .gap b{color:var(--rose)}
+  .win{border-left-color:var(--mint);background:rgba(34,197,94,.06)}
+  .win b{color:var(--mint)}
+
+  .pill{display:inline-block;font:11px var(--mono);letter-spacing:.09em;
+        padding:3px 9px;border-radius:999px;text-transform:uppercase;
+        border:1px solid;margin-right:6px}
+  .ok{color:var(--mint);border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.1)}
+  .no{color:var(--rose);border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.1)}
+  .man{color:var(--amber);border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1)}
+
+  ul{max-width:78ch;color:var(--muted)}
+  li{margin:7px 0}
+  li strong{color:var(--ink)}
+  hr{border:0;border-top:1px solid var(--line);margin:56px 0}
+  .foot{color:var(--dim);font-size:14px;margin-top:60px;
+        padding-top:22px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="stamp">IPO Pulse · systems overview · 3 Sep 2026</div>
+  <h1>How the <span>machine</span> actually works</h1>
+  <p>Free public data goes in at one end. Finished vertical videos in three
+     languages come out the other. This is the map of what happens in between,
+     what runs on its own, and where a human still has to stand.</p>
+</header>
+
+<!-- ═══════════════════════════════════════════════ 1 -->
+<h2><span class="n">01 — THE SHAPE OF IT</span>One sentence, then the picture</h2>
+<p class="lede">Five stages. Everything else is detail hanging off one of them.</p>
+
+<div class="fig">
+<pre class="mermaid">
+flowchart LR
+  subgraph S["① COLLECT"]
+    direction TB
+    IG["InvestorGain<br/><i>GMP · financials · tickers</i>"]
+    NSE["NSE<br/><i>terms · subs · indices</i>"]
+    BSE["BSE<br/><i>does it exist?</i>"]
+    RSS["News feeds ×7"]
+  end
+  subgraph B["② DECIDE"]
+    direction TB
+    CLI["ipopulse<br/>commands"]
+    AI["Gemini<br/><i>words only</i>"]
+  end
+  subgraph ST["③ STORE"]
+    SHEET[("Google Sheet<br/>12 tabs")]
+  end
+  subgraph F["④ SHOW"]
+    STUDIO["Studio<br/><i>7 reels in browser</i>"]
+  end
+  subgraph P["⑤ PUBLISH"]
+    direction TB
+    VOICE["ElevenLabs<br/>narration"]
+    REND["render.py<br/>→ mp4"]
+    YT["YouTube"]
+  end
+
+  S --> CLI
+  CLI <--> AI
+  CLI --> SHEET
+  SHEET --> STUDIO
+  STUDIO --> REND
+  VOICE --> REND
+  REND -.->|"not built yet"| YT
+
+  classDef src fill:#0e1524,stroke:#2b6cb0,color:#e8eef8
+  classDef brain fill:#0e1524,stroke:#e8b633,color:#e8eef8
+  classDef store fill:#101c14,stroke:#22c55e,color:#e8eef8
+  classDef ui fill:#0e1524,stroke:#a78bfa,color:#e8eef8
+  classDef out fill:#0e1524,stroke:#22d3ee,color:#e8eef8
+  class IG,NSE,BSE,RSS src
+  class CLI,AI brain
+  class SHEET store
+  class STUDIO ui
+  class VOICE,REND,YT out
+</pre>
+<div class="cap">The dotted arrow is the only gap left between "data exists" and "video is live".</div>
+</div>
+
+<div class="grid g3">
+  <div class="card"><h4><span class="dot" style="background:var(--sky)"></span>Everything is free</h4>
+    <p>No paid data feed anywhere. The exchanges and the grey-market desk publish
+       open JSON; we just ask politely and cache.</p></div>
+  <div class="card"><h4><span class="dot" style="background:var(--mint)"></span>The sheet is the truth</h4>
+    <p>Not a database, not a copy — <em>the</em> store. The website reads the same
+       spreadsheet the pipeline writes, so nothing can be stale relative to it.</p></div>
+  <div class="card"><h4><span class="dot" style="background:var(--gold)"></span>The AI writes words</h4>
+    <p>Never numbers. Every figure on screen traces to an exchange or a desk.
+       That line is enforced in code, not by asking nicely.</p></div>
+</div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════ 2 -->
+<h2><span class="n">02 — WHERE THE DATA COMES FROM</span>Four sources, each with one job</h2>
+<p class="lede">They are deliberately not interchangeable. Each is authoritative
+   for something and ignored for everything else — that separation is what makes
+   a disagreement between them meaningful instead of confusing.</p>
+
+<table>
+<thead><tr><th>Source</th><th>Authoritative for</th><th>Deliberately NOT used for</th></tr></thead>
+<tbody>
+<tr><td class="mono">InvestorGain</td>
+    <td>Grey-market premium, the restated financials, reservation split,
+        <strong>and the ticker</strong> (NSE symbol / ISIN / BSE code)</td>
+    <td>Whether an IPO exists at all</td></tr>
+<tr><td class="mono">NSE</td>
+    <td>Issue terms, subscription, the trading calendar, index &amp; sector levels,
+        pre-open, gainers/losers</td>
+    <td>GMP — no exchange publishes grey-market data, ever</td></tr>
+<tr><td class="mono">BSE</td>
+    <td>A second, independent yes/no on existence</td>
+    <td>Prices, GMP, anything numeric</td></tr>
+<tr><td class="mono">News RSS ×7</td>
+    <td>Overnight headlines in a stated 07:30→07:30 IST window</td>
+    <td>Their photographs — copyright</td></tr>
+</tbody>
+</table>
+
+<div class="rule win"><b>Why two exchanges.</b>
+<p>One missing feed is a blip. An IPO absent from <em>both</em> exchanges on a day
+   it claims to be taking bids is a fabrication — and that has actually happened.
+   Two agreeing sources is what makes an absence mean something.</p></div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════ 3 -->
+<h2><span class="n">03 — THE STORE</span>One spreadsheet, two kinds of record</h2>
+<p class="lede">Twelve tabs. Eight describe IPOs and are keyed by a slug; four
+   describe trading days and are keyed by a date. They never touch each other.</p>
+
+<div class="fig">
+<pre class="mermaid">
+flowchart LR
+  subgraph IPO["Keyed by SLUG — one company"]
+    direction LR
+    A["<b>IPOs</b><br/>one row each"]
+    B["Financials"]
+    C["GMP"]
+    D["Subscription"]
+    E["Lists"]
+    F["I18n · hi/te"]
+    G["Benchmarks"]
+    H["Sources<br/>ticker · ISIN · logo"]
+    A --- B
+    A --- C
+    A --- D
+    A --- E
+    A --- F
+    A --- G
+    A --- H
+  end
+  subgraph MKT["Keyed by DATE — one trading day"]
+    direction LR
+    M["<b>Market</b><br/>outlook · breadth"]
+    N["MarketNews"]
+    O["MarketSectors"]
+    P["MarketSetups"]
+    M --- N
+    M --- O
+    M --- P
+  end
+  IPO -.->|"separate writers<br/>separate caches"| MKT
+
+  classDef ip fill:#101c14,stroke:#22c55e,color:#e8eef8
+  classDef mk fill:#0e1524,stroke:#22d3ee,color:#e8eef8
+  class A,B,C,D,E,F,G,H ip
+  class M,N,O,P mk
+</pre>
+<div class="cap">Reel 7 needed a record that isn't a company. Rather than fake one, it got its own tabs.</div>
+</div>
+
+<div class="rule"><b>The rule that keeps it honest: a blank cell means "nobody knows", never "zero".</b>
+<p>These are different claims and confusing them invents facts. A peer P/E of
+   <code>0</code> says the company's rivals earn nothing; a blank says we never found the
+   figure. Until recently the sheet was writing zeros for both — 25 rows asserting
+   a peer P/E of exactly nought. Now absent values write blank.</p></div>
+
+<div class="rule"><b>…except in a series, where position is the meaning.</b>
+<p>Debt of <code>[0, 4.36, 3.61]</code> means a debt-free first year. Blank that zero
+   and the list becomes <code>[4.36, 3.61]</code> — silently re-labelling one year's debt
+   as another's. In a series, absence is expressed by the series being <em>shorter</em>,
+   never by a hole in the middle.</p></div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════ 4 -->
+<h2><span class="n">04 — THE DAY</span>What runs, and when</h2>
+<p class="lede">Windows Task Scheduler fires named jobs. Steps that read what the
+   previous one wrote are <em>chained</em>, not scheduled apart and hoped for.</p>
+
+<table>
+<thead><tr><th>Time (IST)</th><th>Job</th><th>What it does</th></tr></thead>
+<tbody>
+<tr><td class="t">08:00</td><td class="mono">market</td>
+    <td>Builds tomorrow's pre-market briefing — after the news window shuts at
+        07:30, before the pre-open at 09:00</td></tr>
+<tr><td class="t">10:00 · 18:35</td><td class="mono">daily</td>
+    <td>The chain: <code>sync → verify → dedupe → facts → enrich → doctor → build → validate</code></td></tr>
+<tr><td class="t">11:15 · 14:15 · 21:15</td><td class="mono">gmp-sync</td>
+    <td>Grey-market premium from the desk. Free, keyless, no AI</td></tr>
+<tr><td class="t">12:30 · 19:30 · 22:30</td><td class="mono">monitor</td>
+    <td>The watchdog — <em>did anything change, and should it have?</em></td></tr>
+<tr><td class="t">23:45</td><td class="mono">grey</td>
+    <td><code>gmp-sync → gmp → build</code>. The model only fills what the free source missed</td></tr>
+<tr><td class="t">Sun</td><td class="mono">translate · grade · report</td>
+    <td>Re-translate, score our numbers against the desk, write the workbook</td></tr>
+</tbody>
+</table>
+
+<div class="fig">
+<pre class="mermaid">
+flowchart LR
+  S["sync<br/><i>discover</i>"] --> V["verify<br/><i>does it exist?</i>"]
+  V --> D["dedupe<br/><i>one offer, one row</i>"]
+  D --> F["facts<br/><i>financials, free</i>"]
+  F --> E["enrich<br/><i>AI fills gaps</i>"]
+  E --> DR["doctor<br/><i>repair</i>"]
+  DR --> B["build"]
+  B --> VA["validate<br/><i>what's recordable?</i>"]
+
+  classDef c fill:#0e1524,stroke:#2b6cb0,color:#e8eef8
+  classDef g fill:#101c14,stroke:#22c55e,color:#e8eef8
+  class S,DR,B c
+  class V,D,F,E,VA g
+</pre>
+<div class="cap">Order matters: <b>verify</b> and <b>dedupe</b> sit right after <b>sync</b> so a bad row is caught in the same run that created it — before <b>enrich</b> spends AI budget on a company that doesn't exist.</div>
+</div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════ 5 -->
+<h2><span class="n">05 — THE STUDIO</span>Seven reels, one record</h2>
+<p class="lede">The website is not a report of the data — it <em>is</em> the data,
+   rendered. It reads the spreadsheet directly in the browser. There is no
+   published JSON in between, so a pipeline run shows up on the next reload.</p>
+
+<div class="grid g2">
+  <div class="card"><h4><span class="dot" style="background:#60A5FA"></span>Reel 1 · About IPO</h4>
+    <p>Size, what the company does, fresh-vs-OFS split, who the book is reserved for, price band, dates.</p></div>
+  <div class="card"><h4><span class="dot" style="background:#22C55E"></span>Reel 2 · Daily GMP</h4>
+    <p>Today's premium, the estimated listing, gain per lot, and the full dated trail.</p></div>
+  <div class="card"><h4><span class="dot" style="background:#22D3EE"></span>Reel 3 · Subscription</h4>
+    <p>QIB / NII / Retail demand and how it built day by day.</p></div>
+  <div class="card"><h4><span class="dot" style="background:#F59E0B"></span>Reel 4 · Apply or Skip?</h4>
+    <p>Three years of financials, valuation against peers, green and red flags, what a lot actually costs.</p></div>
+  <div class="card"><h4><span class="dot" style="background:#A78BFA"></span>Reel 5 · Final Verdict</h4>
+    <p>The score and the call — with the SEBI disclosure spoken <em>before</em> it, not after.</p></div>
+  <div class="card"><h4><span class="dot" style="background:#34D399"></span>Reel 6 · Allotment &amp; Listing</h4>
+    <p>How to check allotment, the odds, the listing date.</p></div>
+  <div class="card" style="grid-column:1/-1;border-color:rgba(34,211,238,.35)">
+    <h4><span class="dot" style="background:#22D3EE"></span>Reel 7 · Market Today <span class="pill ok">new</span></h4>
+    <p>The odd one out: not about an IPO at all. Pre-market outlook, five overnight
+       stories, which sectors look strong and weak, and ten intraday levels — five
+       long, five short. Backend is live; its scenes aren't drawn yet.</p></div>
+</div>
+
+<h3>The mirrored pairs — the thing most likely to bite</h3>
+<p>Some logic exists <strong>twice</strong>, once in Python for the pipeline and once in
+   JavaScript for the browser. They must agree exactly. Change one and the other
+   silently disagrees — no error, just a card showing something the backend never said.</p>
+
+<div class="fig">
+<pre class="mermaid">
+flowchart LR
+  subgraph PY["Python — the pipeline"]
+    P1["tables.py<br/><i>sheet layout</i>"]
+    P2["compute.py<br/><i>derived numbers</i>"]
+    P3["readiness.py<br/><i>can we film it?</i>"]
+    P4["models.py<br/><i>defaults</i>"]
+  end
+  subgraph JS["JavaScript — the studio"]
+    J1["data.js"]
+    J2["compute.js"]
+    J3["readiness.js"]
+    J4["data.js<br/><i>normalise()</i>"]
+  end
+  P1 <-->|"must match"| J1
+  P2 <-->|"must match"| J2
+  P3 <-->|"must match"| J3
+  P4 <-->|"must match"| J4
+
+  classDef p fill:#101c14,stroke:#22c55e,color:#e8eef8
+  classDef j fill:#0e1524,stroke:#a78bfa,color:#e8eef8
+  class P1,P2,P3,P4 p
+  class J1,J2,J3,J4 j
+</pre>
+<div class="cap">Four pairs. Every one of them has caused a real bug by drifting.</div>
+</div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════ 6 -->
+<h2><span class="n">06 — FROM RECORD TO VIDEO</span>The production line</h2>
+<p class="lede">This is the part that changed most recently — and the part where
+   the last manual step still lives.</p>
+
+<div class="fig">
+<pre class="mermaid">
+flowchart LR
+  R[("Sheet<br/>record")] --> RD["<b>readiness</b><br/><i>filmable now?</i>"]
+  RD -->|"yes"| SC["extract_scripts<br/><i>script ×3 langs</i>"]
+  SC --> VO["ElevenLabs<br/><i>narration mp3</i>"]
+  VO --> R2["Cloudflare R2<br/><i>hosting + CORS</i>"]
+  R --> ART["art.py<br/><i>opener + end card</i>"]
+  SC --> REN
+  ART --> REN["<b>render.py</b><br/><i>screenshots</i><br/><i>+ ffmpeg xfade</i>"]
+  R2 --> REN
+  REN --> MP4["1080×1920<br/>mp4"]
+  MP4 --> TH["thumbnail<br/><i>no numbers</i>"]
+  TH -.->|"MANUAL"| UP["YouTube<br/>upload"]
+
+  classDef ok fill:#101c14,stroke:#22c55e,color:#e8eef8
+  classDef todo fill:#1a1014,stroke:#f87171,color:#e8eef8
+  class RD,SC,VO,R2,ART,REN,MP4,TH ok
+  class UP todo
+</pre>
+<div class="cap">Everything green runs unattended. Only the red box still needs a person.</div>
+</div>
+
+<div class="rule win"><b>Why a reel is screenshots, not a screen recording.</b>
+<p>The old way recorded the browser tab — which needs a human to click a
+   "share this tab" dialog <em>every single time</em>. That is a browser security rule
+   and no amount of scripting removes it. But a reel isn't really a video: it's
+   a handful of cards, each held for a measured number of seconds. So we
+   screenshot each card once and let <b>ffmpeg</b> do the motion between them. The
+   result is sharper, reproducible, and needs nobody in the room.</p></div>
+
+<div class="rule"><b>The pictures are generated once, and without any words on them.</b>
+<p>The image model draws a <em>textless</em> background; the company name is laid over
+   it afterwards with real fonts. Two reasons: image models render Hindi and
+   Telugu badly enough to be unusable, and a background with no words baked in
+   serves all three languages from <b>one</b> generation instead of three.</p></div>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════ 7 -->
+<h2><span class="n">07 — THE GUARDRAILS</span>What stops it publishing something wrong</h2>
+<p class="lede">A pipeline this automatic needs to be able to say "no". Five checks
+   do that, each answering a different question.</p>
+
+<table>
+<thead><tr><th>Check</th><th>The question it answers</th><th>When it runs</th></tr></thead>
+<tbody>
+<tr><td class="mono">verify</td><td>Does this company exist? Ask both exchanges.</td><td>every daily run</td></tr>
+<tr><td class="mono">dedupe</td><td>Is this the same offer as one we already track? Matched on <strong>ticker</strong>, not name.</td><td>every daily run</td></tr>
+<tr><td class="mono">doctor</td><td>What's missing, and what can be repaired from what we have?</td><td>every daily run</td></tr>
+<tr><td class="mono">validate</td><td>Is this reel filmable right now — fields present, numbers fresh, still inside its window?</td><td>every daily run</td></tr>
+<tr><td class="mono">monitor</td><td>Did anything change since last time, and <em>should</em> it have?</td><td>3× daily</td></tr>
+<tr><td class="mono">grade</td><td>Do our stored numbers still match the desk's?</td><td>weekly</td></tr>
+</tbody>
+</table>
+
+<h3>Three rules that are enforced structurally, not by discipline</h3>
+<ul>
+<li><strong>The model never returns a number that reaches the sheet.</strong> For the
+    trade levels on reel 7, the arithmetic is done first and then
+    <em>re-attached by ticker</em> after the model answers — whatever numbers it
+    wrote are discarded unread. A hallucinated price is overwritten, not trusted.</li>
+<li><strong>An IPO is identified by its ticker, not its name.</strong> Two rows for one
+    company cost us real damage; both would have been caught instantly by symbol.
+    <code>PERNIASPOP</code> is Purple Style Labs however the row spells it.</li>
+<li><strong>A verdict nobody wrote is not a verdict.</strong> The apply/avoid fields used
+    to <em>default</em> to "apply", so every issue carried a buy call no analysis
+    produced. They now default to empty, and readiness refuses to call the reel
+    filmable without one.</li>
+</ul>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════ 8 -->
+<h2><span class="n">08 — WHERE IT STANDS</span>Automated, manual, missing</h2>
+
+<div class="grid g3">
+  <div class="card"><h4><span class="pill ok">auto</span></h4>
+    <p>Data collection · deduplication · verification · financials · AI analysis ·
+       translation · the daily briefing · readiness · the watchdog · images ·
+       <strong>video rendering</strong></p></div>
+  <div class="card"><h4><span class="pill man">needs you once</span></h4>
+    <p>YouTube OAuth consent · creating the migration spreadsheet ·
+       the studio password · channel settings</p></div>
+  <div class="card"><h4><span class="pill no">not built</span></h4>
+    <p>YouTube upload · the orchestrator that walks ready→render→upload ·
+       reel 7's on-screen scenes · bundled fonts for Docker</p></div>
+</div>
+
+<div class="rule gap"><b>The one gap that matters.</b>
+<p>Everything from "an IPO was announced" to "a finished mp4 with narration and a
+   thumbnail sits on disk" now happens without a person. What's left is the
+   upload — which needs a one-time Google consent, after which a stored token
+   runs unattended forever.</p></div>
+
+<div class="foot">
+  <p>Deeper detail lives in <code>docs/BACKEND.md</code> (commands and data flow) and
+     <code>docs/YOUTUBE-PLAYBOOK.md</code> (packaging, monetisation, compliance).
+     The code itself is heavily commented — most files open by explaining
+     <em>why</em> they exist before <em>what</em> they do.</p>
+</div>
+
+</div>
+
+<script>
+mermaid.initialize({
+  startOnLoad:true,
+  theme:'base',
+  themeVariables:{
+    background:'#0e1524',
+    primaryColor:'#131c30', primaryTextColor:'#e8eef8', primaryBorderColor:'#1e2a42',
+    lineColor:'#4b6288', secondaryColor:'#101c14', tertiaryColor:'#0e1524',
+    fontFamily:'Segoe UI, system-ui, sans-serif', fontSize:'14px',
+    clusterBkg:'#0b1220', clusterBorder:'#243350', titleColor:'#93a3bd',
+    edgeLabelBackground:'#0e1524'
+  },
+  flowchart:{curve:'basis', padding:18, nodeSpacing:44, rankSpacing:56, htmlLabels:true}
+});
+</script>
+</body>
+</html>

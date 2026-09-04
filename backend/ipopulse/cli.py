@@ -40,13 +40,13 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from . import dedupe, store
+from . import dedupe, store, tables
 from .sheets import SheetUnavailable
 from .workbook import WorkbookLocked
 from .ai import (ALLOTMENT_STEPS, OVERVIEW_BULLETS, AiUnavailable, Gemini,
                  default_model)
 from .compute import derive
-from .models import Ipo
+from .models import Briefing, Ipo
 from .providers import get_provider
 from .providers.base import merge, merge_series
 from .publish import publish, verify
@@ -293,6 +293,17 @@ def cmd_sub(args) -> int:
 
 
 def cmd_sync(args) -> int:
+    """Batched wrapper. See _cmd_sync_body for what this actually does.
+
+    Every save inside one run collapses into a single sheet write. Without
+    this, a loop over 28 IPOs is 56 write requests against a 60-per-minute
+    quota — which is how the whole spreadsheet came to be emptied on 4 Sep.
+    """
+    with store.batched():
+        return _cmd_sync_body(args)
+
+
+def _cmd_sync_body(args) -> int:
     """Pull from a provider and merge into the YAML (manual values win)."""
     provider = get_provider(args.provider)
     if not provider.available():
@@ -1056,6 +1067,17 @@ def _investorgain_covers(slug: str, company: str = "") -> bool:
 
 
 def cmd_refresh(args) -> int:
+    """Batched wrapper. See _cmd_refresh_body for what this actually does.
+
+    Every save inside one run collapses into a single sheet write. Without
+    this, a loop over 28 IPOs is 56 write requests against a 60-per-minute
+    quota — which is how the whole spreadsheet came to be emptied on 4 Sep.
+    """
+    with store.batched():
+        return _cmd_refresh_body(args)
+
+
+def _cmd_refresh_body(args) -> int:
     """The daily loop: re-read GMP (+ subscription), then republish."""
     from .providers.research import ResearchProvider
 
@@ -1340,6 +1362,17 @@ def _gmp_source(preferred: str = "auto"):
 
 
 def cmd_gmp_sync(args) -> int:
+    """Batched wrapper. See _cmd_gmp_sync_body for what this actually does.
+
+    Every save inside one run collapses into a single sheet write. Without
+    this, a loop over 28 IPOs is 56 write requests against a 60-per-minute
+    quota — which is how the whole spreadsheet came to be emptied on 4 Sep.
+    """
+    with store.batched():
+        return _cmd_gmp_sync_body(args)
+
+
+def _cmd_gmp_sync_body(args) -> int:
     """Pull GMP from InvestorGain, with ipoji behind it. Free, keyless, no model.
 
     Every previous GMP came from a model reading a page, which cost quota,
@@ -1871,6 +1904,17 @@ def _record_attempt(log: dict[str, dict[str, str]], slug: str, label: str) -> No
 
 
 def cmd_enrich(args) -> int:
+    """Batched wrapper. See _cmd_enrich_body for what this actually does.
+
+    Every save inside one run collapses into a single sheet write. Without
+    this, a loop over 28 IPOs is 56 write requests against a 60-per-minute
+    quota — which is how the whole spreadsheet came to be emptied on 4 Sep.
+    """
+    with store.batched():
+        return _cmd_enrich_body(args)
+
+
+def _cmd_enrich_body(args) -> int:
     """Take every IPO from 'discovered' to 'complete', automatically.
 
     The tools to fill each field already existed; nothing ran them. A newly
@@ -1994,6 +2038,17 @@ def cmd_enrich(args) -> int:
 
 
 def cmd_facts(args) -> int:
+    """Batched wrapper. See _cmd_facts_body for what this actually does.
+
+    Every save inside one run collapses into a single sheet write. Without
+    this, a loop over 28 IPOs is 56 write requests against a 60-per-minute
+    quota — which is how the whole spreadsheet came to be emptied on 4 Sep.
+    """
+    with store.batched():
+        return _cmd_facts_body(args)
+
+
+def _cmd_facts_body(args) -> int:
     """Fill the financial statement, the valuation KPIs and the HNI tranche
     minimums from InvestorGain. Free, keyless, no model involved.
 
@@ -2088,6 +2143,31 @@ def cmd_facts(args) -> int:
             if cats.get(key) and (not issue.get(key) or args.force):
                 issue[key] = cats[key]
                 wrote.append(key)
+
+        # ── the exchange's own name for the issue
+        #
+        # NSE symbol, BSE scrip code and ISIN, off the same detail record
+        # everything above already read — so this costs no extra request.
+        #
+        # It belongs here and not in `verify` because `verify` stamps
+        # whichever exchange happened to answer first, as ONE value: the two
+        # Rays of Belief rows carried `BSE:4775` and `NSE:MOMSBELIEF`, which
+        # is why comparing that field could not tell they were one company.
+        # This desk gives the same symbol for both. See `dedupe.signature`,
+        # which now reads these before it looks at any name.
+        #
+        # Overwritten even when present, unlike everything else in this
+        # command, and deliberately: a ticker is not a judgement somebody
+        # might have corrected by hand, it is a fact with one right answer,
+        # and a stale one is worse than none — it would key the duplicate
+        # check to a company this row is not.
+        ident = ig.identity(row)
+        if ident:
+            src = raw.setdefault("sources", {})
+            for key, val in ident.items():
+                if src.get(key) != val:
+                    src[key] = val
+                    wrote.append(key)
 
         if not wrote:
             continue
@@ -2281,6 +2361,263 @@ def _print_briefing(b) -> None:
     if b.notes:
         print(f"   ({b.notes})")
     print(f"   words by {b.model or 'nobody'}")
+
+
+def cmd_migrate(args) -> int:
+    """Rebuild the store in a NEW spreadsheet, verify it, leave the old alone.
+
+    The layout has grown on the fly — reservation columns, the NII split, the
+    exchange identifiers, four Market* tabs, and the blank-instead-of-zero
+    correction — and every one of those arrived as an append to a live book.
+    This is how a corrected layout gets adopted without a moment where the
+    only copy is half-written.
+
+    What it does NOT do is switch over. It creates, writes, reads back and
+    compares; you change `GOOGLE_SHEETS_ID` when the comparison is clean. The
+    old book keeps running until you do, and stays intact afterwards, so
+    reverting is editing one variable back.
+
+    The comparison is the whole value of the command. `to_dict()` on every
+    record, on both sides, field for field — the same check the round-trip
+    test uses, run against a real spreadsheet instead of a dict in memory.
+    """
+    from . import briefing, sheets as sh
+
+    records = {i.slug: i.to_dict() for i in store.load_all()}
+    market = {b.key: b.to_dict() for b in briefing.load_all()}
+    if not records:
+        print("Nothing to migrate — the store is empty.")
+        return 1
+
+    print(f"source : {store.where()}")
+    print(f"         {len(records)} IPO(s), {len(market)} briefing(s)")
+
+    # A local snapshot first, and not as a formality: this is the only copy
+    # that survives both books being wrong.
+    snap = store.backup()
+    print(f"backup : {snap}" if snap else "backup : nothing written")
+
+    if args.into:
+        book = args.into
+        print(f"target : existing book {book[:12]}…")
+    else:
+        title = args.title or f"IPO Pulse (schema {date.today().isoformat()})"
+        if not args.write:
+            print(f"target : a new book titled {title!r}")
+            print(f"\n(dry run — nothing created. Re-run with --write)")
+            return 0
+        book = sh.create_book(title)
+        print(f"target : created {book}")
+
+    if not args.write:
+        print("\n(dry run — nothing written. Re-run with --write)")
+        return 0
+
+    sh.mirror_to(book, records, market)
+    print(f"wrote  : {len(tables.ALL_TABS)} tab(s)")
+
+    # ── verify, field for field
+    got_ipos, got_market = sh.read_book(book)
+    problems: list[str] = []
+
+    missing = sorted(set(records) - set(got_ipos))
+    extra = sorted(set(got_ipos) - set(records))
+    if missing:
+        problems.append(f"{len(missing)} IPO(s) did not arrive: "
+                        f"{', '.join(missing[:5])}")
+    if extra:
+        problems.append(f"{len(extra)} unexpected row(s): "
+                        f"{', '.join(extra[:5])}")
+
+    for slug in sorted(set(records) & set(got_ipos)):
+        before = records[slug]
+        after = Ipo.from_dict(dict(got_ipos[slug])).to_dict()
+        if before != after:
+            diffs = [k for k in set(before) | set(after)
+                     if before.get(k) != after.get(k)]
+            problems.append(f"{slug} differs on: {', '.join(sorted(diffs))}")
+
+    for day in sorted(set(market) & set(got_market)):
+        before = market[day]
+        after = Briefing.from_dict(dict(got_market[day])).to_dict()
+        if before != after:
+            diffs = [k for k in set(before) | set(after)
+                     if before.get(k) != after.get(k)]
+            problems.append(f"briefing {day} differs on: "
+                            f"{', '.join(sorted(diffs))}")
+    for day in sorted(set(market) - set(got_market)):
+        problems.append(f"briefing {day} did not arrive")
+
+    print(f"verify : {len(got_ipos)} IPO(s), {len(got_market)} briefing(s) "
+          f"read back")
+    if problems:
+        print(f"\n{len(problems)} PROBLEM(S) — do NOT switch over:")
+        for line in problems[:20]:
+            print(f"  ! {line}")
+        print(f"\nThe old book is untouched and still live. The new one is at\n"
+              f"  {book}\nLeave GOOGLE_SHEETS_ID alone until this is clean.")
+        return 1
+
+    print("         every record matches the source, field for field")
+    print(f"\nMigrated cleanly. The new book:\n  {book}")
+    print(f"  https://docs.google.com/spreadsheets/d/{book}/edit")
+    print("\nTo adopt it:")
+    print("  1. Share it — the book belongs to the service account, so it is")
+    print("     not in your Drive yet. Give your own account edit access, and")
+    print("     set link sharing to 'Anyone with the link can view' or the")
+    print("     site cannot read it.")
+    print(f"  2. Set GOOGLE_SHEETS_ID={book} in .env")
+    print("  3. `ipopulse config` to rewrite frontend/js/config.js, then")
+    print("     redeploy the site.")
+    print("  4. `ipopulse monitor` and `ipopulse validate` against the new")
+    print("     book before recording anything from it.")
+    print("\nThe old book is unchanged and still works. Reverting is putting")
+    print("the old id back in .env.")
+    return 0
+
+
+def cmd_publish(args) -> int:
+    """The approval gate: review what was rendered, then send it to YouTube.
+
+    Four things in one command because they are four steps of one decision:
+
+        --authorise      once, ever. Opens a browser; you click allow.
+        (no flags)       show the queue
+        --approve ID     you say yes, and choose the visibility
+        --upload         send everything approved
+
+    Nothing here can publish on its own. `--upload` only ever touches items a
+    person put into `approved`, and `--approve` is the only thing that does
+    that. A scheduled run can render all day and reach exactly as far as the
+    queue.
+    """
+    from . import pubqueue as q
+    from . import youtube_upload as yt
+
+    # ── one-time consent
+    if args.authorise:
+        if not yt.configured():
+            print("No OAuth client found.\n")
+            print("In Google Cloud Console, once:")
+            print("  1. Enable the YouTube Data API v3 on a project")
+            print("  2. Create credentials → OAuth client ID → "
+                  "type 'Desktop app'")
+            print("  3. Download the JSON, save it as "
+                  "backend/client_secret.json")
+            print("\nIt must be a Desktop app client — a Web client refuses "
+                  "the loopback redirect this uses.")
+            return 1
+        try:
+            channel = yt.authorise(port=args.port)
+        except Exception as exc:
+            print(f"  ! {exc}")
+            return 1
+        print(f"\nAuthorised as: {channel}")
+        print("Check that is the right channel. The token is stored in "
+              "backend/.cache/ and is all that is needed from now on.")
+        return 0
+
+    # ── the review list
+    if not (args.approve or args.reject or args.upload):
+        rows = q.items()
+        if not rows:
+            print("The publish queue is empty.")
+            print("\nRender something into it:")
+            print("  python tools/render.py --slug <slug> --reel 5 "
+                  "--lang en --queue")
+            return 0
+        counts = q.summary()
+        print(f"{'ID':<34}{'STATUS':<10}{'LEN':>6}  TITLE")
+        print("-" * 100)
+        for item in rows:
+            mark = {"queued": "·", "approved": "+", "uploaded": "✓",
+                    "failed": "!", "rejected": "x"}.get(item["status"], "?")
+            print(f"{item['id']:<34}{mark} {item['status']:<8}"
+                  f"{item['seconds']:>5.0f}s  {item['title'][:52]}")
+            if item["status"] == "uploaded" and item["url"]:
+                print(f"{'':36}{item['privacy']}  {item['url']}")
+            if item["error"]:
+                print(f"{'':36}! {item['error'][:70]}")
+        print(f"\n{counts['queued']} awaiting review, "
+              f"{counts['approved']} approved and not yet sent, "
+              f"{counts['uploaded']} on the channel.")
+        if counts["queued"]:
+            print("\nApprove one:   ipopulse publish --approve <ID>")
+            print("Make it public: ipopulse publish --approve <ID> --public")
+            print("Then send:      ipopulse publish --upload")
+        if not yt.authorised():
+            print("\nNote: not authorised with YouTube yet — "
+                  "`ipopulse publish --authorise` once, before --upload.")
+        return 0
+
+    # ── decisions
+    for ident in (args.reject or []):
+        try:
+            q.reject(ident, args.why or "rejected by hand")
+            print(f"  x {ident} rejected")
+        except (KeyError, ValueError) as exc:
+            print(f"  ! {exc}")
+            return 1
+
+    for ident in (args.approve or []):
+        targets = ([i["id"] for i in q.items(q.QUEUED)]
+                   if ident == "all" else [ident])
+        for one in targets:
+            try:
+                item = q.approve(one, public=args.public)
+            except (KeyError, ValueError) as exc:
+                print(f"  ! {exc}")
+                return 1
+            print(f"  + {one} approved as {item['privacy']}")
+    if args.approve and not args.upload:
+        print("\nSend them with:  ipopulse publish --upload")
+
+    # ── the upload
+    if args.upload:
+        ready = q.take_approved()
+        if not ready:
+            print("Nothing approved is waiting to go.")
+            return 0
+        # Deliberately skipped for a dry run. Its whole purpose is to show
+        # what would go out, and refusing to do that until OAuth is set up
+        # would make the safest command the one you cannot run first.
+        if not args.dry_run and not yt.authorised():
+            print("Not authorised with YouTube. Run "
+                  "`ipopulse publish --authorise` once.")
+            return 1
+        print(f"{len(ready)} video(s) to send.\n")
+        sent = 0
+        for item in ready:
+            size = Path(item["video"]).stat().st_size / 1048576
+            print(f"  {item['id']}  ({size:.1f} MB, {item['privacy']})")
+            print(f"    {item['title'][:76]}")
+            if args.dry_run:
+                print("    (dry run — not sent)")
+                continue
+            try:
+                got = yt.upload(
+                    Path(item["video"]), title=item["title"],
+                    description=item["description"], tags=item["tags"],
+                    privacy=item["privacy"],
+                    thumbnail=Path(item["thumbnail"])
+                    if item["thumbnail"] else None,
+                    on_progress=lambda p: print(f"\r    {p}%", end="",
+                                                flush=True))
+            except Exception as exc:
+                print(f"\n    ! failed: {str(exc)[:200]}")
+                q.mark_failed(item["id"], str(exc))
+                continue
+            q.mark_uploaded(item["id"], got["id"], got["url"])
+            sent += 1
+            print(f"\r    done → {got['url']}")
+            if got.get("thumbnail_error"):
+                print(f"    ! thumbnail not set: "
+                      f"{got['thumbnail_error'][:90]}")
+                print("      (a custom thumbnail needs a verified channel; "
+                      "the video is up either way)")
+        if not args.dry_run:
+            print(f"\n{sent} of {len(ready)} sent.")
+    return 0
 
 
 def cmd_monitor(args) -> int:
@@ -3305,6 +3642,37 @@ def build_parser() -> argparse.ArgumentParser:
                     help="exit 1 on any error-level finding, so a failed "
                          "timer run is visible as a failed task")
     sp.set_defaults(func=cmd_monitor)
+
+    sp = sub.add_parser("publish", help="review rendered videos and send "
+                                        "the approved ones to YouTube")
+    sp.add_argument("--authorise", action="store_true",
+                    help="one-time OAuth consent for the channel")
+    sp.add_argument("--port", type=int, default=8765,
+                    help="loopback port for the consent redirect")
+    sp.add_argument("--approve", action="append", metavar="ID",
+                    help="approve a queued video (or 'all'). Repeatable")
+    sp.add_argument("--public", action="store_true",
+                    help="approve it as PUBLIC. Without this it goes up "
+                         "unlisted — a wrong figure in an unlisted video is "
+                         "an embarrassment, public it is somebody's money")
+    sp.add_argument("--reject", action="append", metavar="ID",
+                    help="reject a queued video. Repeatable")
+    sp.add_argument("--why", help="note stored with a rejection")
+    sp.add_argument("--upload", action="store_true",
+                    help="send everything approved")
+    sp.add_argument("--dry-run", action="store_true",
+                    help="with --upload, list what would go and send nothing")
+    sp.set_defaults(func=cmd_publish)
+
+    sp = sub.add_parser("migrate", help="rebuild the store in a new "
+                                        "spreadsheet and verify it")
+    sp.add_argument("--write", action="store_true",
+                    help="actually create and write (dry run without it)")
+    sp.add_argument("--title", help="title for the new spreadsheet")
+    sp.add_argument("--into", metavar="SHEET_ID",
+                    help="write into an existing book instead of creating "
+                         "one — for a second attempt at the same target")
+    sp.set_defaults(func=cmd_migrate)
 
     sp = sub.add_parser("market", help="build the daily pre-market briefing "
                                        "(reel 7) — indices, news, setups")

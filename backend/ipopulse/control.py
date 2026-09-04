@@ -220,15 +220,30 @@ JOBS: dict[str, dict[str, Any]] = {
     },
     "daily": {
         "label": "Daily chain",
-        "detail": "sync → enrich → doctor → build. The scheduled one; "
-                  "run this if you run one.",
+        # Spelled out step by step, and kept in step with CHAINS below.
+        # This string was stale for a while — it still read "sync → enrich →
+        # doctor → build" after `verify`, `facts`, `dedupe` and `validate`
+        # had joined the chain, so the panel was describing a pipeline that
+        # had not existed for weeks. A description of what a button does is
+        # part of what the button does.
+        "detail": "The one to run if you run one. Eight steps: discover new "
+                  "IPOs from NSE (sync), challenge them against both "
+                  "exchanges (verify), check nothing is stored twice "
+                  "(dedupe), pull financials free from InvestorGain (facts), "
+                  "let the model fill what is still missing (enrich), repair "
+                  "what is derivable (doctor), re-derive every record "
+                  "(build), then report which reels are recordable "
+                  "(validate).",
         "argv": None,                       # composite; see CHAINS
         "schedule": "10:00 & 18:35 IST daily",
     },
     "grey": {
         "label": "GMP chain",
-        "detail": "free keyless GMP, then the model fills what it missed, "
-                  "then build verifies what the night wrote.",
+        "detail": "Three steps, for the grey market only: today's premium "
+                  "from InvestorGain (free, keyless), then the model fills "
+                  "the few IPOs that desk does not carry, then build "
+                  "verifies what the night wrote. Cheaper and narrower than "
+                  "the daily chain — run this when only the GMP has moved.",
         "argv": None,
         "schedule": "23:45 IST daily",
     },

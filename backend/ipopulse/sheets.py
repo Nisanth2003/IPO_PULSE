@@ -47,7 +47,21 @@ CACHE_DIR = DATA_DIR / "cache"
 OUT_DIR = BACKEND_ROOT / "out"
 FRONTEND_DATA = BACKEND_ROOT.parent / "frontend" / "data"
 
-MAX_ROWS = 5000
+# Our own read/write ceiling, NOT Google's. `_span` bounds every range at
+# this row, and `_fetch` reads through `_span` — so a row past it is not
+# "extra capacity", it is **invisible**, silently, with no error anywhere.
+#
+# Measured 4 Sep 2026: I18n was at 1,116 rows for 28 IPOs, about 40 rows per
+# IPO. At thirty new IPOs a month that tab gains ~1,200 rows a month and
+# would have reached 5,000 inside four months — at which point translations
+# would simply have started vanishing from the site.
+#
+# Raised to 50,000, which is roughly a decade of headroom on the fastest-
+# growing tab. Costs nothing: Sheets returns only the populated rows in a
+# range, so a taller bound does not make the read bigger. The real ceiling is
+# Google's 10,000,000 cells per spreadsheet, and the whole store is currently
+# using 12,034 of them — 0.12%.
+MAX_ROWS = 50000
 
 
 def _col_letter(n: int) -> str:
@@ -159,8 +173,15 @@ def _explain(exc: Exception) -> SheetUnavailable:
 
 # ── tab plumbing ───────────────────────────────────────────────────────────
 
-def _tab_titles(service) -> list[str]:
-    meta = service.spreadsheets().get(spreadsheetId=sheet_id()).execute()
+def _tab_titles(service, book_id: str | None = None) -> list[str]:
+    """Tab names in a book. Defaults to the configured store.
+
+    `book_id` exists for the migration helpers at the bottom of this module,
+    which have to inspect a book that is deliberately NOT the one
+    `GOOGLE_SHEETS_ID` points at.
+    """
+    meta = service.spreadsheets().get(
+        spreadsheetId=book_id or sheet_id()).execute()
     return [s["properties"]["title"] for s in meta.get("sheets", [])]
 
 
@@ -251,19 +272,144 @@ def invalidate() -> None:
 
 # ── write ──────────────────────────────────────────────────────────────────
 
-def write_records(updated: dict[str, dict]) -> None:
-    """Replace every tab with `updated`."""
+# How much of the store a single write is allowed to delete.
+#
+# 3 Sep 2026: the sheet went from 28 IPOs to 11, and from 1,116 I18n rows to
+# zero, in one write. Every translation and every analysis bullet, gone. The
+# cause was a `records()` that came back short — a partial read, or a read
+# taken while another process was mid-write — followed by an `upsert` that
+# faithfully wrote that short view back over everything.
+#
+# The mechanism does not actually matter, and that is the point of this
+# guard. `write_records` replaces the whole book from one in-memory dict, so
+# ANY path that produces a thin dict destroys the store, and no amount of
+# care at the call sites closes that off — there will always be one more
+# path. A floor under the write closes all of them at once.
+#
+# Two thirds, not 100%: the store legitimately shrinks. `remove` drops a row,
+# `dedupe` folds two into one. What it does not do is lose more than a third
+# of itself in one go, and anything that wants to is a bug or a human being
+# very sure, and both should have to say so.
+MIN_KEEP_FRACTION = 0.67
+
+
+def _trim(service, book_id: str, grid: dict[str, list[list]]) -> None:
+    """Clear whatever sits BELOW the rows just written, per tab.
+
+    Open-ended ranges (`I18n!A1118:E`, no end row) rather than a fixed
+    `MAX_ROWS` bound. A tab's grid is only as tall as it needs to be — the
+    I18n tab was 1,117 rows — and asking Sheets to clear `A1118:E5000` on it
+    is a **400 Invalid range**, not a no-op. Found on the restore: the data
+    landed and then the tidy-up failed, which is the harmless half of the
+    ordering but still an error in the log.
+
+    Best effort. A stale tail past the new data is untidy; failing the whole
+    write over it would undo the point of writing first.
+    """
+    stale = [f"{name}!A{len(rows) + 1}:"
+             f"{_col_letter(len(tables.ALL_TABS.get(name, [])) or 26)}"
+             for name, rows in grid.items() if rows]
+    if not stale:
+        return
+    try:
+        service.spreadsheets().values().batchClear(
+            spreadsheetId=book_id, body={"ranges": stale}).execute()
+    except Exception as exc:
+        # "exceeds grid limits" means the new data fills the tab to its last
+        # row, so there is nothing below it to clear. That is success, not a
+        # failure, and printing it as one trains people to ignore this line.
+        if "exceeds grid limits" in str(exc):
+            return
+        print(f"  · wrote the data; could not trim the old tail ({exc})",
+              flush=True)
+
+
+def _is_rate_limit(exc: Exception) -> bool:
+    text = str(exc)
+    return ("RATE_LIMIT_EXCEEDED" in text or "429" in text
+            or "Quota exceeded" in text)
+
+
+def _with_retry(fn, tries: int = 5):
+    """Run `fn`, waiting out the Sheets write quota rather than failing.
+
+    Sheets allows **60 write requests per minute per user**, and this project
+    writes far more than it looks like: `store.save()` replaces the whole
+    book, so a loop over 30 IPOs is 30 updates plus 30 trims — 60 requests,
+    exactly the ceiling. `gmp-sync` reached it on 4 Sep and the run died.
+    That ceiling is not a bug to be argued with; it is arithmetic, and it
+    gets closer every time an IPO is added.
+
+    Waiting is the right response because the window is per MINUTE. Backing
+    off 5, 10, 20, 40 seconds costs a slow run; giving up costs the data.
+    Only rate limits are retried — a bad range or a permission problem would
+    fail identically five times.
+    """
+    delay = 5.0
+    for attempt in range(tries):
+        try:
+            return fn()
+        except Exception as exc:
+            if not _is_rate_limit(exc) or attempt == tries - 1:
+                raise _explain(exc) from exc
+            print(f"  · Sheets write quota reached; waiting {delay:.0f}s "
+                  f"(attempt {attempt + 1} of {tries})", flush=True)
+            time.sleep(delay)
+            delay *= 2
+    return None
+
+
+def write_records(updated: dict[str, dict], force: bool = False) -> None:
+    """Replace every tab with `updated`.
+
+    Refuses a write that would delete most of the store — see
+    MIN_KEEP_FRACTION. Pass `force=True` only when you have looked at what is
+    about to go and are certain.
+    """
     service = _connect()
     ensure_tabs(service)
+
+    if not force:
+        try:
+            # Read fresh, not from `_cache`: the whole failure this guards
+            # against starts with a cache holding a short read, and comparing
+            # against that cache would compare the mistake to itself.
+            on_sheet = tables.from_tables(_fetch())
+        except Exception:
+            on_sheet = {}                # cannot compare; do not block
+        if on_sheet:
+            floor = int(len(on_sheet) * MIN_KEEP_FRACTION)
+            if len(updated) < floor:
+                raise SheetUnavailable(
+                    f"refusing to write: this would take the store from "
+                    f"{len(on_sheet)} record(s) to {len(updated)}, deleting "
+                    f"{len(on_sheet) - len(updated)}. That is more than a "
+                    f"third of it and is almost certainly a short read rather "
+                    f"than an intention.\n  Nothing was written. If it IS "
+                    f"intended, the caller must pass force=True.")
+
     grid = tables.to_tables(updated)
 
-    try:
-        # Clear first: a shrinking tab would otherwise keep its old tail, and
-        # a stale row that still parses is worse than no row at all.
-        service.spreadsheets().values().batchClear(
-            spreadsheetId=sheet_id(),
-            body={"ranges": [_span(name) for name in grid]},
-        ).execute()
+    # ── WRITE FIRST, THEN TRIM. Never the other way round.
+    #
+    # 4 Sep 2026: this function emptied the entire spreadsheet. It used to
+    # `batchClear` every tab and then `batchUpdate` the new values, on the
+    # reasoning that a shrinking tab would otherwise keep a stale tail. Then
+    # a scheduled `gmp-sync` hit the Sheets write quota (60 requests per
+    # minute) **between the two calls**. The clear had succeeded. The update
+    # never ran. Eight tabs, zero rows, and a live website showing nothing.
+    #
+    # The order is the whole bug. Writing first means:
+    #
+    #   * update fails  -> nothing was cleared, the sheet is exactly as it was
+    #   * update works, trim fails -> a stale tail past the new data, which
+    #     still parses and which the next successful write removes
+    #
+    # Both are survivable. "Cleared but not rewritten" is not.
+    #
+    # The trim only touches rows BELOW the new data, computed per tab, so it
+    # can never reach a row this write just put down.
+    def _attempt() -> None:
         service.spreadsheets().values().batchUpdate(
             spreadsheetId=sheet_id(),
             body={
@@ -273,9 +419,9 @@ def write_records(updated: dict[str, dict]) -> None:
                          for name, rows in grid.items()],
             },
         ).execute()
-    except Exception as exc:
-        raise _explain(exc) from exc
+        _trim(service, sheet_id(), grid)
 
+    _with_retry(_attempt)
     _cache.update(loaded=True, records=updated)
 
 
@@ -369,11 +515,11 @@ def write_market_records(updated: dict[str, dict]) -> None:
             f"refusing to write: {', '.join(stray)} is not a Market tab. "
             f"This writer must never clear an IPO tab.")
 
-    try:
-        service.spreadsheets().values().batchClear(
-            spreadsheetId=sheet_id(),
-            body={"ranges": [_span(name) for name in grid]},
-        ).execute()
+    # Write first, then trim the tail — the same ordering as write_records,
+    # for the same reason. See the long note there: clearing before writing
+    # is what emptied the whole book on 4 Sep when the quota hit between the
+    # two calls.
+    def _attempt() -> None:
         service.spreadsheets().values().batchUpdate(
             spreadsheetId=sheet_id(),
             body={
@@ -382,9 +528,9 @@ def write_market_records(updated: dict[str, dict]) -> None:
                          for name, rows in grid.items()],
             },
         ).execute()
-    except Exception as exc:
-        raise _explain(exc) from exc
+        _trim(service, sheet_id(), grid)
 
+    _with_retry(_attempt)
     _market_cache.update(loaded=True, records=updated)
 
 
@@ -427,3 +573,96 @@ def backup() -> Path | None:
     dest = OUT_DIR / "ipo-pulse.prev.xlsx"
     workbook.write(dest, data)
     return dest
+
+
+# ── migration: a second book, written without disturbing the first ─────────
+#
+# The store has grown a lot on the fly — reservation columns, the NII split,
+# the exchange identifiers, four Market* tabs — and each of those arrived as
+# an append to a live spreadsheet. `create_book` and `mirror_to` exist so a
+# corrected layout can be built somewhere else, verified against the original,
+# and adopted by changing one environment variable.
+#
+# Neither function reads `sheet_id()` and neither touches `_cache` or
+# `_market_cache`. That is the point: the old book has to keep running while
+# the new one is checked, and a migration that quietly pointed the process
+# cache at the wrong spreadsheet would be indistinguishable from data loss.
+
+def create_book(title: str) -> str:
+    """Create a new spreadsheet and return its id.
+
+    Needs only the `spreadsheets` scope this module already requests —
+    `spreadsheets.create` is part of the Sheets API, not Drive, so no new
+    permission has to be granted to the service account.
+
+    The new book belongs to the SERVICE ACCOUNT, not to you. It will not
+    appear in your Drive and the site cannot read it until it is shared, which
+    is why `cmd_migrate` prints that as the first step rather than leaving it
+    to be discovered.
+    """
+    service = _connect()
+    body = {
+        "properties": {"title": title},
+        # Every tab, created up front with its header width, so the first
+        # write is an update rather than a create-then-update.
+        "sheets": [{"properties": {"title": name}}
+                   for name in tables.ALL_TABS],
+    }
+    try:
+        made = service.spreadsheets().create(
+            body=body, fields="spreadsheetId").execute()
+    except Exception as exc:
+        raise _explain(exc) from exc
+    return made["spreadsheetId"]
+
+
+def _write_grid(book_id: str, grid: dict[str, list[list]]) -> None:
+    """Write named tabs in one book, then trim. No cache, no sheet_id()."""
+    service = _connect()
+    have = set(_tab_titles(service, book_id))
+    missing = [name for name in grid if name not in have]
+    if missing:
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=book_id,
+            body={"requests": [{"addSheet": {"properties": {"title": n}}}
+                               for n in missing]}).execute()
+
+    def _attempt() -> None:
+        service.spreadsheets().values().batchUpdate(
+            spreadsheetId=book_id,
+            body={"valueInputOption": "RAW",
+                  "data": [{"range": f"{name}!A1", "values": rows}
+                           for name, rows in grid.items()]}).execute()
+        _trim(service, book_id, grid)
+
+    _with_retry(_attempt)
+
+
+def mirror_to(book_id: str, records: dict[str, dict],
+              market: dict[str, dict] | None = None) -> None:
+    """Write the whole store into another book, in the current layout."""
+    try:
+        _write_grid(book_id, tables.to_tables(records))
+        if market:
+            _write_grid(book_id, tables.to_market_tables(market))
+    except Exception as exc:
+        raise _explain(exc) from exc
+
+
+def read_book(book_id: str) -> tuple[dict[str, dict], dict[str, dict]]:
+    """Parse another book's IPO and Market records. For verifying a mirror."""
+    service = _connect()
+    have = set(_tab_titles(service, book_id))
+    wanted = [n for n in tables.ALL_TABS if n in have]
+    if not wanted:
+        return {}, {}
+    try:
+        res = service.spreadsheets().values().batchGet(
+            spreadsheetId=book_id,
+            ranges=[_span(n) for n in wanted],
+            valueRenderOption="UNFORMATTED_VALUE").execute()
+    except Exception as exc:
+        raise _explain(exc) from exc
+    grid = {name: block.get("values", [])
+            for name, block in zip(wanted, res.get("valueRanges", []))}
+    return tables.from_tables(grid), tables.from_market_tables(grid)

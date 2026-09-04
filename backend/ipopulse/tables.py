@@ -24,7 +24,7 @@ which is exactly why the summary sheet this replaced could not be the store.
     Lists         slug, field, idx, value      (analysis bullets, steps)
     I18n          slug, lang, key, idx, value  (hi / te)
     Benchmarks    slug, metric, value
-    Sources       slug, role, url
+    Sources       slug, role, value  (logo, nse_symbol, isin, exchange)
 
 A blank cell means "absent" and is not the same as 0 — compute.py judges a
 metric only when its series exists, so writing 0.0 into an empty revenue
@@ -106,7 +106,17 @@ SUB_COLS = ["slug", "day", "date", "qib", "nii", "retail", "employee", "total",
 LIST_COLS = ["slug", "field", "idx", "value"]
 I18N_COLS = ["slug", "lang", "key", "idx", "value"]
 BENCH_COLS = ["slug", "metric", "value"]
-SRC_COLS = ["slug", "role", "url"]
+# `value`, not `url`. The column has never held only URLs — `exchange` is a
+# stamp like `NSE:TEMPSENS` — and since `facts` began writing the exchange's
+# own identifiers (`nse_symbol`, `bse_code`, `isin`) most of what is in it is
+# a ticker. A column called `url` holding MOMSBELIEF misleads the one audience
+# this spreadsheet has: somebody reading it.
+#
+# `url` is still ACCEPTED on read, so a sheet written before this rename keeps
+# working and the old book can go on running alongside the new one. Only the
+# write side moved. Drop the fallback once no live sheet has a `url` header.
+SRC_COLS = ["slug", "role", "value"]
+SRC_COLS_LEGACY = ["slug", "role", "url"]
 
 IPO_COLS = [col for col, _, _ in SCALARS]
 
@@ -248,6 +258,46 @@ def _num_cell(value: Any) -> Any:
     try:
         f = float(value)
     except (TypeError, ValueError):
+        return None
+    return int(f) if f.is_integer() else f
+
+
+def _opt_num_cell(value: Any) -> Any:
+    """A number, or a blank when it is zero. For a field 0 cannot mean.
+
+    This module's own docstring says a blank cell means absent and never 0,
+    and the read path has always honoured it — `_blank` skips an empty cell so
+    the model's default stands. The WRITE path did not, and the two together
+    quietly defeated the rule: a field nobody supplied leaves `models.py` as
+    `0.0`, `to_dict` emits `0.0`, and `_num_cell` writes a literal `0`.
+
+    Measured on the live sheet, 2 Sep 2026: **not one blank numeric cell in
+    the whole IPOs tab.** 25 of 28 rows asserted a peer P/E of exactly zero
+    for a figure the project has no source for at all; 28 asserted a listing
+    range of 0-0; 4 asserted a price band starting at ₹0. Every one of those
+    reads as a fact to anyone opening the spreadsheet, and one of them —
+    `issue.price_low` on Rays of Belief — is exactly what made a duplicate row
+    look like it held data the original was missing.
+
+    Blanking is round-trip lossless, which is what makes it safe: a blank
+    reads back as the model's `0.0`, the identical in-memory value. Nothing
+    downstream changes. What changes is that the sheet stops stating something
+    nobody ever measured.
+
+    NOT used for the series tabs, and that is the whole reason this is a
+    separate function rather than a change to `_num_cell`. A GMP of 0 is a
+    real quote (an issue priced at par — InvestorGain marks *unquoted* by
+    omitting the day, not by sending a zero), and a subscription of 0 on day
+    one is a real reading. Those keep their zeros. See
+    `no-gemini-invented-numbers` for why that distinction is load-bearing.
+    """
+    if value in (None, ""):
+        return None
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    if f == 0:
         return None
     return int(f) if f.is_integer() else f
 
@@ -407,11 +457,18 @@ def from_tables(tables: dict[str, list[list]]) -> dict[str, dict]:
         if rec is not None and metric and value:
             rec.setdefault("benchmarks", {})[metric] = value
 
-    for row in _dicts(tables.get("Sources") or [], SRC_COLS):
+    # Both spellings of the third column. `_dicts` keys by header text, so a
+    # tab still headed `url` yields no `value` key and every source would be
+    # silently dropped — which on a sheet where `sources.logo` drives reel 1's
+    # image and `nse_symbol` drives the duplicate check is a quiet, total loss
+    # rather than an error anybody would see.
+    for row in _dicts(tables.get("Sources") or [],
+                      SRC_COLS + ["url"]):
         rec = at(row.get("slug"))
-        role, url = _txt(row.get("role")), _txt(row.get("url"))
-        if rec is not None and role and url:
-            rec.setdefault("sources", {})[role] = url
+        role = _txt(row.get("role"))
+        value = _txt(row.get("value")) or _txt(row.get("url"))
+        if rec is not None and role and value:
+            rec.setdefault("sources", {})[role] = value
 
     return out
 
@@ -430,7 +487,9 @@ def to_tables(records: dict[str, dict]) -> dict[str, list[list]]:
         for _, path, kind in SCALARS:
             value = _dig(d, path)
             if kind == "num":
-                line.append(_num_cell(value))
+                # _opt_num_cell, not _num_cell: a zero here means nobody
+                # supplied the figure. See that function for the measurement.
+                line.append(_opt_num_cell(value))
             elif kind == "csv":
                 line.append(", ".join(str(v) for v in (value or [])) or None)
             elif kind == "date":
@@ -446,6 +505,23 @@ def to_tables(records: dict[str, dict]) -> dict[str, list[list]]:
         for i in range(depth):
             tables["Financials"].append(
                 [slug, years[i] if i < len(years) else None]
+                # `_num_cell`, NOT `_opt_num_cell`, even though this tab is
+                # the case the module docstring names ("writing 0.0 into an
+                # empty revenue year invents a company with no revenue").
+                #
+                # These are PARALLEL ARRAYS and position is the only thing
+                # binding a value to its year. Blanking a zero drops the
+                # element on the way back in: Rays of Belief's total_debt
+                # [0.0, 4.36, 3.61] came back as [4.36, 3.61], which re-labels
+                # FY25's debt as FY24's — the same silent year-shift the
+                # `fresh_axis` guard in `cmd_facts` exists to prevent, arrived
+                # at from the other direction.
+                #
+                # And a zero here is usually real anyway: a company with no
+                # borrowings has a total_debt of exactly 0, and Shanti
+                # Inorganics' latest year is one. Absence in a series is
+                # expressed by the series being SHORTER or absent entirely,
+                # never by a hole in the middle of it.
                 + [_num_cell(series[m][i]) if i < len(series[m]) else None
                    for m in FIN_METRICS])
 
@@ -480,7 +556,10 @@ def to_tables(records: dict[str, dict]) -> dict[str, list[list]]:
                     tables["I18n"].append([slug, lang, key, None, str(value) or None])
 
         for metric, value in sorted((d.get("benchmarks") or {}).items()):
-            tables["Benchmarks"].append([slug, metric, _num_cell(value)])
+            # A benchmark override of 0 is not a threshold anybody set; it
+            # is an override that was never filled in, and compute.py would
+            # judge every company as meeting it.
+            tables["Benchmarks"].append([slug, metric, _opt_num_cell(value)])
 
         for role, url in sorted((d.get("sources") or {}).items()):
             tables["Sources"].append([slug, role, str(url)])

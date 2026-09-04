@@ -12,6 +12,7 @@ an online spreadsheet touched almost none of them.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
@@ -55,7 +56,58 @@ def load_all() -> list[Ipo]:
     return out
 
 
+# ── batching ───────────────────────────────────────────────────────────────
+#
+# Sheets allows 60 write requests per minute per user. `save()` replaces the
+# whole book, which is one update plus one trim — **two write requests per
+# call**. A loop over 28 IPOs is therefore 56, and `gmp-sync` has four such
+# loops. On 4 Sep it hit the ceiling mid-run, the quota error landed between
+# a clear and a write, and the entire spreadsheet was left empty.
+#
+# The old comment here said the loops save per IPO on purpose, so "a failure
+# on the tenth leaves the first nine written". That reasoning is inverted:
+# saving per IPO is what *causes* the failure. One write at the end of a run
+# cannot exhaust a per-minute quota, and if it fails nothing was half-applied.
+#
+# Inside `with store.batched():`, `save()` buffers instead of writing and one
+# `write_records` happens on the way out. Outside it, `save()` behaves exactly
+# as before, so nothing that has not opted in changes.
+
+_buffer: dict[str, dict] | None = None
+
+
+@contextmanager
+def batched() -> Iterator[None]:
+    """Collect every `save()` in this block and write once at the end.
+
+    Re-entrant by ignoring nesting: an inner block joins the outer buffer
+    rather than flushing early, so a helper that batches internally does not
+    turn one write into two when called from a loop that also batches.
+    """
+    global _buffer
+    if _buffer is not None:
+        yield                          # already batching; join it
+        return
+    _buffer = {}
+    try:
+        yield
+    finally:
+        pending, _buffer = _buffer, None
+        if pending:
+            current = dict(sheets.records())
+            current.update(pending)
+            sheets.write_records(current)
+
+
+def pending() -> int:
+    """How many records are buffered. 0 when not batching."""
+    return len(_buffer or {})
+
+
 def save(ipo: Ipo) -> str:
+    if _buffer is not None:
+        _buffer[ipo.slug] = ipo.to_dict()
+        return f"{where()} (buffered)"
     sheets.upsert(ipo)
     return where()
 
