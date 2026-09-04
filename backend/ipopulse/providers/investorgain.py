@@ -502,6 +502,96 @@ def identity(row_or_url: Any) -> dict[str, Any]:
     return out
 
 
+def price_band(row_or_url: Any) -> dict[str, Any]:
+    """The band, from the desk. The same authority argument as `issue_size`.
+
+    `price_low` was coming from NSE's prose and from a model, and on 5 Sep
+    three rows had a low ABOVE their high — Rentomojo at 938 against 404,
+    Manipal at 546 against 339. A band that inverted breaks reel 1's terms
+    scene and every figure derived from it: the minimum application, the
+    GMP-implied listing gain, the whole valuation.
+
+    Returned only when both ends are present and the low is not above the
+    high, so a bad pair on the desk cannot replace a good pair here.
+    """
+    d = detail(row_or_url) or {}
+    if not d:
+        return {}
+    low = _num(d.get("issue_price_lower")) or _num(d.get("floor_price"))
+    high = _num(d.get("issue_price_upper")) or _num(d.get("cap_price"))
+    if not (low and high) or low > high:
+        return {}
+    return {"price_low": round(low, 2), "price_high": round(high, 2)}
+
+
+def issue_size(row_or_url: Any) -> dict[str, Any]:
+    """Fresh / OFS / total in rupees crore, from the desk's own figures.
+
+    These were the one part of the offer this module never read, and that gap
+    cost more than any other. `fresh_cr` and `ofs_cr` were coming from a
+    Gemini lookup and from parsing NSE's prose — the exact inversion of the
+    rule this project runs on, which is that the model fills what the desk
+    does NOT cover, never the other way round.
+
+    What it produced, measured 5 Sep 2026: `ofs = 93.0` on ten unrelated
+    IPOs, `ofs = 500.0` on five, `fresh = 274.18` on three. Veegaland was
+    stored as fresh 274.18 + OFS 93 = 367.18 when the desk plainly says
+    ₹210 Cr with **no OFS at all**. And because `doctor` then recomputed the
+    total from those two, every row became internally consistent and every
+    check went green over numbers that were simply wrong.
+
+    The amounts are in RUPEES on the wire (`2100000000.00` is ₹210 Cr), so
+    they are divided here rather than at each call site.
+
+    Absent is absent: when the desk reports 0 across all three — which it
+    does for an issue sized in shares rather than rupees, like NSE's own —
+    this returns {} instead of writing three zeros. A zero issue size is not
+    a fact about a company.
+    """
+    d = detail(row_or_url) or {}
+    if not d:
+        return {}
+
+    def crore(*fields: str) -> float | None:
+        """Rupees -> crore, distinguishing a real 0 from a missing field.
+
+        `if raw:` would skip a genuine zero, and zero is the whole point for
+        OFS: a fully fresh issue has none, and being unable to say so is what
+        let a phantom 93-crore promoter exit sit on rows that never had one.
+        A field the desk did not send returns None; a field it sent as 0.00
+        returns 0.0.
+        """
+        for f in fields:
+            if f not in d:
+                continue
+            raw = str(d.get(f) or "").strip()
+            if not raw:
+                continue
+            val = _num(raw)
+            if val is None:
+                continue
+            return round(val / 1e7, 2)
+        return None
+
+    total = crore("ttl_issue_size_in_amt", "issue_size_in_amt")
+    fresh = crore("ttl_issue_size_fresh_in_amt", "issue_size_fresh_in_amt")
+    ofs = crore("ttl_issue_size_ofs_in_amt", "issue_size_ofs_in_amt")
+
+    out: dict[str, Any] = {}
+    if total:
+        out["total_cr"] = total
+    if fresh:
+        out["fresh_cr"] = fresh
+    # OFS is the one that legitimately IS zero — a fully fresh issue has no
+    # offer for sale — so it is reported whenever the desk gave a total to
+    # anchor it against, rather than only when non-zero. Without that,
+    # "no OFS" and "we never asked" stay indistinguishable, which is what
+    # let a phantom ₹93 Cr promoter exit sit on Veegaland.
+    if total and ofs is not None:
+        out["ofs_cr"] = ofs or 0.0
+    return out
+
+
 def categories(row_or_url: Any) -> dict[str, Any]:
     """Shares reserved per category, and the minimum bid each one must make.
 
@@ -701,6 +791,15 @@ def allotment(row_or_url: Any) -> dict[str, Any]:
         out["allotment"] = allot_dt
     if listing_dt:
         out["listing"] = listing_dt
+    # Refund too, and not for completeness. Six rows carried a refund date
+    # BEFORE their own allotment date — a calendar that cannot happen, because
+    # refunds are what the registrar issues after the basis of allotment is
+    # settled. They came from a stale value surviving on a rediscovered row
+    # while allotment moved. Reading it from the same timetable the other two
+    # come from keeps all three consistent by construction.
+    refund_dt = _iso(r.get("timetable_refunds_dt") or "")
+    if refund_dt:
+        out["refund"] = refund_dt
     size = _num(r.get("issue_size"))
     if size:
         out["total_cr"] = size

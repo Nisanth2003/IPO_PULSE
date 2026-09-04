@@ -181,7 +181,13 @@ JOBS: dict[str, dict[str, Any]] = {
                   "measures, it never repairs, because a grader that fixed "
                   "what it measured would always report an A. Free, keyless.",
         "argv": ["grade"],
-        "schedule": "Sun 05:00 IST",
+        # Daily now, not weekly. It was weekly because it only compared GMP
+        # and subscription — figures that move slowly and get re-read three
+        # times a day anyway. It now reconciles the issue terms as well, and
+        # those are exactly what went wrong unnoticed for days: a phantom OFS
+        # on ten IPOs, three inverted price bands, six impossible calendars.
+        # An early-warning system that runs once a week is six days late.
+        "schedule": "part of daily + Sun 05:00 IST",
     },
     "verify": {
         "label": "Verify against the exchanges",
@@ -285,8 +291,17 @@ CHAINS = {
     # model budget is spent twice on one company, and it is a dry run, so it
     # reports and cannot break the chain — see the job's comment for why the
     # write is withheld.
+    # `grade` closes the chain, after `validate`.
+    #
+    # Last on purpose, and read-only like the two before it: it is the answer
+    # to "are the numbers RIGHT", which is a different question from
+    # "are they PRESENT" (doctor) and "can this be filmed" (validate), and it
+    # can only be asked once the run has finished writing. It reconciles every
+    # stored issue term against InvestorGain and groups the result by status,
+    # so a bad figure on an issue that is open today is the first thing the
+    # log says rather than something found a week later by hand.
     "daily": ["sync", "verify", "dedupe", "facts", "enrich", "doctor",
-              "build", "validate"],
+              "build", "validate", "grade"],
     # gmp-sync runs BEFORE the model-based refresh: it is free, keyless and
     # deterministic, so anything it can supply should not cost a Gemini call
     # or need vetting. `gmp` then fills only what InvestorGain did not cover.

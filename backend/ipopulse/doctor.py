@@ -184,6 +184,15 @@ def inconsistencies(ipo: Ipo) -> list[str]:
     f, iss, d = ipo.financials, ipo.issue, ipo.dates
     n = len(f.years)
 
+    # 0. The issue does not add up. Reported, never silently corrected — see
+    #    the long note in `plan_repairs` for what happened when it was.
+    split = iss.fresh_cr + iss.ofs_cr
+    if split > 0 and iss.total_cr and abs(split - iss.total_cr) > 0.01:
+        out.append(
+            f"issue size: fresh ₹{iss.fresh_cr:g} + OFS ₹{iss.ofs_cr:g} = "
+            f"₹{split:g} Cr, but the total says ₹{iss.total_cr:g} — "
+            f"`ipopulse facts` takes all three from InvestorGain")
+
     # 1. Series that do not line up with `years`. compute.py zips them by
     #    index, so a short array silently shifts every figure into the wrong
     #    financial year — the single most dangerous shape in the file.
@@ -315,15 +324,26 @@ def plan_repairs(ipo: Ipo) -> list[dict[str, Any]]:
 
     split = iss.fresh_cr + iss.ofs_cr
 
-    if split > 0 and abs(split - iss.total_cr) > 0.01:
-        # total IS fresh + OFS — arithmetic, not a judgement, so it qualifies
-        # as a repair even when a different total is already recorded. That
-        # case is common rather than theoretical: NSE's catalogue `issueSize`
-        # counts only the fresh shares, so the derived total understates any
-        # issue with an OFS leg (Molbio published ₹658 Cr against ₹939.7 Cr).
-        was = f" (was ₹{iss.total_cr:g})" if iss.total_cr else ""
-        add(f"total_cr = fresh + OFS = ₹{split:g} Cr{was}",
+    if split > 0 and not iss.total_cr:
+        # Filling a BLANK total from its parts is arithmetic and a fair
+        # repair. Overwriting a stated one is not, and that distinction is
+        # the whole fix here.
+        add(f"total_cr = fresh + OFS = ₹{split:g} Cr",
             lambda raw, v=split: raw["issue"].__setitem__("total_cr", round(v, 2)))
+    # A stated total that disagrees with its parts is NOT repaired here.
+    #
+    # This used to recompute it as fresh + OFS on the reasoning that the
+    # total "IS fresh + OFS — arithmetic, not a judgement". It is arithmetic
+    # only if the parts can be trusted, and on 5 Sep they could not: a
+    # phantom `ofs_cr` of 93 crore sat on ten unrelated IPOs. This branch
+    # duly added 93 to each of their totals, which made every row internally
+    # consistent and turned the contradiction check green over numbers that
+    # were simply wrong. Veegaland went from the desk's ₹210 Cr to ₹367.18 Cr
+    # because of this line.
+    #
+    # It is reported by `inconsistencies()` instead, and `facts` now takes
+    # all three figures from InvestorGain — so the disagreement gets settled
+    # by the desk rather than papered over with arithmetic.
     elif iss.total_cr > 0 and 0 < iss.fresh_cr and not iss.ofs_cr and iss.total_cr > iss.fresh_cr:
         rest = round(iss.total_cr - iss.fresh_cr, 2)
         add(f"ofs_cr = total - fresh = ₹{rest:g} Cr",

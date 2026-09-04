@@ -215,10 +215,30 @@ def same_offer(a: dict[str, Any], b: dict[str, Any]) -> tuple[str, str]:
         if same_window or same_size:
             return "certain", ("one name is the other plus a suffix, and they "
                                "share the bidding window or the issue size")
-        return "likely", "one name is the other plus a suffix"
+        if not (bool(a["logo"]) and bool(b["logo"])
+                and a["logo"] != b["logo"]):
+            return "likely", "one name is the other plus a suffix"
+
+    # ── a DIFFERING logo vetoes the weak signals
+    #
+    # The desk publishes one image per offer, which is what makes a shared
+    # logo `certain` above. The converse carries nearly as much weight: two
+    # rows pointing at different images are two offers, whatever else they
+    # happen to share.
+    #
+    # Needed because the calendar signal has a real false-positive mode. `nse`
+    # and `qualiance-international` both opened 4 Sep, both closed 8 Sep, and
+    # both carried a total of ₹138.11 Cr — so they matched, and they are the
+    # National Stock Exchange and a small SME textile issue. Their logos are
+    # `nse-logo.png` and `qualiance-ipo-logo.jpg`.
+    #
+    # Applied only to the two `likely` signals below, never to an exact name
+    # or a shared ticker: a company can change its logo, so a mismatch there
+    # is weaker evidence than the identifier that already agreed.
+    logos_differ = bool(a["logo"]) and bool(b["logo"]) and a["logo"] != b["logo"]
 
     # ── the calendar plus the size
-    if same_window and same_size:
+    if same_window and same_size and not logos_differ:
         return "likely", "identical open, close and issue size"
 
     return "", ""
