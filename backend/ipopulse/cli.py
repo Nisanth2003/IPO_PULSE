@@ -1067,14 +1067,13 @@ def _investorgain_covers(slug: str, company: str = "") -> bool:
 
 
 def cmd_refresh(args) -> int:
-    """Batched wrapper. See _cmd_refresh_body for what this actually does.
+    """Not batched, for the same reason as `enrich` — see its docstring.
 
-    Every save inside one run collapses into a single sheet write. Without
-    this, a loop over 28 IPOs is 56 write requests against a 60-per-minute
-    quota — which is how the whole spreadsheet came to be emptied on 4 Sep.
+    Every reading here costs a grounded Gemini call, so the loop is paced in
+    tens of seconds and its writes cannot approach the quota. Buffering would
+    only create a way to lose paid work to a dropped connection.
     """
-    with store.batched():
-        return _cmd_refresh_body(args)
+    return _cmd_refresh_body(args)
 
 
 def _cmd_refresh_body(args) -> int:
@@ -1904,14 +1903,21 @@ def _record_attempt(log: dict[str, dict[str, str]], slug: str, label: str) -> No
 
 
 def cmd_enrich(args) -> int:
-    """Batched wrapper. See _cmd_enrich_body for what this actually does.
+    """Deliberately NOT batched, unlike the other write-heavy commands.
 
-    Every save inside one run collapses into a single sheet write. Without
-    this, a loop over 28 IPOs is 56 write requests against a 60-per-minute
-    quota — which is how the whole spreadsheet came to be emptied on 4 Sep.
+    Batching exists to keep a fast loop under the 60-writes-per-minute Sheets
+    quota. `enrich` is not a fast loop: every step is a Gemini call taking
+    30-60 seconds, so a full run makes a handful of writes spread over many
+    minutes and could not reach the quota if it tried.
+
+    What batching WOULD cost here is real. Each step is a metered model call,
+    and buffering means a run killed halfway — a timeout, a dropped
+    connection, Ctrl-C — throws away everything it already paid for. Saving
+    per step is what lets a partial run keep its work, which is exactly the
+    property the original per-IPO loops were written for and which was right
+    for this command even though it was wrong for `gmp-sync`.
     """
-    with store.batched():
-        return _cmd_enrich_body(args)
+    return _cmd_enrich_body(args)
 
 
 def _cmd_enrich_body(args) -> int:
@@ -2290,6 +2296,27 @@ def cmd_validate(args) -> int:
     if total_err:
         print(f"\n{total_err} contradiction(s) that would render as a "
               f"confident wrong number.")
+
+    # ── what is merely QUEUED, as opposed to missing
+    #
+    # "reel 1 missing: Overview bullets" reads like a permanent gap, and for
+    # a freshly discovered IPO it is not — it is a position in a queue. The
+    # numbers arrive free and all at once from InvestorGain; the prose costs
+    # a metered Gemini call and `enrich` spends only six a run, so a batch of
+    # new issues sits there with complete financials and no description for
+    # several days. That asymmetry is deliberate and was invisible, which is
+    # what made it look like a fault rather than a backlog.
+    waiting = [i for i in ipos
+               if (i.company or "").strip() and not i.analysis.overview]
+    if waiting:
+        need = 2 * len(waiting)
+        print(f"\n{len(waiting)} IPO(s) have every number and no written "
+              f"description yet — the figures are free, the prose is not:")
+        print("  " + ", ".join(sorted(i.slug for i in waiting)[:8])
+              + (" ..." if len(waiting) > 8 else ""))
+        print(f"  Fill them now:  ipopulse enrich --max-ai {need}")
+        print(f"  Or leave it to the daily chain — at 6 calls a run, about "
+              f"{max(1, (need + 5) // 6)} more run(s).")
     return 1 if (total_err and args.strict) else 0
 
 

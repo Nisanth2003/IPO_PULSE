@@ -102,6 +102,45 @@ def _impossible(ipo) -> list[str]:
     return out
 
 
+def _twins(ipos) -> list[tuple[str, str, str]]:
+    """Rows holding an identical set of issue terms. Almost never a coincidence.
+
+    This is the check that would have caught every contamination of 4-5 Sep
+    without anyone reading a list. Values bled into alphabetically adjacent
+    rows — `ofs = 93.0` across ten IPOs, `fresh = 274.18` across three, and
+    NSE carrying Qualiance's band and lot — and each time it was found by a
+    human noticing the same number twice.
+
+    A single shared figure is ordinary: two issues can be the same size, and
+    the desk confirmed several that were. What is not ordinary is a **pair of
+    rows agreeing on band low AND band high AND lot size**, or on fresh AND
+    OFS AND total. Those are independent quantities; matching on all three is
+    a copy, not a coincidence.
+
+    Reported, never repaired — which of the two rows is the wrong one is not
+    something arithmetic can decide.
+    """
+    groups = [
+        ("price band and lot", ("price_low", "price_high", "lot_size")),
+        ("issue size split", ("fresh_cr", "ofs_cr", "total_cr")),
+        ("share reservation", ("shares_qib", "shares_nii", "shares_retail",
+                               "shares_total")),
+    ]
+    out: list[tuple[str, str, str]] = []
+    for label, fields in groups:
+        seen: dict[tuple, str] = {}
+        for ipo in sorted(ipos, key=lambda i: i.slug):
+            key = tuple(round(float(getattr(ipo.issue, f, 0) or 0), 2)
+                        for f in fields)
+            if not any(key):
+                continue                  # all blank: nothing asserted
+            if key in seen:
+                out.append((seen[key], ipo.slug, label))
+            else:
+                seen[key] = ipo.slug
+    return out
+
+
 def collect(days: int = 7) -> dict[str, Any]:
     """Compare every stored figure against InvestorGain. Read-only."""
     from .providers import investorgain as ig
@@ -116,8 +155,9 @@ def collect(days: int = 7) -> dict[str, Any]:
         # its own life — which is how the question actually gets asked:
         # "is anything wrong with what is open right now?"
         "terms_total": 0, "terms_match": 0, "terms_bad": [],
-        "impossible": [], "by_status": {},
+        "impossible": [], "by_status": {}, "twins": [],
     }
+    r["twins"] = _twins(store.load_all())
 
     for ipo in store.load_all():
         r["ipos"] += 1
@@ -202,6 +242,8 @@ def collect(days: int = 7) -> dict[str, Any]:
     # carried a phantom OFS — because nothing here looked at the terms.
     if r["terms_bad"] and r["grade"] in ("A", "B"):
         r["grade"] = "C"
+    if r["twins"] and r["grade"] in ("A", "B"):
+        r["grade"] = "C"
     if r["impossible"]:
         r["grade"] = "F" if len(r["impossible"]) > 3 else "D"
     return r
@@ -237,6 +279,11 @@ def report(r: dict[str, Any]) -> list[str]:
         for slug, status, why in r["impossible"][:10]:
             out.append(f"    {slug:<32}[{status}]")
             out += [f"      - {w}" for w in why]
+    if r["twins"]:
+        out += ["", f"  {len(r['twins'])} pair(s) of IPOs hold IDENTICAL terms "
+                    f"— independent numbers do not match by accident:"]
+        out += [f"    {a} and {b} share the same {what}"
+                for a, b, what in r["twins"][:10]]
     if r["terms_bad"]:
         out += ["", f"  {len(r['terms_bad'])} issue term(s) disagree with the desk "
                     f"— ours vs theirs:"]
@@ -260,7 +307,7 @@ def report(r: dict[str, Any]) -> list[str]:
         out += ["", f"  {len(r['unmatched'])} IPO(s) InvestorGain could not be asked about: "
                     + ", ".join(r["unmatched"][:8])]
     if not (r["gmp_bad"] or r["sub_bad"] or r["orphans"] or r["stale"]
-            or r["terms_bad"] or r["impossible"]):
+            or r["terms_bad"] or r["impossible"] or r["twins"]):
         out += ["", "  Nothing to fix. Every stored figure matches the desk, "
                     "and nothing contradicts itself."]
     else:

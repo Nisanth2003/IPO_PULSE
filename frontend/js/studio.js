@@ -326,6 +326,16 @@ function studio() {
       y.title = (this.ytTitles && this.ytTitles[0]) || '';
       y.desc = this.ytDescription || '';
       y.tags = (this.ytHashtags || []).join(' ');
+      // No backend at all — a static copy, or GitHub Pages. Say so, rather
+      // than failing with a fetch error nobody can act on.
+      if (!this.hasBackend) {
+        y.status = null; y.ok = false;
+        y.msg = 'This page has no backend, so it cannot upload. Uploading '
+              + 'needs a credential that can post to your channel, and that '
+              + 'must never live in a public page. Run `ipopulse serve` and '
+              + 'open http://localhost:8000 instead.';
+        return;
+      }
       try {
         y.status = await this._apiCall('/api/youtube/status');
       } catch (e) {
