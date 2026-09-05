@@ -31,3 +31,8 @@ google-genai>=2.17,<3
 
 # PyYAML is gone: it existed for the per-IPO YAML store, and nothing in
 # backend/ imports it any more.
+
+# Free, keyless neural TTS (Edge Read Aloud). The default voice provider —
+# native en-IN / hi-IN / te-IN, no API key, no per-character cost.
+# See ipopulse/voice.py for the licensing caveat before a monetised upload.
+edge-tts

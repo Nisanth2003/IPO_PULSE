@@ -62,7 +62,7 @@ GEMINI_ROOT = "https://generativelanguage.googleapis.com/v1beta"
 VOICE_DIR = CACHE_DIR / "voice"
 LEDGER = VOICE_DIR / "ledger.json"
 
-# ── two providers, and which one a free channel can actually use ───────────
+# ── three providers, and which one a free channel can actually use ─────────
 #
 # Both were checked against their own terms on 27 August 2026, and they land in
 # opposite places on the only question that matters for a monetised channel:
@@ -92,7 +92,30 @@ LEDGER = VOICE_DIR / "ledger.json"
 # read, annotate, and process" them. IPO scripts are assembled from public
 # market data, so that is an acceptable trade here — but it is a real one, and
 # it is the reason this is a documented choice rather than a silent default.
-DEFAULT_PROVIDERS = ("gemini", "elevenlabs")
+#   edge-tts    Microsoft's Edge "Read Aloud" endpoint. No key, no account, no
+#               per-character cost, and native en-IN / hi-IN / te-IN voices.
+#               **Its licensing is the least clear of the three**: it is an
+#               undocumented endpoint intended for the browser's own read-aloud
+#               feature, and Microsoft publishes no commercial-use grant for
+#               it. That is not the same as ElevenLabs' explicit "cannot be
+#               used commercially" on free — it is silence rather than a
+#               prohibition — but silence is not permission either. Use it for
+#               drafts, timing and the languages the paid tiers price out of
+#               reach, and read the terms yourself before a monetised upload
+#               leans on it. Azure Speech is the licensed version of the same
+#               voices if that answer matters.
+#
+# edge first, and the reason is cost rather than quality.
+#
+# It is free and keyless with native en-IN / hi-IN / te-IN voices, so bulk
+# narration — every reel, three languages, re-cut whenever the data moves —
+# stops competing for the same daily Gemini quota the analysis needs and
+# stops spending ElevenLabs characters. The paid providers stay one env var
+# away for anything whose delivery has to be exactly right:
+#
+#     IPOPULSE_VOICE_PROVIDERS=elevenlabs,edge
+#     IPOPULSE_VOICE_PROVIDERS_TE=edge          (per language)
+DEFAULT_PROVIDERS = ("edge", "gemini", "elevenlabs")
 
 # Gemini TTS is in Preview, and its own docs name the consequences: quality
 # drifts on outputs "longer than a few minutes", it "occasionally returns text
@@ -229,11 +252,14 @@ def providers(lang: str = "") -> list[str]:
     comes out as a generically Indic accent, which is what "the Telugu sounds
     like Tamil" was. No setting fixes that; it is missing training data.
 
-    Gemini does list Telugu natively, so the sane split is ElevenLabs for
-    en/hi and Gemini for te:
+    Gemini does list Telugu natively, and **edge-tts has a genuine te-IN
+    voice** (te-IN-ShrutiNeural) — a Microsoft regional voice rather than a
+    Hindi voice marketed for Telugu, which is what the ElevenLabs library
+    turned out to be offering. So Telugu now has two real options and neither
+    costs anything:
 
-        IPOPULSE_VOICE_PROVIDERS=elevenlabs,gemini
-        IPOPULSE_VOICE_PROVIDERS_TE=gemini,elevenlabs
+        IPOPULSE_VOICE_PROVIDERS=edge,elevenlabs,gemini
+        IPOPULSE_VOICE_PROVIDERS_TE=edge,gemini
 
     Names not recognised are dropped rather than raising: a typo in an env var
     should not take the whole feature down, and `--plan` shows what resolved.
@@ -244,7 +270,11 @@ def providers(lang: str = "") -> list[str]:
         wanted = list(DEFAULT_PROVIDERS)
     else:
         wanted = [p.strip().lower() for p in re.split(r"[,\s]+", raw) if p.strip()]
-    return [p for p in wanted if p in ("gemini", "elevenlabs")]
+    # The whitelist has to list every provider or the new one is silently
+    # dropped — which it was: `edge` resolved away here while `available()`
+    # and the dispatch both knew about it, so the provider existed everywhere
+    # except in the one function that decides whether it runs.
+    return [p for p in wanted if p in ("edge", "gemini", "elevenlabs")]
 
 
 def available(provider: str) -> bool:
@@ -253,6 +283,11 @@ def available(provider: str) -> bool:
         return bool(gemini_key())
     if provider == "elevenlabs":
         return bool(api_keys() and voice_id())
+    if provider == "edge":
+        # Nothing to configure. The only way it is unusable is not installed,
+        # and that is reported at call time with the pip line rather than
+        # silently skipping the provider.
+        return True
     return False
 
 
@@ -688,7 +723,7 @@ def synthesize(text: str, vid: str = "", mdl: str = "",
     if not wanted:
         raise VoiceError(
             "No usable voice provider. IPOPULSE_VOICE_PROVIDERS resolved to "
-            "nothing — valid names are 'gemini' and 'elevenlabs'.")
+            "nothing — valid names are 'edge', 'gemini' and 'elevenlabs'.")
 
     trouble: list[str] = []
     for name in wanted:
@@ -711,6 +746,82 @@ def synthesize(text: str, vid: str = "", mdl: str = "",
             trouble.append(f"{name}: {err}")
     raise VoiceError("Every provider refused.\n"
                      + "\n".join(f"  - {t}" for t in trouble))
+
+
+# ── edge-tts: Microsoft's neural voices, free and keyless ─────────────────
+#
+# The third provider, and on cost the only one that is not a constraint. It
+# drives the same endpoint Edge's Read Aloud uses: **no API key, no account,
+# no per-character budget**, and it has native Indian voices for all three
+# languages this channel publishes in — which neither of the others manages
+# cheaply (Telugu on ElevenLabs needs eleven_v3, and Gemini's TTS shares the
+# same daily request quota as every other model in the pipeline).
+#
+# It is therefore the sensible DEFAULT for bulk narration, with the paid
+# providers kept for anything whose delivery has to be exactly right.
+#
+# The trade is expressiveness. These voices are clear and correct and they do
+# not act; ElevenLabs reads a red flag like it means it. So the chain below
+# puts edge first for volume and leaves the others one env var away.
+EDGE_VOICES = {
+    "en": "en-IN-NeerjaNeural",     # Indian English, clear and unhurried
+    "hi": "hi-IN-SwaraNeural",      # NOT SwararaNeural — that name does not
+                                    # exist, and a script generated elsewhere
+                                    # had it. edge-tts fails the request
+                                    # rather than falling back, so the whole
+                                    # Hindi track would have come out silent.
+    "te": "te-IN-ShrutiNeural",
+}
+# Alternatives, if a voice wears out its welcome:
+#   en-IN-PrabhatNeural / en-IN-NeerjaExpressiveNeural
+#   hi-IN-MadhurNeural (male)  ·  te-IN-MohanNeural (male)
+
+
+def edge_voice(lang: str = "") -> str:
+    """The voice for a language. `EDGE_VOICE_HI` overrides per language."""
+    return _per_lang("EDGE_VOICE", lang, EDGE_VOICES.get(lang or "en", ""))
+
+
+def _call_edge(text: str, lang: str, vid: str = "") -> tuple[bytes, str]:
+    """Speak `text`. Returns (mp3 bytes, "mp3").
+
+    Runs the async client on a private event loop: `synthesize` is called from
+    a plain function and, in the studio's case, from inside a request handler
+    thread — neither has a running loop, and assuming one is how this kind of
+    integration usually breaks the first time it is called from a server.
+    """
+    import asyncio
+
+    try:
+        import edge_tts
+    except ImportError as exc:
+        raise VoiceError(
+            "edge-tts is not installed. It is free and needs no key: "
+            "pip install edge-tts") from exc
+
+    voice = vid or edge_voice(lang)
+    if not voice:
+        raise VoiceError(
+            f"No edge voice for '{lang}'. Set EDGE_VOICE_{(lang or '').upper()}"
+            f" — `python -m edge_tts --list-voices` shows what exists.")
+
+    async def run() -> bytes:
+        chunks = bytearray()
+        comm = edge_tts.Communicate(text, voice)
+        async for part in comm.stream():
+            if part["type"] == "audio":
+                chunks.extend(part["data"])
+        return bytes(chunks)
+
+    try:
+        audio = asyncio.run(run())
+    except Exception as exc:
+        raise VoiceError(f"edge-tts refused: {exc}") from exc
+    if not audio:
+        raise VoiceError(
+            f"edge-tts returned no audio for voice {voice!r}. The usual cause "
+            f"is a voice name that does not exist — it does not fall back.")
+    return audio, "mp3"
 
 
 def _synthesize_one(provider: str, text: str, vid: str, mdl: str,
@@ -740,6 +851,17 @@ def _synthesize_one(provider: str, text: str, vid: str, mdl: str,
         # minutes, which is a splitting decision rather than a hard refusal.
         audio, fmt = _call_gemini(text, lang)
         _record(len(text), f"gemini:{gemini_key()}")
+        VOICE_DIR.mkdir(parents=True, exist_ok=True)
+        out = path.with_suffix(f".{fmt}")
+        out.write_bytes(audio)
+        return audio, False, provider, fmt
+
+    # ── edge-tts ──────────────────────────────────────────────────────────
+    if provider == "edge":
+        audio, fmt = _call_edge(text, lang, vid)
+        # Deliberately not passed to `_record`: that tracks a spend against a
+        # budget, and there is no budget here. Counting free characters would
+        # make the remaining-quota figure in the studio meaningless.
         VOICE_DIR.mkdir(parents=True, exist_ok=True)
         out = path.with_suffix(f".{fmt}")
         out.write_bytes(audio)

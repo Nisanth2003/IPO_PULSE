@@ -188,10 +188,16 @@
          it on open is what makes "nothing to paste" true on a fresh load. -->
     <button x-show="!hasBackend" x-cloak class="btn btn-acc" @click="ghOpen()"
             title="Run a job on GitHub Actions">⚡ Run job</button>
-    <!-- Publish to YouTube. Only where a backend exists: the upload needs a
-         channel credential this page must never hold, so the work happens in
-         the local server and this button just collects the details. -->
-    <button x-show="hasBackend" x-cloak class="btn"
+    <!-- Publish to YouTube.
+         Always shown, even with no backend, and that is deliberate. It used
+         to be `x-show="hasBackend"`, which meant it simply did not exist on
+         GitHub Pages or on any static copy — and a hidden button is
+         indistinguishable from a feature that was never built. It was
+         reported as missing for exactly that reason.
+         The upload itself still needs the local server, because it needs a
+         channel credential this page must never hold; the panel says so
+         plainly rather than the button vanishing. -->
+    <button x-cloak class="btn"
             style="background:#dc2626;color:#fff;border-color:#ef4444"
             @click="ytOpen()"
             :title="'Upload reel ' + reel.n + ' to YouTube'">▶ YouTube</button>
