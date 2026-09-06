@@ -114,6 +114,34 @@ const REELS = [
       { id: 'listing',   hold: 5 },
     ],
   },
+  /* Reel 7 · the pre-market briefing.
+   *
+   * The only reel that is not about an IPO, which is why it carries `market:
+   * true`: the card's scene block for reels 1-6 sits inside `x-if="ipo && d"`
+   * and nothing in it can render without a selected company. This one reads
+   * `briefing` instead — the newest day in the sheet's four Market tabs, put
+   * there by `ipopulse market --write`.
+   *
+   * Holds are longer than the IPO reels' because the content is denser: five
+   * headlines and ten setups are a lot to read off a phone, and the narration
+   * for those two scenes runs 15-20 seconds each on its own. `Script` timing
+   * overrides all of this from the real narration anyway — see scriptHolds.
+   */
+  {
+    n: 7, key: 'reel7', acc: '#F472B6', market: true,
+    scenes: [
+      { id: 'mkthook', hold: 3 },   // the date, the bias, the one-line read
+      { id: 'indices', hold: 5 },   // NIFTY, BANK NIFTY, breadth
+      { id: 'news',    hold: 9 },   // the five overnight stories
+      { id: 'sectors', hold: 6 },   // strongest and weakest sectoral indices
+      // One side per scene. Together they were 55s of narration over one
+      // motionless card — the same failure reel 1's `reservation` scene had,
+      // and the same fix: a second frame. Either drops out when that side has
+      // no setups, which happens on a day with no clean structure.
+      { id: 'longs',   hold: 7 },
+      { id: 'shorts',  hold: 7 }
+    ],
+  },
 ];
 
 /**
@@ -130,7 +158,23 @@ const REELS = [
  * `ipo` is optional so callers that only want the shape — the scene-count
  * label, the nav strip — can omit it and get the full list.
  */
-function scenesFor(reel, gmpMode, ipo) {
+function scenesFor(reel, gmpMode, ipo, briefing) {
+  /* Reel 7 reads the briefing, never the IPO. Scenes with nothing behind them
+     drop out for the same reason reel 1's `background` does: a five-second
+     hold on an empty frame is worse than a shorter reel. */
+  if (reel.market) {
+    if (!briefing) return reel.scenes;          // shape only, for the label
+    const drop = new Set();
+    if (!(briefing.news || []).length) drop.add('news');
+    if (!(briefing.sectors || []).length) drop.add('sectors');
+    if (!(briefing.longs || []).length) drop.add('longs');
+    if (!(briefing.shorts || []).length) drop.add('shorts');
+    return drop.size ? reel.scenes.filter((sc) => !drop.has(sc.id)) : reel.scenes;
+  }
+  return _ipoScenesFor(reel, gmpMode, ipo);
+}
+
+function _ipoScenesFor(reel, gmpMode, ipo) {
   // Any reel that declares boardScenes gets the all-IPOs cut, not just reel
   // 2. This was `reel.n === 2` while reel 2 was the only one with a board,
   // so adding one to reel 3 changed nothing until the check asked about the

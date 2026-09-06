@@ -75,6 +75,31 @@ _TIER = (("flash-lite", 3), ("flash", 2), ("gemma", 1), ("pro", 0))
 MODEL_CACHE_HOURS = 12
 
 
+# How many times one model may be waited for before we accept that this is a
+# daily cap and not a per-minute one. Three waits is ~35s of patience, which
+# covers any RPM window; a fourth would just be waiting out a spent RPD.
+RPM_RETRIES = 3
+_RPM_BACKOFF = (5, 12, 20)
+
+
+def _retry_after(exc: Exception) -> float:
+    """The delay the API itself asked for, in seconds, or 0.
+
+    google-genai puts a RetryInfo in the error details for a 429 —
+    `retryDelay: "17s"`. Honouring it beats guessing: the server knows when
+    its own window reopens, and sleeping less than it asked for just earns a
+    second 429.
+    """
+    text = str(exc)
+    m = re.search(r"retry(?:_?)delay['\"]?\s*[:=]\s*['\"]?(\d+(?:\.\d+)?)s", text, re.I)
+    if m:
+        try:
+            return min(60.0, float(m.group(1)) + 0.5)
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
 def _tokens_of(resp: Any) -> int:
     """Total tokens the API says it billed, or 0 when it does not say.
 
@@ -404,8 +429,19 @@ class Gemini:
         client = self._client_or_raise()
         tried: list[str] = []
         last: Exception | None = None
+        # Models that were rate-limited and are worth one more attempt after a
+        # wait. `_candidates()` is a plain list walked once, so a model we
+        # slept for has to be put back deliberately or the sleep is wasted.
+        retry_queue: list[str] = []
+        quota_tries: dict[str, int] = {}
 
-        for model in self._candidates():
+        def _queue():
+            for m in self._candidates():
+                yield m
+                while retry_queue:
+                    yield retry_queue.pop(0)
+
+        for model in _queue():
             tried.append(model)
             # Wait for a slot BEFORE spending the call, not after a 429.
             # A 429 here is not an error the caller ever sees: the `continue`
@@ -447,6 +483,38 @@ class Gemini:
                 if fault is None:
                     raise
                 last = exc
+                # ── quota: wait for the window, do NOT demote on the first hit
+                #
+                # This branch used to `continue` straight to the next
+                # candidate, and that is how a rate limit became a quality
+                # regression: an RPM breach on flash-lite dropped the run onto
+                # gemma (16K TPM, no tools) and the only symptom was that the
+                # prose got worse. The console read 16/15 RPM on 3.5-flash-lite
+                # and 13/15 on 3.1 while gemma quietly picked up the traffic.
+                #
+                # An RPM breach clears by itself in under a minute, so the
+                # right answer is to wait for it rather than to spend the rest
+                # of the run on a weaker model. Only after RPM_RETRIES failures
+                # do we accept that this is a DAILY limit (RPD) rather than a
+                # per-minute one, and walk on.
+                if fault == "quota":
+                    delay = _retry_after(exc)
+                    if quota_tries.get(model, 0) < RPM_RETRIES:
+                        quota_tries[model] = quota_tries.get(model, 0) + 1
+                        wait = delay if delay else _RPM_BACKOFF[
+                            min(quota_tries[model] - 1, len(_RPM_BACKOFF) - 1)]
+                        print(f"    · {model} rate-limited; waiting {wait}s "
+                              f"rather than dropping to a weaker model "
+                              f"({quota_tries[model]}/{RPM_RETRIES})")
+                        time.sleep(wait)
+                        # Re-queue this model rather than falling through: the
+                        # candidate list is walked once, so a `continue` here
+                        # would skip the model we just waited for.
+                        retry_queue.append(model)
+                    else:
+                        print(f"    · {model} still rate-limited after "
+                              f"{RPM_RETRIES} waits — treating it as a daily "
+                              f"limit and moving on")
                 continue                  # quota or retired: try the next one
             # Tokens come from the response's own usage_metadata when it is
             # there — asking for it is what makes the TPM column meaningful,

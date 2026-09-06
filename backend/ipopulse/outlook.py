@@ -76,10 +76,23 @@ from .ai import AiUnavailable, Gemini
 from .models import Briefing
 from .providers import market, news
 
-# The strongest model reachable on this key (checked 2026-09-02). Overridable
+# The strongest model reachable on this key that is actually FREE. Overridable
 # by env for the same reason `GEMINI_MODEL` is: a deliberate choice should
 # never be second-guessed by a constant in a file.
-BRIEFING_MODEL = os.getenv("IPOPULSE_BRIEFING_MODEL") or "gemini-3.1-pro-preview"
+#
+# Was `gemini-3.1-pro-preview` (pinned 2026-09-02), and that was wrong twice
+# over. `models.list()` does return it, so it looked reachable — but pro is
+# generally not free at all, and the console's per-model peak table never
+# showed a single successful call against it. Every briefing therefore spent
+# one request earning a 429 before `_call` walked down the list, and until the
+# backoff added on 2026-09-06 that walk landed on gemma.
+#
+# `flash`, not `flash-lite`, is the right pin for THIS reel specifically. Its
+# binding free-tier limit is 20 requests a DAY, which would be absurd for
+# `enrich` or `translate` — but a briefing is exactly one call, once a
+# morning. So reel 7 gets the better model at no risk to anything else, which
+# is what "accuracy over cost on this reel" actually asked for.
+BRIEFING_MODEL = os.getenv("IPOPULSE_BRIEFING_MODEL") or "gemini-3.8-flash"
 
 # How many setups of each side reach the reel. Five and five, per the spec.
 PER_SIDE = 5

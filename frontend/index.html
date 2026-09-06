@@ -515,7 +515,7 @@
   </div>
 
   <!-- reel tabs: each is one video -->
-  <div class="grid grid-cols-6 gap-1 px-3 pb-2">
+  <div class="grid grid-cols-7 gap-1 px-3 pb-2">
     <template x-for="(r,i) in REELS" :key="r.n">
       <button @click="go(i,0)"
               class="group relative rounded-lg border px-2 py-1.5 text-left transition"
@@ -777,7 +777,7 @@
               </template>
               <div class="rounded-md px-1.5 py-[2px] text-2xs font-black tracking-[.1em]"
                    :style="`background:${acc}26;color:${acc};border:1px solid ${acc}55`"
-                   x-text="'0'+reel.n+' / 06'"></div>
+                   x-text="'0'+reel.n+' / 0'+REELS.length"></div>
               <div class="text-xs font-extrabold uppercase tracking-[.13em]" :style="`color:${acc}`"
                    x-text="t(reel.key)"></div>
               <div class="flex-1"></div>
@@ -2199,6 +2199,193 @@
             </div>
 
           </div>
+          </template>
+
+          <!-- ══════════ REEL 7 · MARKET TODAY ══════════════════════════
+               A sibling of the block above, not a branch inside it. Every
+               scene up there dereferences `ipo` and `d`, so the whole thing
+               sits behind `x-if="ipo && d"` — a market reel rendered inside
+               that guard would draw an empty frame on a sheet full of
+               briefing data, which is exactly what it did before this block
+               existed. This one reads `briefing` and never touches `ipo`. -->
+          <template x-if="reel.market && briefing">
+          <div class="h-full">
+
+            <!-- the date, the bias, and the one-line read -->
+            <div x-show="at(7,'mkthook')" class="scene items-center text-center">
+              <div class="pill self-center text-2xs font-black tracking-[.16em]"
+                   :style="`background:${acc}22;color:${acc};border:1px solid ${acc}66`"
+                   x-text="briefing.trading ? 'PRE-MARKET' : 'MARKET CLOSED'"></div>
+              <div>
+                <div class="lbl">Market today</div>
+                <div class="font-black text-5xl leading-none" :style="`color:${acc}`"
+                     x-text="fmtDate(briefing.date, true)"></div>
+              </div>
+              <!-- Bias as a word AND an arrow: the arrow is read at a glance
+                   on a phone, the word survives a greyscale thumbnail. -->
+              <div class="rounded-2xl px-6 py-4 self-center glass"
+                   :class="briefing.bias==='up' ? 'glass-g' : (briefing.bias==='down' ? 'glass-r' : 'glass-a')">
+                <div class="font-black text-4xl leading-none"
+                     :class="briefing.bias==='up' ? 'text-emerald-400' : (briefing.bias==='down' ? 'text-red-400' : 'text-amber-400')"
+                     x-text="(briefing.bias==='up' ? '▲ ' : briefing.bias==='down' ? '▼ ' : '▬ ') + briefing.bias.toUpperCase()"></div>
+              </div>
+              <div class="text-2xs text-slate-500 font-semibold"
+                   x-show="!briefing.trading && briefing.why_closed"
+                   x-text="'No session — ' + briefing.why_closed"></div>
+            </div>
+
+            <!-- the two indices and the breadth -->
+            <div x-show="at(7,'indices')" class="scene">
+              <div class="grid grid-cols-2 gap-2.5">
+                <template x-for="ix in [
+                    {k:'NIFTY 50', v:briefing.nifty, p:briefing.nifty_pct},
+                    {k:'BANK NIFTY', v:briefing.banknifty, p:briefing.banknifty_pct}]"
+                          :key="ix.k">
+                  <div class="glass p-3">
+                    <div class="lbl" x-text="ix.k"></div>
+                    <div class="font-black text-2xl tnum" x-text="fmt(ix.v)"></div>
+                    <div class="font-black text-sm tnum"
+                         :class="ix.p >= 0 ? 'text-emerald-400' : 'text-red-400'"
+                         x-text="signed(ix.p, 2) + '%'"></div>
+                  </div>
+                </template>
+              </div>
+              <!-- Breadth as a bar, because the ratio is the point and two raw
+                   counts make the reader do the division. -->
+              <div class="glass p-3">
+                <div class="lbl">Advances vs declines</div>
+                <div class="flex items-center gap-2 mt-1">
+                  <div class="font-black text-lg tnum text-emerald-400" x-text="fmt(briefing.advances)"></div>
+                  <div class="flex-1 h-2.5 rounded-full overflow-hidden bg-red-500/30">
+                    <div class="h-full bg-emerald-500"
+                         :style="`width:${Math.round(100*briefing.advances/Math.max(1,briefing.advances+briefing.declines))}%`"></div>
+                  </div>
+                  <div class="font-black text-lg tnum text-red-400" x-text="fmt(briefing.declines)"></div>
+                </div>
+                <div class="text-3xs font-bold text-slate-500 mt-1"
+                     x-text="Math.round(100*briefing.advances/Math.max(1,briefing.advances+briefing.declines)) + '% advancing'"></div>
+              </div>
+              <div class="glass glass-acc p-3" :style="accTint" x-show="briefing.outlook">
+                <div class="lbl">The read</div>
+                <div class="text-xs font-semibold leading-snug" x-text="briefing.outlook"></div>
+              </div>
+            </div>
+
+            <!-- the five overnight stories -->
+            <div x-show="at(7,'news')" class="scene">
+              <div class="lbl">Overnight — what moved</div>
+              <template x-for="(n, i) in briefing.news.slice(0,5)" :key="i">
+                <div class="glass p-2.5">
+                  <div class="flex items-start gap-2">
+                    <div class="font-black text-sm tnum shrink-0" :style="`color:${acc}`"
+                         x-text="(i+1)+'.'"></div>
+                    <div class="min-w-0">
+                      <div class="font-bold text-xs leading-snug" x-text="n.headline"></div>
+                      <div class="text-3xs text-slate-400 leading-snug mt-0.5" x-text="n.why"></div>
+                      <div class="flex items-center gap-1 mt-1 flex-wrap">
+                        <template x-for="tk in n.tickers.slice(0,3)" :key="tk">
+                          <span class="pill text-3xs font-black"
+                                :style="`background:${acc}1a;color:${acc}`" x-text="tk"></span>
+                        </template>
+                        <span class="text-3xs text-slate-600 font-semibold" x-text="n.source"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- strongest and weakest sectoral indices -->
+            <div x-show="at(7,'sectors')" class="scene">
+              <div class="grid grid-cols-2 gap-2.5">
+                <!-- Strongest three and weakest three rather than all eleven:
+                     the card cannot hold eleven rows at a legible size, and
+                     the middle of the table is the part nobody acts on. -->
+                <div class="glass glass-g p-3">
+                  <div class="lbl text-emerald-300">In favour</div>
+                  <template x-for="sc in briefing.sectors.slice(0,3)" :key="sc.sector">
+                    <div class="flex items-baseline justify-between gap-2 mt-1">
+                      <span class="font-bold text-2xs truncate" x-text="sc.sector.replace('NIFTY ','')"></span>
+                      <span class="font-black text-sm tnum text-emerald-400" x-text="signed(sc.pct,2)+'%'"></span>
+                    </div>
+                  </template>
+                </div>
+                <div class="glass glass-r p-3">
+                  <div class="lbl text-red-300">Under pressure</div>
+                  <template x-for="sc in briefing.sectors.slice(-3).reverse()" :key="sc.sector">
+                    <div class="flex items-baseline justify-between gap-2 mt-1">
+                      <span class="font-bold text-2xs truncate" x-text="sc.sector.replace('NIFTY ','')"></span>
+                      <span class="font-black text-sm tnum text-red-400" x-text="signed(sc.pct,2)+'%'"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <div class="glass p-3" x-show="briefing.levels_note">
+                <div class="lbl">Levels</div>
+                <div class="text-xs font-semibold leading-snug" x-text="briefing.levels_note"></div>
+              </div>
+            </div>
+
+            <!-- the pivot setups, one side per scene -->
+            <template x-for="grp in [
+                {id:'longs',  side:'LONG',  rows: briefing.longs.slice(0,3),  up:true},
+                {id:'shorts', side:'SHORT', rows: briefing.shorts.slice(0,3), up:false}]"
+                      :key="grp.id">
+              <div x-show="at(7, grp.id)" class="scene">
+                <div class="lbl">
+                  <span x-text="grp.up ? 'Long levels' : 'Short levels'"></span>
+                  — arithmetic on the session's own range
+                </div>
+                <template x-for="r in grp.rows" :key="r.symbol">
+                  <div class="glass p-2.5"
+                       :class="grp.up ? 'glass-g' : 'glass-r'">
+                    <div class="flex items-baseline gap-2">
+                      <span class="font-black text-sm" :style="`color:${acc}`" x-text="r.symbol"></span>
+                      <div class="flex-1"></div>
+                      <!-- Risk/reward earns its place: it is the one number
+                           that says whether the setup is worth taking, and it
+                           is computed from the three below rather than stored. -->
+                      <span class="pill text-3xs font-black"
+                            :style="`background:${acc}1a;color:${acc}`" x-text="'r:r '+r.rr"></span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1.5 mt-1">
+                      <div>
+                        <div class="text-3xs font-bold text-slate-500">ENTRY</div>
+                        <div class="font-black text-sm tnum" x-text="fmt(r.entry)"></div>
+                      </div>
+                      <div>
+                        <div class="text-3xs font-bold text-slate-500">TARGET</div>
+                        <div class="font-black text-sm tnum"
+                             :class="grp.up ? 'text-emerald-400' : 'text-red-400'"
+                             x-text="fmt(r.target)"></div>
+                      </div>
+                      <div>
+                        <div class="text-3xs font-bold text-slate-500">STOP</div>
+                        <div class="font-black text-sm tnum text-slate-300" x-text="fmt(r.stop)"></div>
+                      </div>
+                    </div>
+                    <!-- The invalidation, on the card. A setup without one is
+                         a guess with a number attached. -->
+                    <div class="text-3xs text-slate-500 font-semibold leading-snug mt-1"
+                         x-show="r.invalidates" x-text="'Voids if: ' + r.invalidates"></div>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+          </div>
+          </template>
+
+          <!-- Why the card is empty, when it is. Two different reasons need
+               two different instructions, so the message comes from
+               `cardBlocked` rather than being hardcoded here. -->
+          <template x-if="!cardReady">
+            <div class="h-full grid place-items-center text-center px-6">
+              <div>
+                <div class="text-3xl mb-2 opacity-40">◌</div>
+                <div class="text-xs font-bold text-slate-400" x-text="cardBlocked"></div>
+              </div>
+            </div>
           </template>
           </div>
 

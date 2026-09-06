@@ -18,6 +18,7 @@ const LABELS = {
   reel4:       ['Apply or Skip?', 'अप्लाई या स्किप?', 'అప్లై చేయాలా?'],
   reel5:       ['Final Verdict', 'फाइनल फैसला', 'తుది తీర్పు'],
   reel6:       ['Allotment & Listing', 'अलॉटमेंट व लिस्टिंग', 'అలాట్‌మెంట్ & లిస్టింగ్'],
+  reel7:       ['Market Today', 'आज का बाज़ार', 'నేటి మార్కెట్'],
 
   // issue
   overview:    ['Business Overview', 'बिज़नेस क्या है', 'బిజినెస్ ఏమిటి'],

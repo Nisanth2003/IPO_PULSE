@@ -52,6 +52,11 @@ function studio() {
     a: { gmp: 0, pct: 0, est: 0, total: 0, score: 0 },
     handle: '@IPOPulse',
     hasH2C: typeof html2canvas !== 'undefined',
+    /* Reel 7's record: the newest briefing in the sheet's Market tabs, or
+       null when none has been built yet. Loaded once with the catalogue —
+       it is four small tabs and the same fetch already pulls them. */
+    briefing: null,
+    briefingDays: [],
     hasBackend: false,          // set by probeBackend(); gates the Trigger button
     /* Where the trigger API is. '' means same-origin (a local `ipopulse
        serve`); a URL means the hosted one from config.js. `api` is whichever
@@ -716,9 +721,19 @@ function studio() {
       // has rewritten the file, and a cached parse would hide the new data.
       DATA.refresh();
       try {
-        const [idx, board] = await Promise.all([DATA.index(), DATA.board()]);
+        // The briefing rides along rather than getting its own round trip:
+        // DATA fetches every tab in one call, so this costs nothing beyond
+        // the parse. `catch` rather than `Promise.all` failure — a missing
+        // Market tab must not stop the six IPO reels from loading, which is
+        // exactly what would happen on a sheet that predates reel 7.
+        const [idx, board, brief] = await Promise.all([
+          DATA.index(), DATA.board(),
+          DATA.briefing().catch(() => ({ briefing: null, days: [] })),
+        ]);
         this.catalogue = idx.ipos || [];
         this.boardRows = board.rows || [];
+        this.briefing = brief.briefing || null;
+        this.briefingDays = brief.days || [];
         const saved = localStorage.getItem('ipoPulse.slug');
         const pick = this.catalogue.find((c) => c.slug === saved) || this.catalogue[0];
         if (pick) await this.select(pick.slug);
@@ -833,7 +848,7 @@ function studio() {
 
     // ── reel / scene navigation ────────────────────────────────────────
     get reel() { return REELS[this.reelIndex]; },
-    get scenes() { return scenesFor(this.reel, this.gmpMode, this.ipo); },
+    get scenes() { return scenesFor(this.reel, this.gmpMode, this.ipo, this.briefing); },
     get sceneId() { return (this.scenes[this.scene] || this.scenes[0]).id; },
     get sceneCount() { return this.scenes.length; },
     // ── theme ──────────────────────────────────────────────────────────
@@ -920,6 +935,25 @@ function studio() {
 
     /** True when reel r's scene s is the one on screen. */
     at(r, id) { return this.reel.n === r && this.sceneId === id; },
+
+    /* Can the card draw anything at all right now?
+     *
+     * Reels 1-6 need a selected IPO; reel 7 needs a briefing and ignores the
+     * IPO entirely. The card used to gate its whole scene block on
+     * `ipo && d`, so a market reel rendered an empty frame no matter what was
+     * in the sheet. */
+    get cardReady() {
+      return this.reel.market ? !!this.briefing : !!(this.ipo && this.d);
+    },
+    /* What the card says when it cannot draw. Named rather than inlined
+       because the two reasons need different instructions. */
+    get cardBlocked() {
+      if (this.cardReady) return '';
+      if (!this.reel.market) return 'Pick an IPO from the dropdown.';
+      return this.briefingDays.length
+        ? `No briefing for today yet. The newest stored is ${this.briefingDays[this.briefingDays.length - 1]}.`
+        : 'No briefing in the sheet yet. Build one with:  ipopulse market --write';
+    },
 
     go(reelIndex, scene = 0) {
       this.reelIndex = reelIndex;
@@ -1864,7 +1898,7 @@ function studio() {
     key(e) {
       if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
       const k = e.key;
-      if (k >= '1' && k <= '6') { this.go(+k - 1, 0); return; }
+      if (k >= '1' && k <= '7') { this.go(+k - 1, 0); return; }
       /* IPO is the level above reel, so Shift+↑/↓ sits one modifier above the
          plain ↑/↓ that moves reel. Checked before the switch because the
          unshifted arrows are handled there and would otherwise win. */
@@ -2585,6 +2619,10 @@ function studio() {
     },
     /** State of one reel, for the tab dots. `r` is a REELS entry. */
     reelReady(r) {
+      // The market reel is judged on the briefing and the clock, not on the
+      // selected IPO's calendar — `this.ready` is a per-IPO roll-up and has
+      // no entry for it.
+      if (r && r.market) return marketReelState(this.briefing, new Date(this.now));
       const rr = this.ready;
       return rr ? rr.reels[r.n] : null;
     },

@@ -288,6 +288,69 @@ function reelState(ipo, reel, derived, now = new Date()) {
   return { reel, state, urgent, window: win, ...dat };
 }
 
+/* ── reel 7 ────────────────────────────────────────────────────────────
+ *
+ * Deliberately NOT an entry in R_WINDOWS. Every window in that table is
+ * arithmetic on one issue's calendar, and a market briefing has no issue —
+ * its window is a clock: built this morning, dead at the opening auction.
+ *
+ * 09:15 IST is the hard edge, and it is the same constant the backend uses to
+ * refuse a stale briefing. A pre-market call read out after the market has
+ * opened is not a stale reel, it is a wrong one: the viewer can already see
+ * what the levels did.
+ *
+ * `urgent` (the blinking dot) is true for the whole session because that is
+ * literally true here — this reel expires within hours of being made, every
+ * single day. The IPO reels blink only in their last 24 hours; for this one
+ * the last 24 hours is all there is.
+ */
+function marketReelState(briefing, now = new Date()) {
+  const missing = [];
+  if (!briefing) {
+    return { reel: 7, state: 'blocked', urgent: false, missing: ['briefing'],
+             window: { state: 'live', from: null, to: null,
+                       starts: 'a briefing is built',
+                       ends: 'the market opens at 09:15' } };
+  }
+  // IST, explicitly. The studio may be open on a machine in any timezone and
+  // the deadline belongs to the exchange, not to the viewer's clock.
+  const day = String(briefing.date || '').slice(0, 10);
+  const open = new Date(`${day}T09:15:00+05:30`);
+  // Midnight IST on the briefing's own day, never the stored timestamp.
+  //
+  // `briefing.at` is when the row was WRITTEN, and a briefing built by hand
+  // in the afternoon is stamped in the afternoon — after its own 09:15
+  // deadline. Using it made `from` later than `to`, so the window ran
+  // backwards and the card could claim a reel was both early and expired.
+  // The window belongs to the morning it describes, not to the minute
+  // somebody happened to generate it.
+  const built = new Date(`${day}T00:00:00+05:30`);
+
+  if (!briefing.nifty) missing.push('index levels');
+  if (!(briefing.news || []).length) missing.push('overnight news');
+  if (!(briefing.longs || []).length && !(briefing.shorts || []).length) {
+    missing.push('setups');
+  }
+
+  const win = { from: built, to: open,
+                starts: 'the briefing is built',
+                ends: 'the market opens at 09:15',
+                state: now > open ? 'expired' : 'live' };
+
+  // A briefing for a day with no session never expires into uselessness the
+  // way a live one does — there are no levels to be proven wrong by — so it
+  // stays recordable and simply says so on the card.
+  if (!briefing.trading) win.state = 'live';
+
+  let state = 'ready';
+  if (win.state === 'expired') state = 'expired';
+  else if (missing.includes('index levels')) state = 'blocked';
+  else if (missing.length) state = 'partial';
+
+  return { reel: 7, state, urgent: state === 'ready' && briefing.trading,
+           missing, window: win };
+}
+
 /** Every reel for one IPO, plus the roll-up the dropdown shows. */
 function readinessReport(ipo, derived, now = new Date()) {
   const reels = {};

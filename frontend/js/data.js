@@ -19,7 +19,15 @@
  */
 
 const TABS = ['IPOs', 'Financials', 'GMP', 'Subscription',
-              'Lists', 'I18n', 'Benchmarks', 'Sources', 'Published'];
+              'Lists', 'I18n', 'Benchmarks', 'Sources', 'Published',
+              // Reel 7's four. Separate from the IPO tabs on purpose: a
+              // briefing is keyed by DATE, not by slug, so it cannot join the
+              // record rebuild below — see `briefing()`.
+              'Market', 'MarketNews', 'MarketSectors', 'MarketSetups'];
+
+/* The Market tabs carry a header row (tables.to_market_tables writes the
+ * column list as row 0), so SHEET.table() keys them by name like every other
+ * tab and there is no positional contract to keep in step. */
 
 /* Coercions, mirroring models.py's _f / _d / _list. */
 const _f = (v, dflt = 0) => {
@@ -37,6 +45,7 @@ const _nums = (arr) => arr.filter(v => _s(v).trim() !== '').map(v => _f(v));
 
 const DATA = {
   _loading: null,
+  _raw: null,
 
   /**
    * Drop the parsed copy so the next read re-fetches.
@@ -47,6 +56,7 @@ const DATA = {
    */
   refresh() {
     this._loading = null;
+    this._raw = null;
   },
 
   /** Fetch and parse every tab once per page load. */
@@ -54,6 +64,11 @@ const DATA = {
     if (!this._loading) {
       this._loading = (async () => {
         const book = await SHEET.all(TABS);
+        // Kept, not discarded. `_rebuild` folds the IPO tabs into records
+        // keyed by slug and drops everything else; the Market tabs are keyed
+        // by DATE and have no slug to fold into, so `briefing()` needs the
+        // rows as fetched. One fetch still serves both.
+        this._raw = book;
         return this._rebuild(book);
       })().catch(err => {
         this._loading = null;            // let a retry actually retry
@@ -245,6 +260,96 @@ const DATA = {
   /** All tracked IPOs, one row each, liveliest first. */
   async board() {
     return { schema: 1, rows: await this._rows() };
+  },
+
+  /* ── reel 7: the pre-market briefing ───────────────────────────────
+   *
+   * Keyed by ISO date rather than by slug, because a briefing is a statement
+   * about one morning and there is no company to hang it on. `briefing()`
+   * returns the NEWEST stored day, which is what the studio wants: the reel
+   * is recorded the morning it was built, and `readiness` expires it at
+   * 09:15 IST rather than this function guessing.
+   *
+   * Numbers are coerced here and not in the card, so a blank cell reaches the
+   * scene as 0 rather than as the string "" — the same rule `_f` enforces for
+   * every IPO field.
+   */
+  async briefing(day) {
+    await this._load();                 // fills this._raw
+    const rows = (name) => SHEET.table(this._raw.get(name));
+
+    const days = {};
+    for (const r of rows('Market')) {
+      const date = _d(r.date);
+      if (!date) continue;
+      days[date] = {
+        date,
+        // `trading` and `partial` are written as text by the Python side.
+        trading: !/^(false|0|no)$/i.test(_s(r.trading).trim()),
+        why_closed: _s(r.why_closed),
+        at: _s(r.at),
+        nifty: _f(r.nifty), nifty_pct: _f(r.nifty_pct),
+        nifty_prev: _f(r.nifty_prev),
+        banknifty: _f(r.banknifty), banknifty_pct: _f(r.banknifty_pct),
+        advances: _f(r.advances), declines: _f(r.declines),
+        unchanged: _f(r.unchanged),
+        bias: _s(r.bias) || 'flat',
+        outlook: _s(r.outlook), levels_note: _s(r.levels_note),
+        model: _s(r.model), partial: _s(r.partial), notes: _s(r.notes),
+        news: [], sectors: [], longs: [], shorts: [],
+      };
+    }
+
+    for (const r of rows('MarketNews')) {
+      const b = days[_d(r.date)];
+      if (!b) continue;
+      b.news.push({
+        idx: _f(r.idx), headline: _s(r.headline), body: _s(r.body),
+        why: _s(r.why), sector: _s(r.sector),
+        // Stored comma-separated; the card wants chips.
+        tickers: _s(r.tickers).split(',').map(t => t.trim()).filter(Boolean),
+        source: _s(r.source), url: _s(r.url), image: _s(r.image),
+        at: _s(r.at),
+      });
+    }
+    for (const r of rows('MarketSectors')) {
+      const b = days[_d(r.date)];
+      if (!b) continue;
+      b.sectors.push({ sector: _s(r.sector), pct: _f(r.pct),
+                       last: _f(r.last), stance: _s(r.stance) });
+    }
+    for (const r of rows('MarketSetups')) {
+      const b = days[_d(r.date)];
+      if (!b) continue;
+      const row = {
+        side: _s(r.side).toLowerCase(), rank: _f(r.rank),
+        symbol: _s(r.symbol), last: _f(r.last), entry: _f(r.entry),
+        target: _f(r.target), stop: _f(r.stop), pivot: _f(r.pivot),
+        r1: _f(r.r1), s1: _f(r.s1), pct: _f(r.pct),
+        close_pos: _f(r.close_pos), reason: _s(r.reason),
+        invalidates: _s(r.invalidates),
+      };
+      (row.side === 'short' ? b.shorts : b.longs).push(row);
+    }
+
+    for (const b of Object.values(days)) {
+      b.news.sort((x, y) => x.idx - y.idx);
+      // Strongest first, which is the order the sector strip reads in.
+      b.sectors.sort((x, y) => y.pct - x.pct);
+      b.longs.sort((x, y) => x.rank - y.rank);
+      b.shorts.sort((x, y) => x.rank - y.rank);
+      // Risk/reward per setup, computed here rather than stored: it is
+      // arithmetic on three numbers already on the row, and a stored copy
+      // could disagree with them after a hand edit.
+      for (const row of [...b.longs, ...b.shorts]) {
+        const risk = Math.abs(row.entry - row.stop);
+        row.rr = risk ? +(Math.abs(row.target - row.entry) / risk).toFixed(2) : 0;
+      }
+    }
+
+    const stored = Object.keys(days).sort();
+    const pick = day && days[day] ? day : stored[stored.length - 1];
+    return { schema: 1, days: stored, briefing: pick ? days[pick] : null };
   },
 
   /** Full record: { ipo, derived }. */

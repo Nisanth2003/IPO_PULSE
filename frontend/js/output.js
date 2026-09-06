@@ -401,6 +401,9 @@ const OUTPUT = {
     // the page. Alpine swallows them and the numbers fill in on the next
     // render, which is why it was invisible; it still buried any real error in
     // ten identical ones.
+    // Reel 7 has no company: it is narrated from the briefing, so it must be
+    // allowed past the guard that protects every ipo.* dereference below.
+    if (REELS[n - 1] && REELS[n - 1].market) return this.marketSegments();
     if (!ipo || !d) return {};
     const iss = ipo.issue, g = d.gmp, s = d.subscription, fin = d.financials;
     const dt = (x) => this.fmtDate(x, true);
@@ -620,10 +623,121 @@ listing: [
     return {};
   },
 
+  /* ── reel 7: the pre-market briefing, spoken ────────────────────────
+   *
+   * Same voice as the IPO reels and the same rule about numbers: every figure
+   * is spelled into words before it reaches a TTS engine, because "23,914.45"
+   * comes back as digits read one at a time. `voNum` already does that.
+   *
+   * The judgement lines are chosen by the data exactly as they are on the IPO
+   * side. A down day with narrow breadth is not the same story as a down day
+   * with wide breadth, and a narrator that reads both the same way is
+   * decoration. Nothing here invents a number: bias, breadth, sectors and
+   * setups all come off the sheet, and the setups' levels were arithmetic on
+   * the session's own high, low and close before they were ever stored.
+   */
+  marketSegments() {
+    const b = this.briefing;
+    if (!b) return {};
+    const N = (x) => this.voNum(x);
+    const pct = (x) => this.voPct(x);
+    const dt = (x) => this.fmtDate(x, true);
+
+    const total = (Number(b.advances) || 0) + (Number(b.declines) || 0);
+    const advPct = total ? Math.round(100 * b.advances / total) : 0;
+    // Breadth is the sentence that stops a one-index story being mistaken for
+    // the whole market: an index can close green on five heavyweights while
+    // two thirds of the board falls.
+    const breadth = !total
+      ? ''
+      : advPct >= 60
+        ? `And the breadth agrees with the index: ${N(b.advances)} stocks advancing against ${N(b.declines)} declining, so the buying was broad rather than a handful of heavyweights.`
+        : advPct <= 40
+          ? `But look at the breadth before you read too much into the index: ${N(b.advances)} advancing against ${N(b.declines)} declining. That is a market where most things fell, whatever the headline number did.`
+          : `Breadth is close to even — ${N(b.advances)} up, ${N(b.declines)} down — which is a market with no conviction either way.`;
+
+    const strong = (b.sectors || []).slice(0, 3);
+    const weak = (b.sectors || []).slice(-3).reverse();
+    const nameOf = (x) => String(x.sector || '').replace('NIFTY ', '');
+
+    // No `reason` in the spoken line: it is on the card, and reading it out
+    // was 40 of the 119 seconds this scene used to take. Entry, target, stop
+    // and the multiple are the four numbers a viewer cannot get from a glance.
+    const setupLine = (r) =>
+      `${r.symbol}, ${N(r.entry)} to ${N(r.target)}, stop ${N(r.stop)} — ${N(r.rr)} to one.`;
+
+    // TWO a side, not three. The card still shows three; a voice reading six
+    // setups is 90 seconds on its own, which is a whole Short spent on the
+    // last scene.
+    const longs = (b.longs || []).slice(0, 2);
+    const shorts = (b.shorts || []).slice(0, 2);
+
+    return {
+mkthook: !b.trading
+  ? `${dt(b.date)}, and there is no session today — ${b.why_closed || 'the market is shut'}. So this is a look at where things stand rather than a plan for the morning.`
+  : `Pre-market, ${dt(b.date)}. Here is what happened overnight and what I am watching at the open.`,
+
+indices: [
+  `NIFTY closed at ${N(b.nifty)}, ${pct(b.nifty_pct)}. BANK NIFTY at ${N(b.banknifty)}, ${pct(b.banknifty_pct)}.`,
+  breadth,
+  // The model's read, spoken as an opinion because that is what it is.
+  // First sentence only. The full paragraph is on the card, and read aloud it
+  // was a third of the reel — a summary of a summary, in a slower medium.
+  b.outlook
+    ? `The way I read it: ${(String(b.outlook).replace(/\s+/g, ' ').trim().split(/(?<=\.)\s+/)[0] || '').trim()}`
+    : '',
+].filter(Boolean).join(' '),
+
+// The first three get their "why", the last two are named and left on the
+// card. Reading all five with reasons ran 45 seconds; the top three are the
+// ones the market is actually trading on.
+news: (b.news || []).length
+  ? [`${(b.news || []).length === 5 ? 'Five' : (b.news || []).length} things moved overnight.`,
+     ...(b.news || []).slice(0, 3).map((n, i) =>
+       `${i + 1}. ${String(n.headline).replace(/\.$/, '')} — ${String(n.why || '').replace(/\.$/, '')}.`),
+     ...((b.news || []).length > 3
+       ? [`Also on the list: ${this.voList((b.news || []).slice(3, 5)
+            .map((n) => String(n.headline).replace(/\.$/, '')))}.`]
+       : []),
+    ].join(' ')
+  : '',
+
+sectors: [
+  strong.length
+    ? `Sectors in favour: ${this.voList(strong.map((x) => `${nameOf(x)} ${pct(x.pct)}`))}.`
+    : '',
+  weak.length
+    ? `Under pressure: ${this.voList(weak.map((x) => `${nameOf(x)} ${pct(x.pct)}`))}.`
+    : '',
+  b.levels_note ? String(b.levels_note).replace(/\s+/g, ' ').trim() : '',
+].filter(Boolean).join(' '),
+
+// The provenance line rides with the first side rather than being repeated:
+// it is the most important sentence in the reel and it only needs saying once.
+longs: longs.length
+  ? [`Now the levels, and every number here is arithmetic on the session's own high, low and close — no model picked a price.`,
+     `Long side: ${longs.map((r) => setupLine(r)).join(' ')}`].join(' ')
+  : '',
+
+// The disclaimer lands here, on the last scene of the reel, which is where a
+// viewer who watched to the end will hear it.
+shorts: shorts.length
+  ? [`Short side: ${shorts.map((r) => setupLine(r)).join(' ')}`,
+     `The rest are on screen with their stops. None of this is a recommendation — intraday trading is the fastest way to lose money there is, so size small and honour the stop.`].join(' ')
+  : '',
+    };
+  },
+
   /* The sign-off for this IPO and this reel — see OUTROS. Seeded on both,
    * so the six reels of one issue do not all close the same way. */
   voOutro(n) {
-    const seed = `${(this.ipo && this.ipo.company) || 'board'}|${n}`;
+    // Reel 7 is keyed on its DATE, not on a company: there is no company, and
+    // seeding on the selected IPO would make the same morning's briefing sign
+    // off differently depending on which row happened to be selected.
+    const who = (REELS[n - 1] && REELS[n - 1].market)
+      ? `market|${(this.briefing && this.briefing.date) || ''}`
+      : (this.ipo && this.ipo.company) || 'board';
+    const seed = `${who}|${n}`;
     return outroFor(seed, LANG_INDEX[this.lang] ?? 0);
   },
 
@@ -649,7 +763,7 @@ listing: [
   sceneIdsFor(n) {
     const reel = REELS[n - 1];
     if (!reel) return [];
-    return scenesFor(reel, this.gmpMode, this.ipo).map((sc) => sc.id);
+    return scenesFor(reel, this.gmpMode, this.ipo, this.briefing).map((sc) => sc.id);
   },
 
   /* The flat script the Script panel has always shown: every segment, in
@@ -902,6 +1016,35 @@ ${this.hasRecos ? `రిటైల్ — ${this.t('r_' + ipo.analysis.reco_reta
 ఇష్యూ ${dt(ipo.dates.close)}న ${ipo.dates.close_time}కి ముగుస్తుంది. కట్-ఆఫ్‌కి ముందే అప్లై చేయండి.
 ఇది పెట్టుబడి సలహా కాదు — మీరే పరిశోధించండి.`,
       ],
+      7: (() => {
+        const b = this.briefing;
+        if (!b) return ['', '', ''];
+        const sec = (b.sectors || []);
+        const top = sec.slice(0, 3).map((x) => `${String(x.sector).replace('NIFTY ', '')} ${x.pct}%`).join(', ');
+        const bot = sec.slice(-3).reverse().map((x) => `${String(x.sector).replace('NIFTY ', '')} ${x.pct}%`).join(', ');
+        const setup = (r) => `${r.symbol} ${r.entry} → ${r.target} (SL ${r.stop})`;
+        const lg = (b.longs || []).slice(0, 3).map(setup).join('; ');
+        const sh = (b.shorts || []).slice(0, 3).map(setup).join('; ');
+        return [
+`Market today, ${dt(b.date)}. NIFTY ${f(b.nifty)}, ${b.nifty_pct}%. BANK NIFTY ${f(b.banknifty)}, ${b.banknifty_pct}%.
+Advances ${b.advances}, declines ${b.declines}.
+In favour: ${top}. Under pressure: ${bot}.
+Long levels: ${lg}. Short levels: ${sh}.
+Every level is arithmetic on yesterday's range. Not investment advice.`,
+
+`आज का बाज़ार, ${dt(b.date)}। NIFTY ${f(b.nifty)}, ${b.nifty_pct}%। BANK NIFTY ${f(b.banknifty)}, ${b.banknifty_pct}%।
+चढ़े ${b.advances}, गिरे ${b.declines}।
+मज़बूत: ${top}। दबाव में: ${bot}।
+लॉन्ग लेवल: ${lg}। शॉर्ट लेवल: ${sh}।
+हर लेवल कल की रेंज का गणित है। यह निवेश सलाह नहीं है।`,
+
+`నేటి మార్కెట్, ${dt(b.date)}. NIFTY ${f(b.nifty)}, ${b.nifty_pct}%. BANK NIFTY ${f(b.banknifty)}, ${b.banknifty_pct}%.
+పెరిగినవి ${b.advances}, తగ్గినవి ${b.declines}.
+బలంగా: ${top}. ఒత్తిడిలో: ${bot}.
+లాంగ్ లెవెల్స్: ${lg}. షార్ట్ లెవెల్స్: ${sh}.
+ప్రతి లెవెల్ నిన్నటి రేంజ్‌పై లెక్క. ఇది పెట్టుబడి సలహా కాదు.`,
+        ];
+      })(),
       6: [
 `${ipo.company} allotment ${d.listing.status === 'out' ? 'is OUT — check right now' : `is expected on ${dt(ipo.dates.allotment)}`}. Registrar is ${iss.registrar}.
 How to check in 10 seconds: ${this.steps.join('. ')}.
