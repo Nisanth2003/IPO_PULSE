@@ -1,0 +1,236 @@
+name: Watchdog
+
+# The regular sweep, and the only job here whose OUTPUT is the point rather
+# than a side effect on the sheet.
+#
+# `ipopulse check` re-runs the insertion-time rules from invariants.py against
+# what is already stored — those only ever see a record at the moment it is
+# written, so a row that predates a rule has never been checked by it — and
+# adds the checks that need a clock: staleness, self-contradictions, and our
+# Gemini spend against the free-tier caps.
+#
+# ── Why an issue and not just a red run ───────────────────────────────────
+#
+# A failed scheduled run emails the repo owner, once, with a subject line that
+# says "Watchdog failed" and nothing about what. And after a few weeks of a
+# workflow that fails on Sundays because nothing is open, that email stops
+# being read. So this opens ONE issue, keeps updating the same one while the
+# problem persists, @-mentions the owner so it lands as a notification, and
+# closes it when a later run comes back clean. One thread per outage, and the
+# thread's own history shows whether the thing is getting better or worse.
+#
+# ── What goes in that issue, given the repo is public ─────────────────────
+#
+# `watch.markdown` writes the body, and it carries a severity, the check that
+# fired, the slug, and the rule — no figures. The slugs and the sheet behind
+# them are already public (the studio reads it keylessly and gate.js says so
+# plainly), so this widens nothing; a table of premiums and subscription
+# numbers would have, for no gain.
+#
+# ── Timing ────────────────────────────────────────────────────────────────
+#
+# 09:30 IST is after the 08:00 briefing and before bidding opens at 10:00, so
+# the morning sweep judges a day the pipeline has finished preparing and there
+# is still time to fix something before the day's first reel is recorded.
+# 21:30 IST is after the 21:15 GMP read and before the 23:45 settle, which is
+# the other moment the data has just moved.
+#
+# Weekends included, deliberately, unlike the briefing: a GMP that stopped
+# arriving on Saturday is exactly the kind of thing that is discovered on
+# Monday afternoon otherwise.
+
+on:
+  schedule:
+    - cron: '0 4 * * *'     # 09:30 IST — after the briefing, before bidding
+    - cron: '0 16 * * *'    # 21:30 IST — after the evening GMP read
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Include the grade check (slow — hits InvestorGain per IPO)'
+        type: boolean
+        required: false
+        default: true
+
+# Read the repo, write issues. Nothing else — this job never touches the sheet,
+# so it needs no more than that, and `contents: read` keeps it honest.
+permissions:
+  contents: read
+  issues: write
+
+# Never overlap the data chain. The sweep only reads, but it reads the whole
+# sheet, and `sheets.write_records` clears a tab before rewriting it — so a
+# sweep that lands inside that window sees an empty store and reports the
+# entire catalogue as missing. `monitor` already guards against recording that
+# as a fingerprint; this stops it being reported as an outage at all.
+concurrency:
+  group: ipopulse-data
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      status: ${{ steps.run.outputs.status }}
+      headline: ${{ steps.run.outputs.headline }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - run: pip install -r backend/requirements.txt
+
+      # Same guard as schedule.yml: the store IS the sheet, so without the key
+      # there is nothing to check and every finding below would be an artefact
+      # of a missing credential rather than a fact about the data.
+      - name: Check the service-account secret
+        shell: bash
+        env:
+          SA: ${{ secrets.GOOGLE_SHEETS_KEY }}
+        run: |
+          if [ -z "$SA" ]; then
+            echo "::error::GOOGLE_SHEETS_KEY is not set. The store is a Google Sheet."
+            exit 1
+          fi
+
+      - name: Sweep
+        id: run
+        working-directory: backend
+        continue-on-error: true          # findings are the output, not a failure
+        env:
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL:      ${{ vars.GEMINI_MODEL }}
+          GOOGLE_SHEETS_ID:  ${{ secrets.GOOGLE_SHEETS_ID }}
+          GOOGLE_SHEETS_KEY: ${{ secrets.GOOGLE_SHEETS_KEY }}
+          GOOGLE_SHEETS_TAB: ${{ vars.GOOGLE_SHEETS_TAB }}
+          PYTHONIOENCODING:  utf-8
+        run: |
+          set -uo pipefail
+          # The scheduled runs skip `grade`: it calls InvestorGain once per
+          # tracked IPO, and a watchdog that takes four minutes twice a day is
+          # a watchdog that gets switched off. A manual dispatch defaults to
+          # including it, which is when somebody is actually looking.
+          SKIP=""
+          if [ "${{ github.event_name }}" = "schedule" ] || \
+             [ "${{ inputs.full }}" = "false" ]; then
+            SKIP="--skip grade"
+          fi
+
+          # ONE sweep. The body and the title are both rendered from its
+          # JSON rather than from a second run — two sweeps minutes apart can
+          # legitimately disagree (a GMP lands, a job finishes), and an issue
+          # whose title says 1 error over a body listing 2 is how somebody
+          # stops trusting the signal. It also halves the sheet reads.
+          python -m ipopulse.cli check $SKIP --json > sweep.json
+          rc=$?
+
+          RENDER="import json; from ipopulse import watch; r=json.load(open('sweep.json'))"
+          python -c "$RENDER; print(watch.markdown(r))" > body.md
+          HEAD=$(python -c "$RENDER; print(watch.headline(r))")
+
+          echo "status=$([ $rc -eq 0 ] && echo clean || echo findings)" >> "$GITHUB_OUTPUT"
+          echo "headline=$HEAD" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Watchdog — $HEAD"
+            echo
+            cat body.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The sweep's own JSON, kept. When a finding turns out to be wrong, the
+      # question is always "what did it actually see", and the run log has been
+      # summarised by then.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sweep-${{ github.run_id }}
+          path: |
+            backend/sweep.json
+            backend/body.md
+          retention-days: 30
+          if-no-files-found: warn
+
+      # ── tag us ──────────────────────────────────────────────────────────
+      #
+      # One issue, reused. `github-script` rather than the gh CLI because the
+      # body is a file and the search-then-update logic is three API calls;
+      # shelling out to gh for that is more quoting than logic.
+      - name: Open or update the watchdog issue
+        if: steps.run.outputs.status == 'findings'
+        uses: actions/github-script@v7
+        env:
+          HEADLINE: ${{ steps.run.outputs.headline }}
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('backend/body.md', 'utf8');
+            const LABEL = 'watchdog';
+            const owner = context.repo.owner, repo = context.repo.repo;
+
+            // The label has to exist before it can be filtered on, and a
+            // fresh clone of this repo has never had one.
+            try {
+              await github.rest.issues.createLabel({
+                owner, repo, name: LABEL, color: 'B91C1C',
+                description: 'Opened by the scheduled sweep',
+              });
+            } catch (e) { /* already there */ }
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL, per_page: 10,
+            });
+
+            // @-mention the repo owner in the body, not the title: a mention
+            // is what turns this into a notification rather than something
+            // you find next time you open the Issues tab.
+            const title = `Watchdog: ${process.env.HEADLINE}`;
+            const full = `@${owner}\n\n${body}\n\n` +
+              `<sub>Run: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}</sub>`;
+
+            if (open.length) {
+              const n = open[0].number;
+              await github.rest.issues.update({ owner, repo, issue_number: n, title });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: n, body: full });
+              core.notice(`Updated issue #${n}`);
+            } else {
+              const { data: made } = await github.rest.issues.create({
+                owner, repo, title, body: full, labels: [LABEL],
+              });
+              core.notice(`Opened issue #${made.number}`);
+            }
+
+      # Closing it is as important as opening it. An issue that stays open
+      # after the problem clears teaches you to ignore the label.
+      - name: Close the watchdog issue when clean
+        if: steps.run.outputs.status == 'clean'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner, repo = context.repo.repo;
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: 'watchdog', per_page: 10,
+            });
+            for (const issue of open) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: 'Clean sweep — closing. '
+                    + `<sub>${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}</sub>`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number, state: 'closed',
+              });
+              core.notice(`Closed issue #${issue.number}`);
+            }
+
+      # Last, so the steps above always run. This is what makes the run itself
+      # red in the Actions list, which is the second signal after the issue.
+      - name: Fail the run if anything was found
+        if: steps.run.outputs.status == 'findings'
+        run: |
+          echo "::error::${{ steps.run.outputs.headline }} — see the issue"
+          exit 1

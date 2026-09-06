@@ -19,6 +19,14 @@ secrets/
 *credentials*.json
 portfolio-*-*.json
 
+# The YouTube OAuth client, which `ipopulse publish --authorise` reads from
+# backend/client_secret.json. None of the rules above match that name — not
+# *credentials*.json, not *service-account*.json — so without this line the
+# secret ships with the repo. The refresh token it yields is already covered
+# (backend/data/cache/ below), and that one is the channel-takeover half.
+client_secret*.json
+youtube_pulse.json
+
 # Everything generated: the formatted Excel reports, the pre-change snapshot
 # store.backup() writes, and the JSON dump of the sheet taken before it was
 # restructured. All of it is data, and the data lives in the Google Sheet —
@@ -60,12 +68,17 @@ frontend/js/config.js
 # escape hatch open for the day one file in here does need tracking.
 docs/*
 
-# The exception the rule above was shaped to allow. This one is not a working
-# document — it is the systems overview somebody reads to understand how the
-# pipeline fits together, so it has to be visible in the repo and on GitHub
-# rather than sitting on one machine's disk.
-!docs/HOW-IT-WORKS.html
-!docs/RUNNING.md
+# No exceptions any more. There used to be two — HOW-IT-WORKS.html and
+# RUNNING.md were negated back in so they showed up on GitHub. They are out
+# again on purpose: between them they describe the whole operating procedure,
+# and USING-THE-STUDIO.html now names where the password lives and how the
+# upload path works. That is operator documentation for one person, not a
+# public README, so docs/ is local-only in full.
+#
+# NOTE: .gitignore does not untrack a file git already knows about. The two
+# files above were committed, so they stay in the repo (and in its history)
+# until `git rm --cached docs/HOW-IT-WORKS.html docs/RUNNING.md` is committed
+# and pushed. Ignoring them only stops FUTURE edits from being staged.
 
 # Narration mirrored in from the "audio" Release by publish.yml, so the site
 # can fetch it same-origin (Release assets send no CORS header — see cli.py

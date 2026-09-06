@@ -59,6 +59,14 @@ function studio() {
        below is prefixed with. */
     apiBase: (typeof API_BASE !== 'undefined' && API_BASE) || '',
     api: '',
+    /* A backend answered but reported `auth: false` — no
+       IPOPULSE_TRIGGER_PASSWORD, so no token can ever be issued and every
+       endpoint that does anything is unreachable.
+       Recorded rather than ignored: `hasBackend` stays false (correctly — none
+       of the buttons can work), but without this the page had no way to say
+       WHY, and "the server is running and the buttons are missing" is the
+       single most confusing state this page has. See `backendNote`. */
+    backendNoAuth: false,
     /* The hosted API is password-protected the same way the local panel is,
        and the token it returns lives only in this tab. */
     run: { open: false, pw: '', token: '', busy: false, msg: '',
@@ -275,12 +283,49 @@ function studio() {
           .then((r) => (r.ok ? r.json() : null))
           .then((d) => {
             if (d && d.ok && d.auth) { this.hasBackend = true; this.api = bases[i]; }
-            else tryNext(i + 1);
+            else {
+              // Answered, but with no password configured. Remember it so the
+              // header can say so instead of just hiding every button.
+              if (d && d.ok) this.backendNoAuth = true;
+              tryNext(i + 1);
+            }
           })
           .catch(() => tryNext(i + 1));
       };
       tryNext(0);
     },
+
+    /* ── how the page describes its own connection ──────────────────────
+     *
+     * The studio and the backend are one product on one port, and until now
+     * the page never said which backend it had reached. On a machine with a
+     * local server, a VM, and a published Pages copy all in play, "is this
+     * card being drawn next to a backend that can render and upload, or not"
+     * is the first question — and it was answerable only by clicking a button
+     * and seeing what happened.
+     */
+    get backendHost() {
+      if (!this.hasBackend) return '';
+      try {
+        return new URL(this.api || location.origin).host;   // host:port
+      } catch (_) { return this.api || location.host; }
+    },
+    get backendNote() {
+      if (this.hasBackend) {
+        return (this.api ? 'Hosted backend' : 'Local backend') + ' at '
+             + this.backendHost + (this.run.token ? ' · signed in' : ' · not signed in');
+      }
+      if (this.backendNoAuth) {
+        return 'A backend answered but IPOPULSE_TRIGGER_PASSWORD is not set, so '
+             + 'no token can be issued — voice, render and upload are unreachable. '
+             + 'Set it in .env and restart the server.';
+      }
+      return 'No backend on this origin. Data still loads from the sheet; '
+           + 'voice, render and upload need `ipopulse serve`.';
+    },
+    /* The API explorer lives on the backend, so it follows whichever one
+       answered rather than assuming same-origin. */
+    get apiDocsUrl() { return (this.api || '') + '/api-docs'; },
 
     /* ── running jobs against the trigger API ──────────────────────────
      *
@@ -340,8 +385,12 @@ function studio() {
         y.status = await this._apiCall('/api/youtube/status');
       } catch (e) {
         y.status = null;
+        // Names the button as it is actually labelled before a token exists.
+        // The old copy said "Run a job", which is what it says AFTER you sign
+        // in — and on a same-origin backend that button used not to exist at
+        // all, so this message pointed at nothing. See the header markup.
         y.msg = /signed in/i.test(e.message)
-          ? 'Sign in first — open "Run a job" and enter the password.'
+          ? 'Not signed in — press ⚡ Sign in at the top right, then reopen this.'
           : e.message;
         y.ok = false;
       }

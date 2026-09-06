@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from . import usage
 from .store import CACHE_DIR
 
 # Google retires model ids on a schedule, and a retired one fails with a 404
@@ -51,6 +52,12 @@ _EXCLUDE = ("tts", "image", "robotics", "computer-use", "deep-research",
 #     gemini-*-flash-lite  15 RPM   250K TPM   500 RPD
 #     gemma-4-*            30 RPM    16K TPM  14400 RPD
 #
+# Those figures now live in `usage.FAMILIES`, which is also what enforces them
+# — this copy is here because it is the reason for the ranking below. Change
+# them there. Current lineup on this key (Sept 2026): gemini-3.5-flash-lite,
+# gemini-3.1-flash-lite, gemma-4-31b, gemma-4-26b. `_rank` reads the version
+# out of the id, so 3.5 sorts above 3.1 with no edit needed when 3.6 lands.
+#
 # Observed peak on this key was 847 TPM against 250K — 0.3% of the token
 # budget — while sitting at 10 of 20 daily requests. This project makes many
 # small calls (one per IPO per language), so it runs out of *requests* roughly
@@ -66,6 +73,23 @@ _EXCLUDE = ("tts", "image", "robotics", "computer-use", "deep-research",
 _TIER = (("flash-lite", 3), ("flash", 2), ("gemma", 1), ("pro", 0))
 
 MODEL_CACHE_HOURS = 12
+
+
+def _tokens_of(resp: Any) -> int:
+    """Total tokens the API says it billed, or 0 when it does not say.
+
+    Defensive on purpose: usage_metadata is absent on some model families and
+    the field has been renamed once already, and a ledger write must never be
+    the thing that kills a working generation.
+    """
+    meta = getattr(resp, "usage_metadata", None)
+    if not meta:
+        return 0
+    for attr in ("total_token_count", "total_tokens"):
+        got = getattr(meta, attr, None)
+        if isinstance(got, int):
+            return got
+    return 0
 
 
 def _rank(name: str) -> tuple:
@@ -383,10 +407,31 @@ class Gemini:
 
         for model in self._candidates():
             tried.append(model)
+            # Wait for a slot BEFORE spending the call, not after a 429.
+            # A 429 here is not an error the caller ever sees: the `continue`
+            # below treats quota as a fact about one model and walks down to
+            # the next candidate, so an RPM breach silently demotes the run to
+            # a weaker model and the only visible symptom is that the writing
+            # got worse. Sleeping a couple of seconds is cheaper than that, and
+            # far cheaper than the retirement-vs-quota guessing game the
+            # fallback then plays. See usage.py — the console read 16/15 RPM on
+            # flash-lite while nothing in here was counting.
+            slept = usage.wait_for_slot(model)
+            # Printed rather than silent, and unconditionally: a pause of a
+            # few seconds mid-batch with no explanation reads as a hang, and
+            # this is the one place that knows it is deliberate. Only ever
+            # fires at the cap, so it cannot become noise.
+            if slept > 0.5:
+                print(f"    · held {slept}s to stay under "
+                      f"{usage.limits_for(model)['rpm']} RPM on {model}")
             try:
                 resp = client.models.generate_content(model=model, **kwargs)
             except Exception as exc:
                 fault = self._fault(exc)
+                # Recorded even when it failed: a 429 is the only observation
+                # this project has that sees the whole API key rather than one
+                # machine's ledger, so it is the one worth keeping.
+                usage.record(model, quota=(fault == "quota"), ok=False)
                 if fault == "key":
                     raise AiUnavailable("GEMINI_API_KEY was rejected.") from exc
                 if fault == "timeout":
@@ -403,6 +448,11 @@ class Gemini:
                     raise
                 last = exc
                 continue                  # quota or retired: try the next one
+            # Tokens come from the response's own usage_metadata when it is
+            # there — asking for it is what makes the TPM column meaningful,
+            # and estimating from character counts would have been a guess
+            # reported as a measurement.
+            usage.record(model, tokens=_tokens_of(resp))
             if model != self.model:
                 self.model = model        # stick with it for the rest of the run
             _write_model_cache(model)

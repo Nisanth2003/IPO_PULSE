@@ -105,6 +105,17 @@ SUB_COLS = ["slug", "day", "date", "qib", "nii", "retail", "employee", "total",
             "nii_small", "nii_big"]
 LIST_COLS = ["slug", "field", "idx", "value"]
 I18N_COLS = ["slug", "lang", "key", "idx", "value"]
+# What has actually gone out on the channel. One row per published video.
+#
+# The *queue* stays a local file (`pubqueue.py`) because it references mp4s on
+# one machine's disk. What went LIVE is different: it is durable channel
+# state, it outlives the machine that rendered it, and the studio needs it to
+# answer "which reels for this IPO are done" without asking YouTube.
+#
+# Keyed by slug + reel + lang, because that triple is exactly one video.
+PUBLISHED_COLS = ["slug", "reel", "lang", "video_id", "url", "privacy",
+                  "published", "title"]
+
 BENCH_COLS = ["slug", "metric", "value"]
 # `value`, not `url`. The column has never held only URLs — `exchange` is a
 # stamp like `NSE:TEMPSENS` — and since `facts` began writing the exchange's
@@ -130,6 +141,7 @@ TABS: dict[str, list[str]] = {
     "I18n": I18N_COLS,
     "Benchmarks": BENCH_COLS,
     "Sources": SRC_COLS,
+    "Published": PUBLISHED_COLS,
 }
 
 # ── the daily market briefing ──────────────────────────────────────────────
@@ -395,6 +407,22 @@ def from_tables(tables: dict[str, list[list]]) -> dict[str, dict]:
             "source": _txt(row.get("source")) or "manual",
         })
 
+    for row in _dicts(tables.get("Published") or [], PUBLISHED_COLS):
+        rec = at(row.get("slug"))
+        if rec is None:
+            continue
+        rec.setdefault("published", []).append({
+            "reel": _txt(row.get("reel")),
+            "lang": _txt(row.get("lang")),
+            "video_id": _txt(row.get("video_id")),
+            "url": _txt(row.get("url")),
+            "privacy": _txt(row.get("privacy")),
+            "published": _txt(row.get("published")),
+            # The title is prose somebody may have edited on YouTube itself,
+            # so it keeps its exact text.
+            "title": _raw(row.get("title")),
+        })
+
     for row in _dicts(tables.get("Subscription") or [], SUB_COLS):
         rec = at(row.get("slug"))
         if rec is None:
@@ -530,6 +558,13 @@ def to_tables(records: dict[str, dict]) -> dict[str, list[list]]:
                 slug, _date_cell(point.get("date")), _num_cell(point.get("gmp")),
                 _num_cell(point.get("kostak")), _num_cell(point.get("sauda")),
                 point.get("source") or "manual"])
+
+        for v in (d.get("published") or []):
+            tables["Published"].append([
+                slug, _num_cell(v.get("reel")), v.get("lang") or None,
+                v.get("video_id") or None, v.get("url") or None,
+                v.get("privacy") or None, _date_cell(v.get("published")),
+                v.get("title") or None])
 
         for day in (d.get("subscription") or []):
             tables["Subscription"].append(

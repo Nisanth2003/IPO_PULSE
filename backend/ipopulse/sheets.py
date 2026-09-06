@@ -37,7 +37,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from . import tables
+from . import invariants, tables
 from .models import Ipo
 
 # backend/ipopulse/sheets.py -> backend/
@@ -446,6 +446,32 @@ def write_records(updated: dict[str, dict], force: bool = False) -> None:
                     f"third of it and is almost certainly a short read rather "
                     f"than an intention.\n  Nothing was written. If it IS "
                     f"intended, the caller must pass force=True.")
+
+    # ── nothing that cannot be true goes onto the sheet ───────────────────
+    #
+    # Placed here, after the mass-deletion guard and before anything is
+    # serialised, because this is the one place every IPO write passes
+    # through: store.save, store.save_all, upsert, drop and the batch flush
+    # all end up on this line. A check anywhere else is a check some caller
+    # can go around.
+    #
+    # BLOCK refuses the WHOLE write rather than dropping the offending record.
+    # This function rewrites every tab from `updated`, so removing a record
+    # from it would delete that row from the sheet — turning one bad field
+    # into a lost IPO. Changing nothing is the only safe response.
+    violations = invariants.check_all(updated)
+    warns = [v for v in violations if v.severity == invariants.WARN]
+    blocks = invariants.blocking(violations)
+    for v in warns:
+        print(str(v))
+    if blocks and not force:
+        listed = "\n".join(str(v) for v in blocks)
+        raise SheetUnavailable(
+            f"refusing to write: {len(blocks)} value(s) cannot be true.\n"
+            f"{listed}\n  Nothing was written. Fix the source, or "
+            f"pass force=True if you have looked and are certain.")
+    if blocks and force:
+        print(f"  !! writing {len(blocks)} impossible value(s) anyway (force=True)")
 
     grid = tables.to_tables(updated)
 

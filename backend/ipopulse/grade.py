@@ -53,12 +53,22 @@ TERMS: list[tuple[str, str, float]] = [
     ("ofs_cr", "offer for sale", 0.5),
     ("price_low", "band low", 0.5),
     ("price_high", "band high", 0.5),
+    # The lot and its tranches. Absent until 6 Sep 2026, and their absence is
+    # exactly how Rentomojo held lot 15 against the desk's 37 through every
+    # reconciliation this function ran: the comparison only ever looked at the
+    # two endpoints below, and the lot is not in either of them.
+    ("lot_size", "lot size", 0.0),
+    ("min_shni_qty", "S-HNI minimum", 0.0),
+    ("min_bhni_qty", "B-HNI minimum", 0.0),
 ]
 
 
 def _terms_check(ipo, row, ig) -> list[tuple[str, Any, Any]]:
     """Stored issue terms against the desk's. [] when they agree."""
-    desk = {**ig.issue_size(row), **ig.price_band(row)}
+    # THREE endpoints, not two. `categories` is where the desk publishes the
+    # lot and the HNI tranches; issue_size and price_band do not carry them,
+    # so a lot could disagree indefinitely without this function noticing.
+    desk = {**ig.issue_size(row), **ig.price_band(row), **ig.categories(row)}
     out = []
     for key, label, tol in TERMS:
         if key not in desk:

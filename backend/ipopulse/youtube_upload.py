@@ -82,37 +82,85 @@ class NotAuthorised(RuntimeError):
     """No stored token, or it no longer works."""
 
 
+def _node(blob: dict) -> dict[str, str] | None:
+    """The id/secret out of a downloaded client file, whatever its shape.
+
+    Console nests the credentials under "installed" for a desktop client and
+    "web" for a web client. Accept either and let the redirect fail loudly if
+    it is the wrong kind, rather than rejecting a file that parses fine.
+    """
+    node = blob.get("installed") or blob.get("web") or blob
+    if not node.get("client_id"):
+        return None
+    return {"client_id": node["client_id"],
+            "client_secret": node.get("client_secret", "")}
+
+
 def _client() -> dict[str, str]:
     """The OAuth client id and secret.
 
-    Env vars win over the downloaded file, because the two places this runs
-    disagree by nature: on a desktop the natural form is the JSON Google
-    hands you, and in CI a secret can only be a string. Same reasoning as
-    `GOOGLE_SHEETS_KEY` accepting either a path or the contents.
+    `YOUTUBE_CLIENT_SECRET` holds EITHER the JSON Google downloaded or a path
+    to it. Same split, and the same reason, as `GOOGLE_SHEETS_KEY` in
+    sheets.py: a .env line points at a file on this disk, and a CI secret can
+    only carry contents. Normalising that here rather than at each call site
+    is what stops a Windows path being written into a file on a Linux runner
+    and handed to a JSON parser.
+
+    A separate `YOUTUBE_CLIENT_ID` still wins over both, for a runner that
+    would rather hold two short strings than a blob.
     """
     if os.getenv("YOUTUBE_CLIENT_ID"):
         return {"client_id": os.environ["YOUTUBE_CLIENT_ID"].strip(),
                 "client_secret": (os.getenv("YOUTUBE_CLIENT_SECRET")
                                   or "").strip()}
-    raw = os.getenv(CLIENT_FILE_ENV) or ""
-    candidates = [Path(raw)] if raw else []
+
+    raw = (os.getenv(CLIENT_FILE_ENV) or "").strip()
+
+    # Tested before Path(), not after: a JSON blob is not a legal Windows
+    # filename, and is_file() on one raises OSError rather than saying False.
+    if raw.startswith("{"):
+        try:
+            blob = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise NotAuthorised(
+                f"{CLIENT_FILE_ENV} begins with '{{' so it was read as the "
+                f"client JSON itself, and it did not parse: {exc}") from exc
+        got = _node(blob)
+        if got:
+            return got
+        raise NotAuthorised(
+            f"{CLIENT_FILE_ENV} holds JSON with no client_id in it. Paste the "
+            f"whole file Google downloaded, its 'installed' wrapper included.")
+
+    # A relative path is resolved against the two roots as well as the cwd,
+    # because `ipopulse` is run from both the repo root and backend/, and a
+    # path that works from one silently misses from the other — landing on
+    # "no OAuth client found" when the file is sitting right there.
+    candidates: list[Path] = []
+    if raw:
+        one = Path(raw)
+        candidates.append(one)
+        if not one.is_absolute():
+            candidates += [BACKEND_ROOT / raw, BACKEND_ROOT.parent / raw]
     candidates += [BACKEND_ROOT / "client_secret.json",
                    BACKEND_ROOT.parent / "client_secret.json"]
+
     for path in candidates:
-        if path and path.is_file():
-            blob = json.loads(path.read_text(encoding="utf-8"))
-            # Console exports the credentials nested under "installed" for a
-            # desktop client and "web" for a web client. Accept either shape
-            # and let the redirect fail loudly if it is the wrong kind.
-            node = blob.get("installed") or blob.get("web") or blob
-            if node.get("client_id"):
-                return {"client_id": node["client_id"],
-                        "client_secret": node.get("client_secret", "")}
+        try:
+            if not path.is_file():
+                continue
+        except OSError:
+            continue
+        got = _node(json.loads(path.read_text(encoding="utf-8")))
+        if got:
+            return got
+
     raise NotAuthorised(
         "No OAuth client found. In Google Cloud Console: enable the YouTube "
-        "Data API v3, create an OAuth client of type 'Desktop app', download "
-        "the JSON, and save it as backend/client_secret.json (or point "
-        f"{CLIENT_FILE_ENV} at it).")
+        "Data API v3, create an OAuth client of type 'Desktop app', and "
+        f"download the JSON. Then either point {CLIENT_FILE_ENV} at the file "
+        f"(a .env on your own machine) or paste the file's CONTENTS into "
+        f"{CLIENT_FILE_ENV} (a CI secret, which cannot carry a file).")
 
 
 def configured() -> bool:

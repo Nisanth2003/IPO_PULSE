@@ -35,6 +35,17 @@ name: Scheduled data refresh
 
 on:
   schedule:
+    # 08:00 IST, Mon-Fri. The hour is the whole point and it is a narrow
+    # window: after the overnight news window closes at 07:30, and before the
+    # pre-open auction at 09:00, so the briefing has the complete overnight
+    # picture and nothing from the session it is about to describe. readiness
+    # expires reel 7 at 09:15, which leaves 75 minutes to record it — and
+    # Actions cron drifts 5-20 minutes late under load, which this window
+    # absorbs and an 08:45 slot would not.
+    #
+    # Weekdays only, unlike everything else here. A pre-market briefing for a
+    # day with no session is not a stale briefing, it is a fictional one.
+    - cron: '30 2 * * 1-5'    # 08:00 IST Mon-Fri — pre-market briefing (reel 7)
     - cron: '30 4 * * *'      # 10:00 IST daily   — bidding opens; the day's first read
     - cron: '45 5 * * *'      # 11:15 IST daily   — GMP only, after the ~10:55 revision
     - cron: '45 8 * * *'      # 14:15 IST daily   — GMP only, afternoon revision
@@ -125,6 +136,7 @@ jobs:
             # and left. Deliberately not `grey`, which would drag the model step
             # and `build` along four extra times a day for nothing.
             '45 5 * * *'|'45 8 * * *'|'45 15 * * *')  JOBS='gmp-sync' ;;
+            '30 2 * * 1-5') JOBS=market ;;
             '30 21 * * 6')  JOBS=translate ;;
             '30 22 * * 6')  JOBS=report ;;
             '')             JOBS='${{ inputs.jobs }}' ;;   # manual dispatch

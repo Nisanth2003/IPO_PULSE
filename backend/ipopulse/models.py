@@ -370,6 +370,10 @@ class Ipo:
     # Override the default "what counts as good" lines, e.g. {"ronw": 12}.
     # Useful for banks/utilities where the generic thresholds don't apply.
     benchmarks: dict[str, float] = field(default_factory=dict)
+    # Videos already on the channel for this IPO, one per (reel, lang).
+    # Written by `pubqueue` after an upload lands; read by the studio so it
+    # can show which reels are done without asking YouTube.
+    published: list[dict] = field(default_factory=list)
     # Exact pages to read for this IPO, by role:
     #   {"gmp": "https://investorgain.com/...", "subscription": "https://groww.in/ipo/..."}
     # Pinning a URL beats letting the model search — it removes the two ways
@@ -402,6 +406,14 @@ class Ipo:
             allotment=Allotment.from_dict(d.get("allotment")),
             i18n=d.get("i18n") or {},
             benchmarks={k: _f(v) for k, v in (d.get("benchmarks") or {}).items()},
+            published=[{
+                "reel": int(_f(v.get("reel"))), "lang": str(v.get("lang") or ""),
+                "video_id": str(v.get("video_id") or ""),
+                "url": str(v.get("url") or ""),
+                "privacy": str(v.get("privacy") or ""),
+                "published": str(v.get("published") or ""),
+                "title": str(v.get("title") or ""),
+            } for v in (d.get("published") or [])],
             sources={str(k): str(v) for k, v in (d.get("sources") or {}).items() if v},
             notes=d.get("notes", "") or "",
         )

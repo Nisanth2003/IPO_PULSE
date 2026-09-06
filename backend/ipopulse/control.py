@@ -112,6 +112,20 @@ JOBS: dict[str, dict[str, Any]] = {
         "argv": ["facts"],
         "schedule": "part of daily",
     },
+    "check": {
+        "label": "Regular sweep (the watchdog)",
+        "detail": "Re-runs the insertion-time rules from invariants.py against "
+                  "what is ALREADY stored — those only ever see a record at "
+                  "the moment it is written, so a row that predates a rule was "
+                  "never checked by it — then adds the checks that need a "
+                  "clock: staleness from monitor, self-contradictions from "
+                  "grade, and our Gemini spend against the free-tier caps "
+                  "(peak RPM/RPD per model, and any 429). Read-only. Exits "
+                  "non-zero on an error-level finding, which is what the "
+                  "scheduled workflow turns into a tagged issue.",
+        "argv": ["check"],
+        "schedule": "09:30 & 21:30 IST daily (watch.yml)",
+    },
     "monitor": {
         "label": "Is the data still arriving?",
         "detail": "The watchdog. Compares the store against the issue calendar "
@@ -155,7 +169,10 @@ JOBS: dict[str, dict[str, Any]] = {
         # 18:35 — both after the open — and a briefing built then is a
         # description of a session the viewer can already see.
         "argv": ["market", "--write"],
-        "schedule": "08:00 IST daily",
+        # Mon-Fri, not daily: a pre-market briefing for a day with no session
+        # is not a stale briefing, it is a fictional one. schedule.yml's
+        # '30 2 * * 1-5' is the cron this describes; change both together.
+        "schedule": "08:00 IST Mon-Fri",
     },
     "dedupe": {
         "label": "One offer, one row",
@@ -507,6 +524,17 @@ def handle(handler, method: str) -> bool:
         _send(handler, 200, PANEL_HTML, "text/html; charset=utf-8")
         return True
 
+    # The API explorer. Note the paths: neither starts with "/api/", so this
+    # route sits ABOVE the token gate and stays reachable — a docs page you
+    # have to already be signed in to read is a locked filing cabinet with the
+    # key inside. It documents the auth; it is not behind it.
+    if path in ("/api-docs", "/apis"):
+        if method != "GET":
+            return False
+        from . import apidocs
+        _send(handler, 200, apidocs.page(), "text/html; charset=utf-8")
+        return True
+
     if not path.startswith("/api/"):
         return False
 
@@ -560,6 +588,23 @@ def handle(handler, method: str) -> bool:
 
     if path == "/api/status":
         _json(handler, 200, RUNNER.snapshot())
+        return True
+
+    # The watchdog, on demand. Behind the token like everything else that
+    # reveals the state of the data — /api/health stays the public liveness
+    # probe, and this is the one that says whether anything is WRONG.
+    #
+    # `grade` reaches InvestorGain for every tracked IPO, which is tens of
+    # seconds, so it is skipped unless asked for: an endpoint a browser calls
+    # must answer inside a browser's patience. `?full=1` runs everything.
+    if path == "/api/check":
+        from . import watch
+
+        full = "full=1" in (handler.path.split("?", 1)[1:2] or [""])[0]
+        r = watch.sweep(skip=() if full else ("grade",))
+        # 200 either way. The findings ARE the answer, and a 5xx here would
+        # make an uptime monitor page somebody for a stale GMP.
+        _json(handler, 200, r)
         return True
 
     # Narration for the script the studio is showing.
@@ -955,7 +1000,9 @@ PANEL_HTML = """<!doctype html>
 </style></head><body><div class="wrap">
 
 <h1>IPO Pulse — Trigger</h1>
-<div class="sub">Manual runs of the same jobs the timers run. Served locally; never published.</div>
+<div class="sub">Manual runs of the same jobs the timers run. Served locally; never published.
+  &nbsp;·&nbsp; <a href="/" style="color:var(--acc)">Studio</a>
+  &nbsp;·&nbsp; <a href="/api-docs" style="color:var(--acc)">API explorer</a></div>
 
 <div id="gate" class="card">
   <div class="row">

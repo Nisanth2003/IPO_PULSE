@@ -2126,12 +2126,36 @@ def _cmd_facts_body(args) -> int:
         # minimum investment, the gain per lot and the whole stake scene are
         # `something × lot`, and a zero lot renders them as ₹0, which reads as
         # "no profit" rather than "not known yet".
+        # These three follow the desk WHENEVER THEY DISAGREE, not only when
+        # blank — unlike the statement above, where --force guards a year axis
+        # somebody may have corrected by hand.
+        #
+        # The difference is that a lot size is not an opinion. The desk
+        # publishes the registrar's own figure, and a wrong one is silent: it
+        # is not blank, so a fill-blanks-only rule leaves it forever, and every
+        # per-lot number in reels 1, 2 and 4 is computed from it. Rentomojo
+        # sat at lot 15 against the desk's 37 and rendered a ₹6,060 minimum
+        # for an issue whose real minimum was ₹14,948; Prasol sat at 160
+        # against 22 and rendered ₹1,08,160 against ₹14,872. Both had been
+        # wrong since the terms were first written, and nothing downstream
+        # could notice, because ₹6,060 is a perfectly plausible-looking
+        # number. Mainboard retail minimums are held to ₹14,000-16,000 by
+        # SEBI, which is what makes the desk's value checkable and a
+        # first-writer-wins rule indefensible here.
         cats = ig.categories(row)
         issue = raw.setdefault("issue", {})
         for key in ("lot_size", "min_shni_qty", "min_bhni_qty"):
-            if cats.get(key) and (not issue.get(key) or args.force):
-                issue[key] = cats[key]
+            fresh = cats.get(key)
+            if not fresh:
+                continue
+            have = issue.get(key)
+            if have and int(float(have)) == int(float(fresh)):
+                continue
+            if have:
+                wrote.append(f"{key} {int(float(have))}->{int(float(fresh))}")
+            else:
                 wrote.append(key)
+            issue[key] = fresh
 
         # ── the reservation split
         #
@@ -2587,6 +2611,33 @@ def cmd_publish(args) -> int:
               "backend/.cache/ and is all that is needed from now on.")
         return 0
 
+    # ── what is already on the channel, and what is left
+    if args.coverage or args.sync:
+        if args.sync:
+            filed = 0
+            for item in q.items(q.UPLOADED):
+                try:
+                    q.record_on_sheet(item)
+                    filed += 1
+                except Exception as exc:
+                    print(f"  ! {item['id']}: {exc}")
+            print(f"Filed {filed} uploaded video(s) onto the sheet.")
+        cov = q.coverage()
+        print()
+        print(f"PUBLISHED — {cov['done']} of {cov['total']} "
+              f"({cov['pct']}%) reel/language combinations are live")
+        print()
+        print(f"{'IPO':<34}{'DONE':<26}TO DO")
+        print("-" * 92)
+        for row in cov["rows"]:
+            shown = ", ".join(f"r{r}/{l}" for r, l in row["done"][:6])
+            print(f"{row['slug'][:33]:<34}{(shown or 'nothing yet')[:25]:<26}"
+                  f"{len(row['missing'])} left")
+        print()
+        print("Read from the sheet's Published tab, so it is right on any "
+              "machine and survives the local queue being pruned.")
+        return 0
+
     # ── the review list
     if not (args.approve or args.reject or args.upload):
         rows = q.items()
@@ -2762,6 +2813,29 @@ def cmd_monitor(args) -> int:
     # where nothing arrived shows up as a failed task in Task Scheduler rather
     # than as a green tick over an empty sheet.
     return 1 if (r["errors"] and args.strict) else 0
+
+
+def cmd_check(args) -> int:
+    """The regular sweep — the write-time rules re-run on a schedule.
+
+    Read-only. Exits 1 on any error-level finding without needing --strict,
+    unlike `monitor`: this command exists to be the thing a timer watches, so
+    a green run has to mean something. `--warn-strict` widens that to
+    warnings for anyone who wants a zero-tolerance cron.
+    """
+    from . import watch
+
+    r = watch.sweep(skip=tuple(args.skip or ()))
+    if args.json:
+        print(json.dumps(r, indent=1, default=str))
+    elif args.markdown:
+        print(watch.markdown(r))
+    else:
+        for line in watch.report(r):
+            print(line)
+    if r["counts"]["error"]:
+        return 1
+    return 1 if (args.warn_strict and r["counts"]["warn"]) else 0
 
 
 def cmd_grade(args) -> int:
@@ -3539,8 +3613,11 @@ def cmd_serve(args) -> int:
         else:
             print("Trigger panel    -> disabled (no IPOPULSE_TRIGGER_PASSWORD in .env)")
         origins = control.allowed_origins()
-        print(f"Browser origins  -> {', '.join(origins) if origins else 'same-origin only'
-              } (IPOPULSE_ALLOWED_ORIGINS)")
+        # Built before the f-string, not inside it: a replacement field split
+        # across a newline is PEP 701 syntax and parses only on 3.12+, while
+        # pyproject declares >=3.10. On 3.11 this file would not even import.
+        shown = ", ".join(origins) if origins else "same-origin only"
+        print(f"Browser origins  -> {shown} (IPOPULSE_ALLOWED_ORIGINS)")
         print("Ctrl+C to stop.")
         try:
             httpd.serve_forever()
@@ -3783,6 +3860,23 @@ def build_parser() -> argparse.ArgumentParser:
                          "timer run is visible as a failed task")
     sp.set_defaults(func=cmd_monitor)
 
+    sp = sub.add_parser("check", help="the regular sweep: the insertion-time "
+                                      "rules, staleness, and AI spend vs the "
+                                      "free-tier caps")
+    sp.add_argument("--json", action="store_true", help="machine-readable")
+    sp.add_argument("--markdown", action="store_true",
+                    help="as a GitHub issue body (what watch.yml posts)")
+    # Names come from watch.CHECKS rather than a second list here: a check
+    # added there is immediately skippable, and a typo cannot invent one.
+    from . import watch as _watch
+    sp.add_argument("--skip", action="append", metavar="CHECK",
+                    choices=[n for n, _ in _watch.CHECKS],
+                    help="leave one check out; repeatable. `--skip grade` is "
+                         "the offline-friendly one")
+    sp.add_argument("--warn-strict", action="store_true",
+                    help="exit 1 on warnings too, not just errors")
+    sp.set_defaults(func=cmd_check)
+
     sp = sub.add_parser("publish", help="review rendered videos and send "
                                         "the approved ones to YouTube")
     sp.add_argument("--authorise", action="store_true",
@@ -3802,6 +3896,12 @@ def build_parser() -> argparse.ArgumentParser:
                     help="send everything approved")
     sp.add_argument("--dry-run", action="store_true",
                     help="with --upload, list what would go and send nothing")
+    sp.add_argument("--coverage", action="store_true",
+                    help="what is already on the channel and what is left, "
+                         "read from the sheet's Published tab")
+    sp.add_argument("--sync", action="store_true",
+                    help="file any locally-uploaded video onto the sheet — "
+                         "for uploads whose sheet write did not land")
     sp.set_defaults(func=cmd_publish)
 
     sp = sub.add_parser("brief", help="write per-IPO documents for a "

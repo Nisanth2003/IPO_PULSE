@@ -19,7 +19,7 @@
  */
 
 const TABS = ['IPOs', 'Financials', 'GMP', 'Subscription',
-              'Lists', 'I18n', 'Benchmarks', 'Sources'];
+              'Lists', 'I18n', 'Benchmarks', 'Sources', 'Published'];
 
 /* Coercions, mirroring models.py's _f / _d / _list. */
 const _f = (v, dflt = 0) => {
@@ -72,7 +72,7 @@ const DATA = {
       const slug = _s(row.slug).trim();
       if (!slug) continue;
       const rec = { slug, i18n: {}, benchmarks: {}, sources: {},
-                    gmp_history: [], subscription: [] };
+                    gmp_history: [], subscription: [], published: [] };
       for (const [col, value] of Object.entries(row)) {
         if (col === 'slug' || value === null || _s(value).trim() === '') continue;
         const path = col.split('.');
@@ -171,6 +171,20 @@ const DATA = {
           }
         }
       }
+    }
+
+    /* What is already on the channel, so the studio can grey out a reel that
+       is done. The mirror of tables.py's Published tab — read-only here; the
+       backend writes it after an upload lands. */
+    for (const row of rows('Published')) {
+      const rec = at(row.slug);
+      if (!rec || !_s(row.video_id).trim()) continue;
+      (rec.published ??= []).push({
+        reel: _f(row.reel), lang: _s(row.lang).trim(),
+        video_id: _s(row.video_id).trim(), url: _s(row.url).trim(),
+        privacy: _s(row.privacy).trim(),
+        published: _s(row.published).trim(), title: _s(row.title),
+      });
     }
 
     for (const row of rows('Benchmarks')) {

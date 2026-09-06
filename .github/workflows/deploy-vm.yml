@@ -1,0 +1,241 @@
+name: Deploy to VM
+
+# Deploys the studio + API to a VM through a self-hosted runner living on that
+# VM. `docker build` and `docker run` therefore happen ON the target — there is
+# no registry push and no ssh step, because the runner is already there.
+#
+# ── What this deploys, and what it does NOT ───────────────────────────────
+#
+# It deploys ONE service. `serve` hands out the static studio and the /api
+# routes from the same port, so there is no second container for a frontend.
+#
+# It does NOT deploy a scheduler, deliberately. `schedule.yml` already runs the
+# data chain on GitHub-hosted runners, and a save clears a sheet tab before
+# rewriting it with no lock in between — so two schedulers on one sheet is not
+# redundancy, it is a race that silently loses whichever run finished first.
+# If the schedule should move onto the VM, delete schedule.yml in the same
+# commit that adds it here.
+#
+# ── Secrets ───────────────────────────────────────────────────────────────
+#
+#   GOOGLE_SHEETS_ID            the sheet id from its URL
+#   GOOGLE_SHEETS_KEY           the service-account JSON, pasted whole
+#   IPOPULSE_TRIGGER_PASSWORD   REQUIRED — see the guard step for why
+#   GEMINI_API_KEY              optional; without it captions stay English
+#   YOUTUBE_STUDIO_URL          optional; read-only, no credential in it
+#
+# GOOGLE_SHEETS_KEY holds the JSON ITSELF, not a path and not base64 — sheets.py
+# accepts either form and picks by the leading '{'. That removes the
+# service-account file and its bind mount from this workflow entirely: the
+# credential never touches the VM's disk, only the container's environment.
+#
+# NOT here, on purpose: YOUTUBE_REFRESH_TOKEN. This repo is public, and that
+# token can upload, edit and delete on the channel. Uploads run from a trusted
+# machine, never from a runner reachable by a public repo's workflows.
+
+on:
+  workflow_dispatch:
+    inputs:
+      port:
+        description: "Host port to publish on"
+        required: false
+        default: "8000"
+
+# One deploy at a time. Two overlapping runs would race on the container name
+# and on the port, and the loser's error would point at neither.
+concurrency:
+  group: deploy-vm
+  cancel-in-progress: false
+
+env:
+  IMAGE: ipo-pulse:latest
+  CONTAINER: ipo-pulse-studio
+
+jobs:
+  deploy:
+    # Change this to whatever label the runner registered with.
+    runs-on: new-vm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      ########################################################
+      # INSTALL TRIVY
+      ########################################################
+
+      - name: Install Trivy
+        run: |
+          if ! command -v trivy &> /dev/null; then
+            sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+            echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+            sudo apt-get update
+            sudo apt-get install -y trivy
+          else
+            echo "Trivy already installed: $(trivy --version), skipping."
+          fi
+
+      ########################################################
+      # SONAR SCAN
+      ########################################################
+
+      # - name: Run SonarCloud Scan
+      #   run: |
+      #     /opt/sonar-scanner/bin/sonar-scanner \
+      #       -Dsonar.projectKey=<your-key> \
+      #       -Dsonar.organization=<your-org> \
+      #       -Dsonar.host.url=https://sonarcloud.io \
+      #       -Dsonar.sources=. \
+      #       -Dsonar.python.version=3.12 \
+      #       -Dsonar.login=$SONAR_TOKEN
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      ########################################################
+      # TRIVY FILE SYSTEM SCAN
+      ########################################################
+
+      - name: Run Trivy FS Scan
+        run: trivy fs . --exit-code 0 --format table --scanners vuln,secret
+
+      ########################################################
+      # REQUIRED SECRETS
+      ########################################################
+
+      # Fails before anything is built, because the alternative is worse than a
+      # failed deploy. In a container the server binds 0.0.0.0, which puts the
+      # trigger panel — an endpoint that RUNS PIPELINE JOBS — on the network.
+      # The password is the only thing in front of it. Deploying without one
+      # publishes a job runner, and it would look like a perfectly good deploy.
+      - name: Check required secrets
+        env:
+          SHEET_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          SHEET_KEY: ${{ secrets.GOOGLE_SHEETS_KEY }}
+          TRIGGER_PW: ${{ secrets.IPOPULSE_TRIGGER_PASSWORD }}
+        run: |
+          missing=0
+          for name in SHEET_ID SHEET_KEY TRIGGER_PW; do
+            if [ -z "${!name}" ]; then echo "::error::secret for $name is empty"; missing=1; fi
+          done
+          if [ "${#TRIGGER_PW}" -lt 12 ] && [ -n "$TRIGGER_PW" ]; then
+            echo "::error::IPOPULSE_TRIGGER_PASSWORD is under 12 characters. It gates a job runner exposed on 0.0.0.0."
+            missing=1
+          fi
+          [ "$missing" = 0 ] || exit 1
+          echo "All required secrets present."
+
+      ########################################################
+      # ENV FILE
+      ########################################################
+
+      # Written to RUNNER_TEMP rather than the workspace: the workspace is
+      # checked out again on every run and is easy to leave behind, and this
+      # file holds the service-account key. Removed again in the last step,
+      # which runs even when a step above fails.
+      #
+      # The JSON is collapsed to ONE LINE because --env-file cannot represent a
+      # value containing a newline; it would read the second line as a new
+      # variable and hand the container a truncated key. json.dumps escapes the
+      # newlines inside private_key, so nothing is lost.
+      - name: Write env file
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+          GOOGLE_SHEETS_KEY: ${{ secrets.GOOGLE_SHEETS_KEY }}
+          IPOPULSE_TRIGGER_PASSWORD: ${{ secrets.IPOPULSE_TRIGGER_PASSWORD }}
+          YOUTUBE_STUDIO_URL: ${{ secrets.YOUTUBE_STUDIO_URL }}
+        run: |
+          set -euo pipefail
+          ENVFILE="$RUNNER_TEMP/ipopulse.env"
+          umask 077
+          : > "$ENVFILE"
+
+          {
+            echo "GEMINI_API_KEY=${GEMINI_API_KEY}"
+            echo "GOOGLE_SHEETS_ID=${GOOGLE_SHEETS_ID}"
+            echo "IPOPULSE_TRIGGER_PASSWORD=${IPOPULSE_TRIGGER_PASSWORD}"
+            echo "YOUTUBE_STUDIO_URL=${YOUTUBE_STUDIO_URL}"
+            echo "IPOPULSE_HOST=0.0.0.0"
+            echo "IPOPULSE_CACHE_DAYS=30"
+            # The container sits behind the VM's port mapping, so every request
+            # arrives from the same address unless a proxy sets a forwarded
+            # header. Left off: the lockout counts per client address, and
+            # trusting a caller-supplied header would let anyone clear their
+            # own lockout. Turn it on ONLY behind a proxy you control.
+            echo "IPOPULSE_TRUST_PROXY="
+          } >> "$ENVFILE"
+
+          printf 'GOOGLE_SHEETS_KEY=%s\n' \
+            "$(printf '%s' "$GOOGLE_SHEETS_KEY" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)))')" \
+            >> "$ENVFILE"
+
+          echo "Wrote $(wc -l < "$ENVFILE") variables (values not printed)."
+
+      ########################################################
+      # BUILD & DEPLOY
+      ########################################################
+
+      - name: Build image
+        run: docker build -t "$IMAGE" .
+
+      - name: Scan the image we are about to run
+        run: trivy image "$IMAGE" --exit-code 0 --format table --severity HIGH,CRITICAL
+
+      # The old container is stopped only now, after the build and both scans
+      # have passed. Stopping first — as is the habit — means a failed build
+      # takes the site down and leaves it down.
+      - name: Deploy
+        run: |
+          set -euo pipefail
+          PORT="${{ inputs.port || '8000' }}"
+
+          docker stop "$CONTAINER" 2>/dev/null || true
+          docker rm   "$CONTAINER" 2>/dev/null || true
+
+          docker run -d \
+            --name "$CONTAINER" \
+            --restart always \
+            -p "${PORT}:8000" \
+            --env-file "$RUNNER_TEMP/ipopulse.env" \
+            -v ipopulse-cache:/app/backend/data \
+            -v ipopulse-out:/app/backend/out \
+            "$IMAGE"
+
+          echo "Started $CONTAINER on host port $PORT"
+
+      # Named volumes, not bind mounts: the cache is the Gemini response cache
+      # and out/ holds the pre-change backups store.backup() writes. Neither is
+      # the database — the Google Sheet is — so nothing here needs to survive
+      # the VM, only the redeploy, which is exactly what a named volume gives.
+
+      ########################################################
+      # HEALTH
+      ########################################################
+
+      # `docker run` returning 0 means the container STARTED. A container that
+      # dies four seconds later on a bad key also returns 0 here, so the deploy
+      # is not finished until something answers.
+      - name: Wait for health
+        run: |
+          set -uo pipefail
+          PORT="${{ inputs.port || '8000' }}"
+          for i in $(seq 1 30); do
+            if curl -fsS "http://localhost:${PORT}/api/health" | grep -q '"ok": *true'; then
+              echo "healthy after $((i*2))s"
+              curl -fsS "http://localhost:${PORT}/api/health"; echo
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::never became healthy in 60s"
+          docker logs --tail 80 "$CONTAINER" || true
+          exit 1
+
+      - name: Remove the env file
+        if: always()
+        run: shred -u "$RUNNER_TEMP/ipopulse.env" 2>/dev/null || rm -f "$RUNNER_TEMP/ipopulse.env"
+
+      - name: Reclaim disk
+        if: always()
+        run: docker image prune -f

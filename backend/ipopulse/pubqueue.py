@@ -166,8 +166,79 @@ def reject(ident: str, why: str = "") -> dict[str, Any]:
 
 
 def mark_uploaded(ident: str, video_id: str, url: str) -> dict[str, Any]:
-    return _set(ident, UPLOADED, video_id=video_id, url=url,
+    """Record the upload here AND on the sheet.
+
+    Two places on purpose, holding different things. This file is the working
+    queue and knows about mp4s on one machine's disk. The sheet's `Published`
+    tab holds only what went live — slug, reel, lang, video id — because that
+    is durable channel state: it outlives this machine, and the studio reads
+    it to grey out the reels that are already done without asking YouTube.
+
+    The sheet write is best-effort. An upload that succeeded must not be
+    reported as failed because a spreadsheet was briefly unreachable; the
+    local record is still correct and `ipopulse publish --sync` re-files any
+    that did not make it.
+    """
+    item = _set(ident, UPLOADED, video_id=video_id, url=url,
                 uploaded_at=_now())
+    try:
+        record_on_sheet(item)
+    except Exception as exc:
+        print(f"  · uploaded, but could not write it to the sheet ({exc}). "
+              f"`ipopulse publish --sync` will file it.")
+    return item
+
+
+def record_on_sheet(item: dict[str, Any]) -> None:
+    """Put one published video on the IPO's row. Idempotent."""
+    from . import store
+    from .models import Ipo
+
+    slug = item.get("slug") or ""
+    if not slug or not item.get("video_id"):
+        return
+    try:
+        ipo = store.load(slug)
+    except FileNotFoundError:
+        return                            # reel 7 and anything not an IPO
+    raw = ipo.to_dict()
+    rows = [v for v in (raw.get("published") or [])
+            # Replace any earlier row for the same video: a re-upload of the
+            # same reel supersedes it rather than appearing twice.
+            if not (int(v.get("reel") or 0) == int(item["reel"])
+                    and str(v.get("lang") or "") == item["lang"])]
+    rows.append({
+        "reel": int(item["reel"]), "lang": item["lang"],
+        "video_id": item["video_id"], "url": item.get("url", ""),
+        "privacy": item.get("privacy", ""),
+        "published": (item.get("uploaded_at") or "")[:10],
+        "title": item.get("title", ""),
+    })
+    raw["published"] = sorted(rows, key=lambda v: (v["reel"], v["lang"]))
+    store.save(Ipo.from_dict(raw))
+
+
+def coverage() -> dict[str, Any]:
+    """Which reels are published, and which are still to do.
+
+    Reads the SHEET, not this file — so it answers correctly on a machine
+    that has never rendered anything, and it keeps answering after the queue
+    is pruned.
+    """
+    from . import store
+
+    langs = ("en", "hi", "te")
+    reels = (1, 2, 3, 4, 5, 6)
+    out, done_n, total_n = [], 0, 0
+    for ipo in store.load_all():
+        have = {(int(v.get("reel") or 0), v.get("lang")) for v in ipo.published}
+        missing = [(r, l) for r in reels for l in langs if (r, l) not in have]
+        done_n += len(reels) * len(langs) - len(missing)
+        total_n += len(reels) * len(langs)
+        out.append({"slug": ipo.slug, "company": ipo.company or ipo.slug,
+                    "done": sorted(have), "missing": missing})
+    return {"rows": out, "done": done_n, "total": total_n,
+            "pct": round(100 * done_n / total_n, 1) if total_n else 0.0}
 
 
 def mark_failed(ident: str, why: str) -> dict[str, Any]:

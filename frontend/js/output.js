@@ -5,6 +5,75 @@
  * all turns the current state into something you take away.
  */
 
+/* ── the sign-off ─────────────────────────────────────────────────────
+ *
+ * The last line of every script, and until now it was one fixed sentence per
+ * reel. That reads as a template the moment a viewer watches two of these
+ * back to back — which this channel's audience does, because the reels for
+ * one IPO are published as a set. Same closing words, same intonation from
+ * the same synthetic voice, and the ask stops registering as an ask.
+ *
+ * So it is drawn from a pool. Some variants say "subscribe", some ask
+ * "please", some go for the like or the share instead — the thing worth
+ * asking for varies anyway, and a viewer who has already subscribed is
+ * better asked for something else.
+ *
+ * DETERMINISTIC, not Math.random(): keyed off the company and the reel
+ * number, so one reel keeps its sign-off across every re-render. The script
+ * panel, the narration synthesised from it, and the per-scene holds
+ * studio.js measures off the same text all have to agree — a pool re-rolled
+ * between the audio and the timing would cut the last card short by exactly
+ * one sentence. Different reels of one IPO, and different IPOs, each get
+ * their own.
+ *
+ * Indexed [en, hi, te] like every other spoken string here. All three say
+ * the same thing on purpose: the three uploads of one reel are the same
+ * video, and the Hindi viewer should not be asked for something different
+ * from the English one.
+ */
+const OUTROS = [
+  [`If this helped, subscribe — I cover every issue that opens.`,
+   `अगर यह काम आया हो तो सब्सक्राइब कर लीजिए — हर खुलने वाले इश्यू पर वीडियो आता है।`,
+   `ఇది ఉపయోగపడితే సబ్‌స్క్రైబ్ చేయండి — ఓపెన్ అయ్యే ప్రతి ఇష్యూపై వీడియో వస్తుంది.`],
+
+  [`Please subscribe if you want the next one — it's the only thing I'll ask you for.`,
+   `अगली वीडियो चाहिए तो प्लीज़ सब्सक्राइब कीजिए — बस इतना ही माँगूँगा।`,
+   `తదుపరిది కావాలంటే ప్లీజ్ సబ్‌స్క్రైబ్ చేయండి — నేను అడిగేది అంతే.`],
+
+  [`A like if it helped, a subscribe if you want the next issue too.`,
+   `काम आया तो एक लाइक, और अगला इश्यू भी चाहिए तो सब्सक्राइब।`,
+   `ఉపయోగపడితే ఒక లైక్, తదుపరి ఇష్యూ కూడా కావాలంటే సబ్‌స్క్రైబ్.`],
+
+  [`Subscribe, and you'll get the update on this one before it lists.`,
+   `सब्सक्राइब कीजिए — लिस्टिंग से पहले इसी इश्यू का अपडेट मिल जाएगा।`,
+   `సబ్‌స్క్రైబ్ చేస్తే లిస్టింగ్‌కి ముందే దీని అప్‌డేట్ మీకు వస్తుంది.`],
+
+  [`Follow the channel for the allotment alert — and please do hit like, it genuinely helps.`,
+   `अलॉटमेंट अलर्ट के लिए चैनल फॉलो कीजिए — और प्लीज़ लाइक ज़रूर कीजिए, इससे सच में मदद मिलती है।`,
+   `అలాట్‌మెంట్ అలర్ట్ కోసం ఛానల్ ఫాలో అవ్వండి — ప్లీజ్ లైక్ కూడా చేయండి, నిజంగా సాయపడుతుంది.`],
+
+  [`If you're new here — subscribe. One video per issue, no hype, just the numbers.`,
+   `अगर आप यहाँ नए हैं — सब्सक्राइब कीजिए। हर इश्यू पर एक वीडियो, बिना हाइप, सिर्फ़ आँकड़े।`,
+   `మీరు ఇక్కడ కొత్తవారైతే — సబ్‌స్క్రైబ్ చేయండి. ప్రతి ఇష్యూకి ఒక వీడియో, హైప్ లేదు, కేవలం లెక్కలు.`],
+
+  [`Share this with whoever is about to apply, and subscribe for the rest of the week's issues.`,
+   `जो अप्लाई करने वाला है उसे यह भेज दीजिए, और हफ़्ते के बाकी इश्यू के लिए सब्सक्राइब कर लीजिए।`,
+   `అప్లై చేయబోతున్న వాళ్లకి దీన్ని షేర్ చేయండి, ఈ వారంలోని మిగతా ఇష్యూల కోసం సబ్‌స్క్రైబ్ చేయండి.`],
+];
+
+/* FNV-1a over the seed, so the same seed picks the same variant in every
+ * browser and on every render. Math.imul keeps the multiply in 32 bits;
+ * plain * loses precision past 2^53 and the hash degenerates. */
+function outroFor(seed, langIndex) {
+  let h = 2166136261;
+  const k = String(seed);
+  for (let i = 0; i < k.length; i++) {
+    h ^= k.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return OUTROS[(h >>> 0) % OUTROS.length][langIndex] || '';
+}
+
 const OUTPUT = {
 
   /* ── the English voice ────────────────────────────────────────────────
@@ -323,7 +392,7 @@ const OUTPUT = {
    * `enScript` below flattens this back into the single block the Script
    * panel has always shown, in scene order, so nothing downstream changed.
    */
-  enSegments(n) {
+  enScenes(n) {
     const ipo = this.ipo, d = this.d, L = this.loc;
     // The header reads `reelSeconds`, which reaches here through scriptHolds,
     // and Alpine evaluates that on the first paint — before loadCatalogue has
@@ -545,11 +614,32 @@ listing: [
   ? `Listing is on ${dt(ipo.dates.listing)}. On the current premium the expected range is ${R(lr.low)} to ${R(lr.high)} — that's ${this.voPct(lr.low_pct)} to ${this.voPct(lr.high_pct)} on the issue price.`
   : `Listing is on ${dt(ipo.dates.listing)}. There's no grey market premium to project a range from, so I'm not going to guess one for you.`,
 `And whatever happens on listing day: have your exit decided before the bell, not during it. If you didn't get an allotment, don't chase it at the open — that's the most expensive hour of the stock's life.`,
-`Follow for the allotment alert.`,
 ].filter(Boolean).join(' '),
       };
     }
     return {};
+  },
+
+  /* The sign-off for this IPO and this reel — see OUTROS. Seeded on both,
+   * so the six reels of one issue do not all close the same way. */
+  voOutro(n) {
+    const seed = `${(this.ipo && this.ipo.company) || 'board'}|${n}`;
+    return outroFor(seed, LANG_INDEX[this.lang] ?? 0);
+  },
+
+  /* The scene map the rest of the app reads: enScenes() above, with the
+   * sign-off appended to the last scene that actually has narration.
+   *
+   * Appended HERE rather than in enScript(), because scriptHolds() in
+   * studio.js times every scene off this map. A CTA that existed only in the
+   * flattened script would be spoken over a card whose hold was measured
+   * without it, and the reel would cut off mid-sentence. */
+  enSegments(n) {
+    const segs = this.enScenes(n) || {};
+    const ids = this.sceneIdsFor(n).filter((id) => String(segs[id] || '').trim());
+    const last = ids[ids.length - 1];
+    if (!last) return segs;
+    return { ...segs, [last]: `${String(segs[last]).trim()} ${this.voOutro(n)}` };
   },
 
   /* Scene ids for a reel, in play order — mirrors scenesFor() in reels.js so
@@ -645,7 +735,10 @@ listing: [
     out.push(`Three. Never apply on the premium alone. It is unofficial, it is a rumour with a number attached, and it moves hardest in the last forty-eight hours — which is exactly when most people commit.`);
     out.push(`And four, the one that matters most if you are just starting out. Listing gains are a bonus, not a plan. Only apply with money you can afford to have locked up, or to lose. Not one rupee of borrowed money for a listing pop — that is the mistake that turns a bad week into a bad year.`);
     out.push(`None of this is investment advice. Do your own research, or speak to a SEBI-registered adviser.`);
-    return out.join('\n');
+    // Seeded on the week, not a company: this script is about the whole
+    // board, so there is no one company to key off.
+    out.push(outroFor(`strategy|${today}`, LANG_INDEX[this.lang] ?? 0));
+    return out.filter(Boolean).join('\n');
   },
 
   // ── voiceover script, one per reel ───────────────────────────────────
@@ -812,21 +905,20 @@ ${this.hasRecos ? `రిటైల్ — ${this.t('r_' + ipo.analysis.reco_reta
       6: [
 `${ipo.company} allotment ${d.listing.status === 'out' ? 'is OUT — check right now' : `is expected on ${dt(ipo.dates.allotment)}`}. Registrar is ${iss.registrar}.
 How to check in 10 seconds: ${this.steps.join('. ')}.
-Listing on ${dt(ipo.dates.listing)}, expected range ₹${listingRange.low} to ₹${listingRange.high} — that's ${this.signed(listingRange.low_pct, 0)}% to ${this.signed(listingRange.high_pct, 0)}% on the issue price.
-Follow for the allotment alert.`,
+Listing on ${dt(ipo.dates.listing)}, expected range ₹${listingRange.low} to ₹${listingRange.high} — that's ${this.signed(listingRange.low_pct, 0)}% to ${this.signed(listingRange.high_pct, 0)}% on the issue price.`,
 
 `${ipo.company} का अलॉटमेंट ${d.listing.status === 'out' ? 'आ चुका है — अभी चेक करें' : `${dt(ipo.dates.allotment)} को आने की उम्मीद है`}। रजिस्ट्रार है ${iss.registrar}।
 10 सेकंड में ऐसे चेक करें: ${this.steps.join('। ')}।
-लिस्टिंग ${dt(ipo.dates.listing)} को, संभावित रेंज ₹${listingRange.low} से ₹${listingRange.high} — यानी इश्यू प्राइस पर ${this.signed(listingRange.low_pct, 0)}% से ${this.signed(listingRange.high_pct, 0)}%।
-अलॉटमेंट अलर्ट के लिए फॉलो करें।`,
+लिस्टिंग ${dt(ipo.dates.listing)} को, संभावित रेंज ₹${listingRange.low} से ₹${listingRange.high} — यानी इश्यू प्राइस पर ${this.signed(listingRange.low_pct, 0)}% से ${this.signed(listingRange.high_pct, 0)}%।`,
 
 `${ipo.company} అలాట్‌మెంట్ ${d.listing.status === 'out' ? 'వచ్చేసింది — ఇప్పుడే చెక్ చేయండి' : `${dt(ipo.dates.allotment)}న వస్తుందని అంచనా`}. రిజిస్ట్రార్ ${iss.registrar}.
 10 సెకన్లలో ఇలా చెక్ చేయండి: ${this.steps.join('. ')}.
-లిస్టింగ్ ${dt(ipo.dates.listing)}న, అంచనా రేంజ్ ₹${listingRange.low} నుంచి ₹${listingRange.high} — అంటే ఇష్యూ ధరపై ${this.signed(listingRange.low_pct, 0)}% నుంచి ${this.signed(listingRange.high_pct, 0)}%.
-అలాట్‌మెంట్ అలర్ట్ కోసం ఫాలో అవ్వండి.`,
+లిస్టింగ్ ${dt(ipo.dates.listing)}న, అంచనా రేంజ్ ₹${listingRange.low} నుంచి ₹${listingRange.high} — అంటే ఇష్యూ ధరపై ${this.signed(listingRange.low_pct, 0)}% నుంచి ${this.signed(listingRange.high_pct, 0)}%.`,
       ],
     };
-    return (S[reelNumber] || [''])[i].replace(/\n{2,}/g, '\n').trim();
+    // Same pool, same seed as the English scenes — see OUTROS.
+    return [(S[reelNumber] || [''])[i], this.voOutro(reelNumber)]
+      .filter(Boolean).join('\n').replace(/\n{2,}/g, '\n').trim();
   },
 
   get script() { return this.scriptFor(this.reel.n); },
