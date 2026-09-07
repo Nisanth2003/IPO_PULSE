@@ -96,6 +96,9 @@ const REELS = [
       // the one a viewer actually acts on: the cheque, the upside at today's
       // premium, and the odds of getting any of it.
       { id: 'stake',      hold: 6 },
+      // Split from `stake`, which narrated 43 seconds over one card. What a
+      // lot costs and whether you will get one are two questions.
+      { id: 'odds',       hold: 6 },
     ],
   },
   {
@@ -103,7 +106,10 @@ const REELS = [
     scenes: [
       { id: 'score',   hold: 4 },
       { id: 'verdict', hold: 5 },
-      { id: 'who',     hold: 5 },   // retail / HNI / long term + countdown
+      { id: 'who',     hold: 5 },   // retail / HNI / long term
+      // Split from `who`, which narrated 172 words - 77 seconds, 60% of the
+      // reel - on a single static frame.
+      { id: 'cutoff',  hold: 5 },   // the closing countdown and the warning
     ],
   },
   {

@@ -1909,81 +1909,82 @@
                        apply for when an issue is oversubscribed. -->
                   <div class="glass p-3 text-center">
                     <div class="lbl" x-text="t('oneLotCost')"></div>
-                    <div class="font-black text-4xl tnum" :style="`color:${acc}`"
+                    <div class="font-black text-5xl tnum" :style="`color:${acc}`"
                          x-text="'₹'+fmt(d.issue.min_investment)"></div>
                     <div class="text-2xs font-bold text-slate-400 mt-0.5"
                          x-text="ipo.issue.lot_size+' × ₹'+ipo.issue.price_high"></div>
                   </div>
 
-                  <div class="grid grid-cols-2 gap-2">
-                    <!-- Upside at TODAY's premium, stated as a number they can
-                         check, never as a forecast. Hidden entirely when no
-                         premium is quoted — an empty "₹0 gain" tile would be a
-                         claim nobody made. -->
-                    <div class="glass p-2.5 text-center"
-                         :class="d.gmp.gmp>=0 ? 'glass-g' : 'glass-r'" x-show="d.gmp.has_data">
-                      <div class="lbl" x-text="t('atTodayGmp')"></div>
-                      <div class="font-black text-2xl tnum"
-                           :class="d.gmp.gmp>=0 ? 'text-emerald-300' : 'text-red-300'"
-                           x-text="signed(d.gmp.gain_per_lot,0)"></div>
-                      <div class="text-2xs font-bold opacity-70"
-                           x-text="signed(d.gmp.pct,1)+'%'"></div>
-                    </div>
-                    <!-- Allotment odds from the retail multiple: the number
-                         that decides whether the tile on the left is even
-                         reachable. -->
-                    <div class="glass p-2.5 text-center" x-show="d.subscription.has_data">
-                      <div class="lbl" x-text="t('allotOdds')"></div>
-                      <div class="font-black text-2xl tnum" :class="subTone(d.subscription.retail)"
-                           x-text="allotOdds"></div>
-                      <div class="text-2xs font-bold opacity-70"
-                           x-text="t('retail')+' '+d.subscription.retail+'x'"></div>
-                    </div>
-                  </div>
-
-                  <!-- The same question, answered for the categories that are
-                       not retail.
-
-                       This scene used to stop at the retail multiple, which
-                       quietly assumed every viewer applies with ₹15,000. An
-                       HNI gets a different answer on BOTH halves: Tempsens
-                       closed at 61x retail against 281x sHNI and 331x bHNI,
-                       and the sHNI ticket is fourteen lots rather than one.
-                       Rows appear only where the exchange published that
-                       tranche, so an issue with no NII split simply shows the
-                       retail row it always did. -->
-                  <template x-if="oddsRows.length > 1">
-                    <div class="glass p-2 space-y-1">
-                      <div class="lbl text-center" x-text="t('oddsByCat')"></div>
-                      <template x-for="r in oddsRows" :key="r.key">
-                        <div class="flex items-center gap-2 text-2xs font-bold">
-                          <span class="w-1.5 h-1.5 rounded-full shrink-0"
-                                :style="`background:${r.tone}`"></span>
-                          <span class="text-slate-300 shrink-0" x-text="r.label"></span>
-                          <span class="flex-1 border-b border-dotted border-white/15"></span>
-                          <span class="tnum opacity-70" x-show="r.cheque"
-                                x-text="'₹'+fmt(r.cheque)"></span>
-                          <span class="tnum font-black tabular-nums shrink-0"
-                                :class="subTone(r.mult)" x-text="r.odds"></span>
-                        </div>
-                      </template>
-                      <!-- QIB is proportionate and the anchor book is
-                           discretionary. Printing "1 in 303" beside a 302.88x
-                           QIB figure would be a fabricated statistic about a
-                           process that holds no lottery, so it is said in
-                           words and given no number. -->
-                      <div class="text-[8px] font-bold text-slate-500 pt-0.5"
-                           x-show="qibNote" x-text="qibNote"></div>
-                    </div>
-                  </template>
-
-                  <div class="glass glass-a p-2.5 text-center">
-                    <span class="text-2xs font-extrabold text-amber-200"
-                          x-text="t('stakeNote')"></span>
+                  <!-- Upside at TODAY's premium, stated as a number they can
+                       check, never as a forecast. Hidden entirely when no
+                       premium is quoted - an empty "₹0 gain" tile would be a
+                       claim nobody made. Full width now that the odds tile
+                       has its own scene: a single-column block is also what
+                       exports cleanly, see the html2canvas notes. -->
+                  <div class="glass p-3 text-center"
+                       :class="d.gmp.gmp>=0 ? 'glass-g' : 'glass-r'" x-show="d.gmp.has_data">
+                    <div class="lbl" x-text="t('atTodayGmp')"></div>
+                    <div class="font-black text-4xl tnum"
+                         :class="d.gmp.gmp>=0 ? 'text-emerald-300' : 'text-red-300'"
+                         x-text="signed(d.gmp.gain_per_lot,0)"></div>
+                    <div class="text-2xs font-bold opacity-70"
+                         x-text="signed(d.gmp.pct,1)+'%'"></div>
                   </div>
                 </div>
               </template>
             </div>
+
+            <!-- Split from `stake`: the odds of getting any of it. -->
+            <div x-show="at(4,'odds')" class="scene tight">
+              <div class="lbl text-center" x-text="t('allotOdds')"></div>
+
+              <div class="glass p-3 text-center" x-show="d.subscription.has_data">
+                <div class="font-black text-5xl tnum" :class="subTone(d.subscription.retail)"
+                     x-text="allotOdds"></div>
+                <div class="text-2xs font-bold opacity-70 mt-0.5"
+                     x-text="t('retail')+' '+d.subscription.retail+'x'"></div>
+              </div>
+              <div class="glass p-3 text-center" x-show="!d.subscription.has_data">
+                <div class="text-sm text-slate-400" x-text="t('noSubYet')"></div>
+              </div>
+
+              <!-- The same question, answered for the categories that are not
+                   retail. This used to sit inside `stake` and quietly assumed
+                   every viewer applies with ₹15,000. An HNI gets a different
+                   answer on both halves: Tempsens closed at 61x retail
+                   against 281x sHNI and 331x bHNI, and the sHNI ticket is
+                   fourteen lots rather than one. Rows appear only where the
+                   exchange published that tranche. -->
+              <template x-if="oddsRows.length > 1">
+                <div class="glass p-2 space-y-1">
+                  <div class="lbl text-center" x-text="t('oddsByCat')"></div>
+                  <template x-for="r in oddsRows" :key="r.key">
+                    <div class="flex items-center gap-2 text-2xs font-bold">
+                      <span class="w-1.5 h-1.5 rounded-full shrink-0"
+                            :style="`background:${r.tone}`"></span>
+                      <span class="text-slate-300 shrink-0" x-text="r.label"></span>
+                      <span class="flex-1 border-b border-dotted border-white/15"></span>
+                      <span class="tnum opacity-70" x-show="r.cheque"
+                            x-text="'₹'+fmt(r.cheque)"></span>
+                      <span class="tnum font-black tabular-nums shrink-0"
+                            :class="subTone(r.mult)" x-text="r.odds"></span>
+                    </div>
+                  </template>
+                  <!-- QIB is proportionate and the anchor book is
+                       discretionary. Printing "1 in 303" beside a 302.88x QIB
+                       figure would be a fabricated statistic about a process
+                       that holds no lottery, so it is said in words. -->
+                  <div class="text-[8px] font-bold text-slate-500 pt-0.5"
+                       x-show="qibNote" x-text="qibNote"></div>
+                </div>
+              </template>
+
+              <div class="glass glass-a p-2.5 text-center">
+                <span class="text-2xs font-extrabold text-amber-200"
+                      x-text="t('stakeNote')"></span>
+              </div>
+            </div>
+
 
             <!-- ─── REEL 5 · FINAL VERDICT ─────────────────────────── -->
             <div x-show="at(5,'score')" class="scene items-center text-center">
@@ -2099,6 +2100,12 @@
                         x-text="(r[1]==='apply'?'✅ ':(r[1]==='avoid'?'⛔ ':'👀 '))+t('r_'+r[1])"></span>
                 </div>
               </template>
+            </div>
+
+            <!-- Split from `who`. The countdown was always its own block;
+                 now it is its own beat, so the picture cuts when the
+                 subject changes from the verdict to the clock. -->
+            <div x-show="at(5,'cutoff')" class="scene items-center">
               <div class="rounded-2xl px-4 py-3 flex items-center justify-between alertpulse"
                    style="background:linear-gradient(90deg,rgba(239,68,68,.22),rgba(239,68,68,.06));border:1px solid rgba(239,68,68,.5)">
                 <div>
@@ -2406,7 +2413,7 @@
 
                The mascot is inline SVG with static fills and explicit
                width/height. Both are required by html2canvas - it serialises
-               the <svg> to XML and reloads it as an image, so an Alpine
+               the an SVG element to XML and reloads it as an image, so an Alpine
                `:fill` binding becomes an invalid namespace prefix and the
                whole graphic disappears from the PNG, and CSS sizing is lost.
                See docs and `stripBindings()` in output.js. -->

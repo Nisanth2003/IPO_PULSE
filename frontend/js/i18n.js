@@ -22,6 +22,9 @@ const LABELS = {
   // The end card's own labels. Short on purpose: they sit on a card that is
   // on screen for 2.4 seconds, and a sentence there competes with the spoken
   // sign-off rather than reinforcing it.
+  // Shown on reel 4's odds card when no bidding day has been published yet:
+  // an empty odds tile reads as "no chance", which is the opposite of true.
+  noSubYet:     ['Bidding has not opened yet', 'बिडिंग अभी शुरू नहीं हुई', 'బిడ్డింగ్ ఇంకా మొదలవలేదు'],
   ctaSubscribe: ['SUBSCRIBE', 'सब्सक्राइब करें', 'సబ్‌స్క్రైబ్ చేయండి'],
   ctaLike:      ['LIKE', 'लाइक', 'లైక్'],
   ctaShare:     ['SHARE', 'शेयर', 'షేర్'],

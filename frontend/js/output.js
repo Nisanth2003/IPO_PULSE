@@ -481,7 +481,15 @@ const OUTPUT = {
         ? `One lot is ${iss.lot_size} shares, so the smallest cheque you can write is ${R(d.issue.min_investment)}.`
         : `The lot size isn't published yet, so I can't tell you the minimum application today — I'll bring it the moment it's out.`;
       return {
-hook: `${ipo.company}. Let me give you the terms first, then tell you what I make of them.`,
+// Opens on the size and the cheque, because those are the two numbers a
+// viewer can act on and the pair of them is genuinely surprising: a company
+// asking for hundreds of crores that you can buy into for fifteen thousand
+// rupees. Falls back down the chain rather than ever saying "zero".
+hook: (Number(d.issue.total_cr) && Number(d.issue.min_investment))
+  ? `${ipo.company} is asking the market for ${this.voCrore(d.issue.total_cr)}. The smallest cheque you can write for a piece of it is ${R(d.issue.min_investment)}. Here is what that buys.`
+  : Number(d.issue.total_cr)
+    ? `${ipo.company} is asking the market for ${this.voCrore(d.issue.total_cr)}. The lot size is not out yet, so let me start with what is known.`
+    : `${ipo.company} has filed to list and the terms are not published yet. Here is what the papers do say.`,
 // Bullets, not list items — each is already a full sentence, so voList()
 // would run them together as "A, B, and C." with capitals mid-clause.
 company: L.overview.length
@@ -547,8 +555,20 @@ trail: `When there's a quote worth reporting, you'll get it here.`,
         ? `We've only got one day of readings on this so far, at ${R(g.gmp)} — too early to call a trend.`
         : `We've tracked it ${g.days_tracked} days since the announcement. High of ${R(g.peak)}, low of ${R(g.trough)}.`;
       return {
-hook: [`${ipo.company}, grey market premium.`,
-  `If this is new to you: GMP is what people are unofficially willing to pay for these shares before they list. It is not an exchange price. No regulator publishes it. It's a rumour with a number attached — a useful one, which is why I track it daily, but a rumour.`].join(' '),
+// The premium IS the story on this reel, so it goes first. The "what is a
+// GMP" explainer used to open the reel and ran 26 seconds before the viewer
+// learned anything about this company; it now follows the number.
+hook: [
+  Number(g.gmp) === 0
+    ? `The grey market has ${ipo.company} at par. Zero premium, nothing over the band — and on this reel that is the story.`
+    : `${R(g.gmp)} over the band. That is ${this.voPct(g.pct)} on ${ipo.company}, before it has listed a single share.`,
+  // Trimmed from 58 words to about 20. The full "what is a GMP" paragraph
+  // made this scene 32.6s - the longest card in the reel, and it was the
+  // HOOK. The two facts a first-time viewer needs are that nobody official
+  // publishes it and that it is therefore a rumour; the rest was restating
+  // those. `trail` still closes the reel on the same warning.
+  `If this is new: nobody official publishes that number. It is what people will unofficially pay before listing — a rumour with a price on it.`,
+].join(' '),
 gauge: [`${headline}${perLot}`, this.voTakeGmp()].filter(Boolean).join(' '),
 listing: tracked,
 trail: `And I'll say it again because it matters: this number is unofficial and it changes every single day. Never let it be the only reason you apply.`,
@@ -583,7 +603,11 @@ subboard: [
         return { hook: `${ipo.company}, subscription.`, bars: this.voTakeSubscription() };
       }
       return {
-hook: `${ipo.company}, day ${s.day} of subscription.`,
+// Day-and-company was accurate and told the viewer nothing. The multiple is
+// the number they came for.
+hook: Number(s.total)
+  ? `${ipo.company} is ${this.voTimes(s.total)} subscribed on day ${s.day}. Here is who is actually putting the money in.`
+  : `${ipo.company}, day ${s.day} of subscription, and the book has not been covered yet.`,
 bars: [
   `Quick translation, because these three letters put people off. QIB is the big institutions — mutual funds, insurers, banks. NII is high net worth individuals, the large private money. Retail is you and me, anything up to two lakh rupees.`,
   `QIB, ${this.voTimes(s.qib)}. NII, ${this.voTimes(s.nii)}. Retail, ${this.voTimes(s.retail)}. Overall the issue is subscribed ${this.voTimes(s.total)}.`,
@@ -600,7 +624,16 @@ trend: [this.voTakeSubscription(), this.voTakeLeader()].filter(Boolean).join(' '
         ? `Operating margin is ${this.voPct(fin.latest.ebitda_margin)}, ${Number(fin.margin_shift_bps) >= 0 ? 'up' : 'down'} ${Math.abs(Number(fin.margin_shift_bps) || 0)} basis points on last year.`
         : '';
       return {
-hook: `So — should you apply to ${ipo.company}? Here's how I'd think about it.`,
+// The old hook asked the question and promised a method. This one puts the
+// cheque and what the market currently thinks it is worth in the first
+// sentence, and asks the question second — same words, opposite order.
+hook: (d.issue.min_investment && g.has_data && Number(g.gain_per_lot))
+  ? `${R(d.issue.min_investment)} buys one lot of ${ipo.company}. Today the grey market says that lot is worth about ${R(Number(d.issue.min_investment) + Number(g.gain_per_lot))}. Should you apply?`
+  : (d.issue.min_investment && fin.pe && fin.pe_peer_avg)
+    ? `${R(d.issue.min_investment)} is the smallest bet you can place on ${ipo.company}, at ${fin.pe} times earnings against a peer average of ${fin.pe_peer_avg}. Should you apply?`
+    : d.issue.min_investment
+      ? `${R(d.issue.min_investment)} is the smallest bet you can place on ${ipo.company}. Should you apply?`
+      : `Should you apply to ${ipo.company}? The lot size is not out yet, so let me take apart what is.`,
 financials: [growth, margin].filter(Boolean).join(' '),
 valuation: this.voTakeValuation(),
 flags: [
@@ -616,6 +649,11 @@ stake: [
   (g.has_data && iss.lot_size && Number(g.gain_per_lot))
     ? `At today's premium that one lot would be worth about ${R(Math.abs(g.gain_per_lot))} ${Number(g.gain_per_lot) >= 0 ? 'more' : 'less'} than you paid — ${this.voPct(g.pct)}. That is today's number, not a forecast.`
     : '',
+].filter(Boolean).join(' '),
+// Split off `stake`, which ran 43 seconds on one card. The cost of applying
+// and the odds of getting anything are two different questions and they now
+// get a cut between them.
+odds: [
   (s.has_data && Number(s.retail) >= 1)
     ? `Retail is ${this.voTimes(s.retail)} over, so roughly one application in ${Number(s.retail) < 10 ? Number(s.retail).toFixed(1) : Math.round(s.retail)} gets a lot.`
     : (s.has_data ? `Retail isn't covered yet, so an application now would very likely get the full allotment.` : ''),
@@ -629,7 +667,11 @@ stake: [
         ? `Our IPO Pulse score comes out at ${Number(d.score.effective).toFixed(1)} out of 10. ${this.verdictText}.`
         : `There isn't enough published data to score this one honestly yet — so I'm not going to give you a number that looks confident and isn't.`;
       return {
-score: [`Final word on ${ipo.company}.`, scoreLine].join(' '),
+// The score first, the ceremony second. "Final word on X" was three seconds
+// of throat-clearing in front of the one number this reel exists to deliver.
+score: d.score.has_data
+  ? `${Number(d.score.effective).toFixed(1)} out of ten. That is where ${ipo.company} lands, and ${this.verdictText.toLowerCase()}. Here is how it got there.`
+  : [`Final word on ${ipo.company}.`, scoreLine].join(' '),
 verdict: [
 // Spoken immediately BEFORE the call, not filed at the end of the video.
 // India's Research Analyst regulations exempt an opinion on a public offer
@@ -648,10 +690,18 @@ verdict: [
   ? `With that said — for retail, ${this.t('r_' + ipo.analysis.reco_retail)}. For HNI, ${this.t('r_' + ipo.analysis.reco_hni)}. And holding it long term, ${this.t('r_' + ipo.analysis.reco_long)}.`
   : `I am not going to hand you a call on this one yet. The published data does not support one, and inventing a verdict to fill the slot is exactly how these channels lose people money.`,
 ].filter(Boolean).join(' '),
-who: [
-this.voTakeAllotmentOdds(),
-`The issue closes ${dt(ipo.dates.close)} at ${ipo.dates.close_time}. If you're applying, do it before the cut-off — your bank's UPI mandate needs time to clear, and every year people miss it by an hour.`,
-`And the thing I would most want you to take away. Only ever apply with money you can afford to have locked up, or to lose. An IPO is not a savings account. Do your own research, read the offer document, and if you want advice that fits your situation, speak to a SEBI-registered adviser.`,
+// The odds, and only the odds. This scene carried three separate ideas and
+// 172 words - 77 seconds parked on one motionless card, which is 60% of the
+// reel. The cut-off and the takeaway moved to `cutoff` below, where the
+// countdown card already lived.
+who: this.voTakeAllotmentOdds(),
+// The clock, and the one warning worth ending on. Trimmed from 54 words to
+// about 30: the substance a viewer has to hear is "money you can afford to
+// lose" and "speak to a registered adviser", and the sentences around those
+// were restating them.
+cutoff: [
+`The issue closes ${dt(ipo.dates.close)} at ${ipo.dates.close_time}. Apply before the cut-off — a UPI mandate needs time to clear, and every year people miss it by an hour.`,
+`And the one thing to take away: only apply with money you can afford to have locked up, or to lose. An IPO is not a savings account. Read the offer document, and for advice that fits your situation speak to a SEBI-registered adviser.`,
 ].filter(Boolean).join(' '),
       };
     }
@@ -660,7 +710,12 @@ this.voTakeAllotmentOdds(),
       const out = d.listing.status === 'out';
       const lr = this.listingRange;
       return {
-status: `${ipo.company} allotment ${out ? 'is out — go and check it now' : `is expected on ${dt(ipo.dates.allotment)}`}. The registrar is ${iss.registrar}.`,
+// Leads with the return the viewer is here to find out about, then the
+// allotment date. When there is no range to quote it falls back to the plain
+// statement rather than inventing one.
+status: (lr.has && (lr.low_pct || lr.high_pct))
+  ? `If ${ipo.company} lists where the grey market says it will, one lot returns ${this.voPct(lr.low_pct)} to ${this.voPct(lr.high_pct)}. Allotment ${out ? 'is out — go and check it now' : `is expected on ${dt(ipo.dates.allotment)}`}, and the registrar is ${iss.registrar}.`
+  : `${ipo.company} allotment ${out ? 'is out — go and check it now' : `is expected on ${dt(ipo.dates.allotment)}`}. The registrar is ${iss.registrar}.`,
 checklist: `Here's how to check it in about ten seconds. ${this.voList(this.steps)}.`,
 listing: [
 // No premium and no published range means there is no forecast to give,
@@ -670,7 +725,7 @@ listing: [
 (lr.has && (lr.low || lr.high))
   ? `Listing is on ${dt(ipo.dates.listing)}. On the current premium the expected range is ${R(lr.low)} to ${R(lr.high)} — that's ${this.voPct(lr.low_pct)} to ${this.voPct(lr.high_pct)} on the issue price.`
   : `Listing is on ${dt(ipo.dates.listing)}. There's no grey market premium to project a range from, so I'm not going to guess one for you.`,
-`And whatever happens on listing day: have your exit decided before the bell, not during it. If you didn't get an allotment, don't chase it at the open — that's the most expensive hour of the stock's life.`,
+`And whatever happens on listing day: decide your exit before the bell, not during it. No allotment? Don't chase it at the open — that is the most expensive hour of the stock's life.`,
 ].filter(Boolean).join(' '),
       };
     }
@@ -729,7 +784,12 @@ listing: [
     return {
 mkthook: !b.trading
   ? `${dt(b.date)}, and there is no session today — ${b.why_closed || 'the market is shut'}. So this is a look at where things stand rather than a plan for the morning.`
-  : `Pre-market, ${dt(b.date)}. Here is what happened overnight and what I am watching at the open.`,
+  // Breadth first: "two thousand more stocks fell than rose" is a harder
+  // opening fact than the date, and it is the one that tells a viewer what
+  // kind of morning this is.
+  : (Number(b.advances) && Number(b.declines))
+    ? `${N(b.declines)} stocks fell yesterday against ${N(b.advances)} that rose, and NIFTY closed ${pct(b.nifty_pct)}. Here is the morning.`
+    : `Pre-market, ${dt(b.date)}. Here is what happened overnight and what I am watching at the open.`,
 
 indices: [
   `NIFTY closed at ${N(b.nifty)}, ${pct(b.nifty_pct)}. BANK NIFTY at ${N(b.banknifty)}, ${pct(b.banknifty_pct)}.`,
