@@ -787,7 +787,16 @@
 
           <!-- ══════════ SCENES ══════════ -->
           <div class="flex-1 min-h-0 overflow-hidden px-4 py-3" x-ref="body" :class="{'anim': mounted}">
-          <template x-if="ipo && d">
+          <!-- `!reel.market` is load-bearing, not defensive. Both this block
+               and the market block below are `h-full`, so on reel 7 the two
+               wrappers stacked to 2x the body height even with every scene in
+               here hidden by x-show — and the card reported "Scene overflows"
+               over 705px of empty structure. Auto-shrink could not rescue it:
+               it scales TEXT, and there was no text to scale, so the binary
+               search walked to the 0.5 floor and gave up. x-if removes the
+               wrapper rather than hiding it, which is the difference that
+               matters here. -->
+          <template x-if="!reel.market && ipo && d && sceneId !== 'outro'">
           <div class="h-full">
 
             <!-- ─── REEL 1 · ABOUT IPO ─────────────────────────────── -->
@@ -2208,7 +2217,7 @@
                that guard would draw an empty frame on a sheet full of
                briefing data, which is exactly what it did before this block
                existed. This one reads `briefing` and never touches `ipo`. -->
-          <template x-if="reel.market && briefing">
+          <template x-if="reel.market && briefing && sceneId !== 'outro'">
           <div class="h-full">
 
             <!-- the date, the bias, and the one-line read -->
@@ -2386,6 +2395,113 @@
                 <div class="text-xs font-bold text-slate-400" x-text="cardBlocked"></div>
               </div>
             </div>
+          </template>
+
+          <!-- ══════════ THE SIGN-OFF, EVERY REEL ══════════════════════════
+               One card, all seven reels, rendered for the `outro` scene that
+               `scenesFor` appends. A third wrapper alongside the other two,
+               and mutually exclusive with both on `sceneId`: two `h-full`
+               wrappers stack to twice the body height and the card then
+               reports "Scene overflows" over empty structure.
+
+               The mascot is inline SVG with static fills and explicit
+               width/height. Both are required by html2canvas - it serialises
+               the <svg> to XML and reloads it as an image, so an Alpine
+               `:fill` binding becomes an invalid namespace prefix and the
+               whole graphic disappears from the PNG, and CSS sizing is lost.
+               See docs and `stripBindings()` in output.js. -->
+          <template x-if="sceneId === 'outro'">
+          <div class="h-full scene items-center text-center" style="justify-content:center">
+
+            <!-- the mascot: a bull, because this is an Indian equities channel
+                 and the bull is the one piece of market iconography that needs
+                 no explaining. Drawn rather than an asset so it cannot 404,
+                 costs no request, and scales with --fs like everything else. -->
+            <svg width="132" height="132" viewBox="0 0 132 132" fill="none"
+                 style="width:calc(var(--fs)*7.4);height:calc(var(--fs)*7.4)"
+                 xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <!-- glow plate, so the mascot reads on all four card themes -->
+              <circle cx="66" cy="66" r="60" fill="rgba(34,197,94,0.10)"/>
+              <circle cx="66" cy="66" r="60" stroke="rgba(34,197,94,0.45)" stroke-width="2"/>
+
+              <!-- EARS FIRST, so the head below overlaps their inner half and
+                   what is left sticks out. Drawn after the head they vanished
+                   inside the silhouette, which is half of why the first pass
+                   read as a pig. -->
+              <ellipse cx="30" cy="60" rx="11" ry="7" fill="#94A3B8"
+                       transform="rotate(-18 30 60)"/>
+              <ellipse cx="102" cy="60" rx="11" ry="7" fill="#94A3B8"
+                       transform="rotate(18 102 60)"/>
+
+              <!-- horns: thicker at the base, hooking up and out -->
+              <path d="M40 46 C27 36, 23 23, 30 16 C40 23, 46 33, 48 43 Z" fill="#FBBF24"/>
+              <path d="M92 46 C105 36, 109 23, 102 16 C92 23, 86 33, 84 43 Z" fill="#FBBF24"/>
+
+              <!-- head: squarer jaw and a flatter crown than a circle gives -->
+              <path d="M46 44 H86 C93 44, 98 50, 98 58 V70
+                       C98 84, 86 96, 66 96 C46 96, 34 84, 34 70 V58
+                       C34 50, 39 44, 46 44 Z" fill="#E2E8F0"/>
+
+              <!-- forelock tuft between the horns: the small cue that says
+                   cattle rather than any other round-headed animal -->
+              <path d="M56 46 C58 38, 62 34, 66 34 C70 34, 74 38, 76 46
+                       C72 43, 60 43, 56 46 Z" fill="#CBD5E1"/>
+
+              <!-- eyes, each with a highlight so it reads friendly not blank -->
+              <circle cx="54" cy="64" r="5.4" fill="#0F172A"/>
+              <circle cx="78" cy="64" r="5.4" fill="#0F172A"/>
+              <circle cx="55.8" cy="62.2" r="1.9" fill="#FFFFFF"/>
+              <circle cx="79.8" cy="62.2" r="1.9" fill="#FFFFFF"/>
+
+              <!-- muzzle: narrower than the first pass, with a bridge above it
+                   so the snout stops being the whole lower face -->
+              <path d="M56 76 H76 C79 76, 81 79, 81 82 C81 88, 74 92, 66 92
+                       C58 92, 51 88, 51 82 C51 79, 53 76, 56 76 Z" fill="#94A3B8"/>
+              <ellipse cx="60" cy="83" rx="2.5" ry="3.2" fill="#0F172A"/>
+              <ellipse cx="72" cy="83" rx="2.5" ry="3.2" fill="#0F172A"/>
+
+              <!-- the rising candles it is charging at: two, so it reads as a
+                   chart rather than one stray arrow -->
+              <rect x="110" y="82" width="7" height="26" rx="2" fill="rgba(34,197,94,0.55)"/>
+              <rect x="120" y="66" width="7" height="42" rx="2" fill="#22C55E"/>
+              <path d="M123.5 50 L130 64 H117 Z" fill="#22C55E"/>
+            </svg>
+
+            <!-- the channel wordmark, in type rather than as an image: there is
+                 no channel-logo asset in Sources (role `logo` is the COMPANY
+                 mark, per-IPO) and a wordmark drawn in the card's own font
+                 cannot 404, cannot taint the canvas, and stays crisp at 1080. -->
+            <div class="font-black tracking-tight leading-none"
+                 style="font-size:calc(var(--fs)*2.75)">
+              IPO <span style="color:#22C55E">PULSE</span>
+            </div>
+
+            <!-- the ask, big -->
+            <div class="pill self-center font-black tracking-[.14em]"
+                 style="background:#DC2626;color:#fff;border:1px solid #EF4444;
+                        font-size:calc(var(--fs)*1.3);padding:calc(var(--fs)*0.42) calc(var(--fs)*1.35);
+                        box-shadow:0 8px 26px rgba(220,38,38,0.42)"
+                 x-text="t('ctaSubscribe')"></div>
+
+            <!-- the reel's own spoken sign-off, on screen as well as in the
+                 narration: the viewer hears it and reads it in the same beat,
+                 and it is per-reel copy rather than one generic line. -->
+            <div class="font-bold text-slate-300 leading-snug"
+                 style="font-size:calc(var(--fs)*0.92);max-width:86%"
+                 x-text="voOutro(reel.n)"></div>
+
+            <!-- the three small asks. Single row of chips, not a grid: a
+                 multi-column CSS grid exports with clipped text. -->
+            <div class="flex items-center justify-center gap-1.5">
+              <template x-for="chip in [t('ctaLike'), t('ctaShare'), t('ctaFollow')]" :key="chip">
+                <span class="pill font-black tracking-[.1em]"
+                      style="background:rgba(255,255,255,.07);color:#CBD5E1;
+                             border:1px solid rgba(255,255,255,.14);
+                             font-size:calc(var(--fs)*0.68)"
+                      x-text="chip"></span>
+              </template>
+            </div>
+          </div>
           </template>
           </div>
 

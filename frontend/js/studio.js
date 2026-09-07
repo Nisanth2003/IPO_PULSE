@@ -1817,7 +1817,12 @@ function studio() {
     check() {
       // Measuring before the record has loaded gives a meaningless "overflow"
       // and strands the text at the shrink floor.
-      if (!this.ipo || !this.d) return;
+      //
+      // `cardReady`, not `ipo && d`: reel 7 draws from the briefing and has no
+      // IPO, so this used to bail out and leave `overflow` holding whatever
+      // the previous reel had measured — a stale warning on a scene nobody
+      // had measured.
+      if (!this.cardReady) return;
       this.$nextTick(() => {
         const el = this.$refs.body, card = document.getElementById('capture');
         if (!el || !card) return;

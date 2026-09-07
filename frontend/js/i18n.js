@@ -19,6 +19,13 @@ const LABELS = {
   reel5:       ['Final Verdict', 'फाइनल फैसला', 'తుది తీర్పు'],
   reel6:       ['Allotment & Listing', 'अलॉटमेंट व लिस्टिंग', 'అలాట్‌మెంట్ & లిస్టింగ్'],
   reel7:       ['Market Today', 'आज का बाज़ार', 'నేటి మార్కెట్'],
+  // The end card's own labels. Short on purpose: they sit on a card that is
+  // on screen for 2.4 seconds, and a sentence there competes with the spoken
+  // sign-off rather than reinforcing it.
+  ctaSubscribe: ['SUBSCRIBE', 'सब्सक्राइब करें', 'సబ్‌స్క్రైబ్ చేయండి'],
+  ctaLike:      ['LIKE', 'लाइक', 'లైక్'],
+  ctaShare:     ['SHARE', 'शेयर', 'షేర్'],
+  ctaFollow:    ['FOLLOW', 'फॉलो', 'ఫాలో'],
 
   // issue
   overview:    ['Business Overview', 'बिज़नेस क्या है', 'బిజినెస్ ఏమిటి'],

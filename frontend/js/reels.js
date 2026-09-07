@@ -158,7 +158,22 @@ const REELS = [
  * `ipo` is optional so callers that only want the shape — the scene-count
  * label, the nav strip — can omit it and get the full list.
  */
+/* The sign-off card, appended to every reel by `scenesFor`.
+ *
+ * Appended in one place rather than typed into all seven REELS entries: a
+ * reel added later gets its CTA for free, and there is no way to add a reel
+ * and forget it. 2.4 seconds is deliberate - long enough to read a wordmark
+ * and register the ask, short enough that it does not drag average view
+ * duration down. `scriptHolds` overrides it from the narration anyway once a
+ * voice exists, and the spoken sign-off is about that long.
+ */
+const OUTRO_SCENE = { id: 'outro', hold: 2.4 };
+
 function scenesFor(reel, gmpMode, ipo, briefing) {
+  return [..._sceneBody(reel, gmpMode, ipo, briefing), OUTRO_SCENE];
+}
+
+function _sceneBody(reel, gmpMode, ipo, briefing) {
   /* Reel 7 reads the briefing, never the IPO. Scenes with nothing behind them
      drop out for the same reason reel 1's `background` does: a five-second
      hold on an empty frame is worse than a shorter reel. */

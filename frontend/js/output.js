@@ -31,47 +31,101 @@
  * video, and the Hindi viewer should not be asked for something different
  * from the English one.
  */
-const OUTROS = [
-  [`If this helped, subscribe — I cover every issue that opens.`,
-   `अगर यह काम आया हो तो सब्सक्राइब कर लीजिए — हर खुलने वाले इश्यू पर वीडियो आता है।`,
-   `ఇది ఉపయోగపడితే సబ్‌స్క్రైబ్ చేయండి — ఓపెన్ అయ్యే ప్రతి ఇష్యూపై వీడియో వస్తుంది.`],
-
-  [`Please subscribe if you want the next one — it's the only thing I'll ask you for.`,
-   `अगली वीडियो चाहिए तो प्लीज़ सब्सक्राइब कीजिए — बस इतना ही माँगूँगा।`,
-   `తదుపరిది కావాలంటే ప్లీజ్ సబ్‌స్క్రైబ్ చేయండి — నేను అడిగేది అంతే.`],
-
-  [`A like if it helped, a subscribe if you want the next issue too.`,
-   `काम आया तो एक लाइक, और अगला इश्यू भी चाहिए तो सब्सक्राइब।`,
-   `ఉపయోగపడితే ఒక లైక్, తదుపరి ఇష్యూ కూడా కావాలంటే సబ్‌స్క్రైబ్.`],
-
-  [`Subscribe, and you'll get the update on this one before it lists.`,
-   `सब्सक्राइब कीजिए — लिस्टिंग से पहले इसी इश्यू का अपडेट मिल जाएगा।`,
-   `సబ్‌స్క్రైబ్ చేస్తే లిస్టింగ్‌కి ముందే దీని అప్‌డేట్ మీకు వస్తుంది.`],
-
-  [`Follow the channel for the allotment alert — and please do hit like, it genuinely helps.`,
-   `अलॉटमेंट अलर्ट के लिए चैनल फॉलो कीजिए — और प्लीज़ लाइक ज़रूर कीजिए, इससे सच में मदद मिलती है।`,
-   `అలాట్‌మెంట్ అలర్ట్ కోసం ఛానల్ ఫాలో అవ్వండి — ప్లీజ్ లైక్ కూడా చేయండి, నిజంగా సాయపడుతుంది.`],
-
-  [`If you're new here — subscribe. One video per issue, no hype, just the numbers.`,
-   `अगर आप यहाँ नए हैं — सब्सक्राइब कीजिए। हर इश्यू पर एक वीडियो, बिना हाइप, सिर्फ़ आँकड़े।`,
-   `మీరు ఇక్కడ కొత్తవారైతే — సబ్‌స్క్రైబ్ చేయండి. ప్రతి ఇష్యూకి ఒక వీడియో, హైప్ లేదు, కేవలం లెక్కలు.`],
-
-  [`Share this with whoever is about to apply, and subscribe for the rest of the week's issues.`,
-   `जो अप्लाई करने वाला है उसे यह भेज दीजिए, और हफ़्ते के बाकी इश्यू के लिए सब्सक्राइब कर लीजिए।`,
-   `అప్లై చేయబోతున్న వాళ్లకి దీన్ని షేర్ చేయండి, ఈ వారంలోని మిగతా ఇష్యూల కోసం సబ్‌స్క్రైబ్ చేయండి.`],
-];
+/* Per-reel sign-offs, [en, hi, te].
+ *
+ * Was one flat pool shared by every reel, and that was the wrong shape. The
+ * ask worth making depends entirely on what the viewer just watched: a reel 1
+ * viewer has met the company and wants more of THIS kind of thing, a reel 4
+ * viewer is weighing money and responds to "more earning opportunities", a
+ * reel 6 viewer wants to be told the moment allotment lands. One line cannot
+ * do all three, so each reel gets its own.
+ *
+ * Still two variants each, still picked deterministically off the company and
+ * the reel (see `outroFor`) — so somebody who watches the whole set does not
+ * hear one sentence six times, while any single reel keeps its sign-off
+ * across re-renders, which the narration and the scene holds both depend on.
+ */
+const OUTROS = {
+  // Reel 1 - About IPO. The discovery reel: they came for one company, so the
+  // ask is for more of the same kind of thing.
+  1: [
+    [`For more content like this, subscribe to the channel.`,
+     `इस तरह की और जानकारी के लिए चैनल सब्सक्राइब कीजिए।`,
+     `ఇలాంటి మరిన్ని వివరాల కోసం ఛానెల్ సబ్‌స్క్రైబ్ చేయండి.`],
+    [`Want every new issue explained like this? Subscribe.`,
+     `हर नए इश्यू की ऐसी जानकारी चाहिए? सब्सक्राइब कीजिए।`,
+     `ప్రతి కొత్త ఇష్యూ ఇలా తెలుసుకోవాలా? సబ్‌స్క్రైబ్ చేయండి.`],
+  ],
+  // Reels 2 and 3 - the daily numbers. Short, habitual, so the small ask.
+  2: [
+    [`Like and subscribe. The premium moves every day, and so does this.`,
+     `लाइक और सब्सक्राइब कीजिए। प्रीमियम रोज़ बदलता है, यह वीडियो भी।`,
+     `లైక్ చేసి సబ్‌స్క్రైబ్ చేయండి. ప్రీమియం రోజూ మారుతుంది, ఇదీ అలాగే.`],
+    [`Like and subscribe for the daily grey market read.`,
+     `रोज़ के ग्रे मार्केट अपडेट के लिए लाइक और सब्सक्राइब कीजिए।`,
+     `రోజువారీ గ్రే మార్కెట్ అప్‌డేట్ కోసం లైక్, సబ్‌స్క్రైబ్ చేయండి.`],
+  ],
+  3: [
+    [`Like and subscribe. I post these numbers every day of the issue.`,
+     `लाइक और सब्सक्राइब कीजिए। इश्यू के हर दिन के आँकड़े यहीं मिलेंगे।`,
+     `లైక్ చేసి సబ్‌స్క్రైబ్ చేయండి. ఇష్యూ ప్రతి రోజు లెక్కలు ఇక్కడే.`],
+    [`Like and subscribe for tomorrow's subscription figures.`,
+     `कल के सब्सक्रिप्शन आँकड़ों के लिए लाइक और सब्सक्राइब।`,
+     `రేపటి సబ్‌స్క్రిప్షన్ లెక్కల కోసం లైక్, సబ్‌స్క్రైబ్.`],
+  ],
+  // Reel 4 - Apply or Skip. The one where money is actually on the table.
+  4: [
+    [`For more earning opportunities, please subscribe.`,
+     `और कमाई के मौकों के लिए प्लीज़ सब्सक्राइब कीजिए।`,
+     `మరిన్ని సంపాదన అవకాశాల కోసం ప్లీజ్ సబ్‌స్క్రైబ్ చేయండి.`],
+    [`Please subscribe. Every opportunity like this one, before it closes.`,
+     `प्लीज़ सब्सक्राइब कीजिए। ऐसा हर मौका बंद होने से पहले यहाँ मिलेगा।`,
+     `ప్లీజ్ సబ్‌స్క్రైబ్ చేయండి. ఇలాంటి ప్రతి అవకాశం ముగియకముందే ఇక్కడ.`],
+  ],
+  // Reel 5 - Final Verdict. They came for a decision.
+  5: [
+    [`Subscribe, and the next verdict reaches you before the issue closes.`,
+     `सब्सक्राइब कीजिए — अगला फैसला इश्यू बंद होने से पहले आपके पास होगा।`,
+     `సబ్‌స్క్రైబ్ చేయండి — తదుపరి తీర్పు ఇష్యూ ముగియకముందే మీకు వస్తుంది.`],
+    [`If this call was useful, subscribe for the next one.`,
+     `यह राय काम आई हो तो अगली के लिए सब्सक्राइब कीजिए।`,
+     `ఈ అభిప్రాయం ఉపయోగపడితే తదుపరిది కోసం సబ్‌స్క్రైబ్ చేయండి.`],
+  ],
+  // Reel 6 - Allotment. The highest-intent moment in the whole cycle.
+  6: [
+    [`Subscribe for the allotment alert. That is the one you do not want to miss.`,
+     `अलॉटमेंट अलर्ट के लिए सब्सक्राइब कीजिए — यही मिस नहीं करना है।`,
+     `అలాట్‌మెంట్ అలర్ట్ కోసం సబ్‌స్క్రైబ్ చేయండి — అది మిస్ కావద్దు.`],
+    [`Subscribe, and I will tell you the moment allotment is out.`,
+     `सब्सक्राइब कीजिए — अलॉटमेंट आते ही बता दूँगा।`,
+     `సబ్‌స్క్రైబ్ చేయండి — అలాట్‌మెంట్ వచ్చిన వెంటనే చెప్తాను.`],
+  ],
+  // Reel 7 - Market Today. A daily habit, so the ask is about tomorrow.
+  7: [
+    [`Subscribe for tomorrow's pre-market read, before the bell.`,
+     `कल के प्री-मार्केट अपडेट के लिए सब्सक्राइब कीजिए — घंटी से पहले।`,
+     `రేపటి ప్రీ-మార్కెట్ రీడ్ కోసం సబ్‌స్క్రైబ్ చేయండి — బెల్‌కి ముందే.`],
+    [`Like and subscribe. This lands every trading morning at eight.`,
+     `लाइक और सब्सक्राइब कीजिए। यह हर ट्रेडिंग सुबह आठ बजे आता है।`,
+     `లైక్, సబ్‌స్క్రైబ్ చేయండి. ఇది ప్రతి ట్రేడింగ్ ఉదయం ఎనిమిదికి వస్తుంది.`],
+  ],
+};
 
 /* FNV-1a over the seed, so the same seed picks the same variant in every
  * browser and on every render. Math.imul keeps the multiply in 32 bits;
  * plain * loses precision past 2^53 and the hash degenerates. */
-function outroFor(seed, langIndex) {
+function outroFor(seed, langIndex, reel) {
   let h = 2166136261;
   const k = String(seed);
   for (let i = 0; i < k.length; i++) {
     h ^= k.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  return OUTROS[(h >>> 0) % OUTROS.length][langIndex] || '';
+  // Reel 1's pool is the fallback for anything with no reel of its own (the
+  // weekly strategy script): "more content like this" is the only ask that
+  // still makes sense without knowing what was just watched.
+  const pool = OUTROS[reel] || OUTROS[1];
+  return pool[(h >>> 0) % pool.length][langIndex] || '';
 }
 
 const OUTPUT = {
@@ -738,7 +792,7 @@ shorts: shorts.length
       ? `market|${(this.briefing && this.briefing.date) || ''}`
       : (this.ipo && this.ipo.company) || 'board';
     const seed = `${who}|${n}`;
-    return outroFor(seed, LANG_INDEX[this.lang] ?? 0);
+    return outroFor(seed, LANG_INDEX[this.lang] ?? 0, n);
   },
 
   /* The scene map the rest of the app reads: enScenes() above, with the
@@ -750,6 +804,17 @@ shorts: shorts.length
    * without it, and the reel would cut off mid-sentence. */
   enSegments(n) {
     const segs = this.enScenes(n) || {};
+    // The sign-off is the `outro` SCENE's own narration now, not a sentence
+    // glued onto whatever happened to come last. That matters for timing as
+    // much as for copy: scriptHolds measures every scene from its own text,
+    // so a CTA appended to the previous scene stretched THAT card's hold
+    // while the outro card - the one carrying the logo and the ask - got
+    // whatever a scene with no narration gets. Card and words are one beat.
+    if (this.sceneIdsFor(n).includes('outro')) {
+      return { ...segs, outro: this.voOutro(n) };
+    }
+    // A cut with no outro scene (the board modes) keeps the old behaviour
+    // rather than losing its CTA altogether.
     const ids = this.sceneIdsFor(n).filter((id) => String(segs[id] || '').trim());
     const last = ids[ids.length - 1];
     if (!last) return segs;
@@ -851,7 +916,7 @@ shorts: shorts.length
     out.push(`None of this is investment advice. Do your own research, or speak to a SEBI-registered adviser.`);
     // Seeded on the week, not a company: this script is about the whole
     // board, so there is no one company to key off.
-    out.push(outroFor(`strategy|${today}`, LANG_INDEX[this.lang] ?? 0));
+    out.push(outroFor(`strategy|${today}`, LANG_INDEX[this.lang] ?? 0, 1));
     return out.filter(Boolean).join('\n');
   },
 
