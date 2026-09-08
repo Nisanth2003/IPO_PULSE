@@ -119,6 +119,26 @@ $Jobs = @(
            @{ Kind = 'Daily'; At = '19:30' },
            @{ Kind = 'Daily'; At = '22:30' }
        ) },
+    @{ Name = 'market'
+       # Reel 7's pre-market briefing, and the one task here whose VALUE
+       # depends on the hour it runs. The pivot levels are computed from the
+       # last settled session either way, but the gainer/loser lists come
+       # from NSE's live feed: before the 09:15 open that feed reports the
+       # previous session, which is what a morning call needs, and after it
+       # reports today - so a late run picks its stocks with part of the
+       # session already on the tape.
+       #
+       # This entry was missing until 8 Sep 2026, which is why every stored
+       # briefing had been built by hand at 12:57 or 15:30 and scored as
+       # hindsight. `ipopulse market` now refuses to build after the open
+       # without --force, so a missed slot fails loudly here rather than
+       # producing a briefing that looks right.
+       #
+       # 08:00 leaves 75 minutes before the open for the AI step, a retry and
+       # the sheet write. Weekdays only: the exchange calendar is checked by
+       # the job itself, so a holiday exits 0 with nothing written.
+       Why  = 'Reel 7 pre-market briefing. MUST run before the 09:15 open. Mon-Fri 08:00.'
+       Triggers = @( @{ Kind = 'Weekdays'; At = '08:00' } ) },
     @{ Name = 'translate'
        Why  = 'Cached 30 days; only changes when the prose does.'
        Triggers = @( @{ Kind = 'Weekly'; At = '03:00'; Day = 'Sunday' } ) },
