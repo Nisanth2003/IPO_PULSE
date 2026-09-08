@@ -574,6 +574,21 @@ def handle(handler, method: str) -> bool:
 
     # everything below needs a token
     token = handler.headers.get("X-Token", "")
+    # ...except that a <video src="..."> cannot carry a custom header. The
+    # browser fetches media itself, with no way to attach X-Token, so the
+    # player would 401 forever. GET /api/video therefore also accepts the
+    # token as a query parameter — and ONLY that route, only for GET.
+    #
+    # The trade is real and small: a token in a URL can reach a referrer
+    # header or a shell history, where a header would not. It is a
+    # localhost-only, 8-hour, revocable-by-restart token guarding a file the
+    # holder could already read off the disk, and the alternative is either an
+    # unauthenticated media route or no in-panel preview at all.
+    if not token and method == "GET" and path == "/api/video":
+        from urllib.parse import parse_qs
+
+        qs = parse_qs(handler.path.split("?", 1)[1] if "?" in handler.path else "")
+        token = (qs.get("token") or [""])[0]
     if not AUTH.valid(token):
         _json(handler, 401, {"error": "Not signed in."})
         return True
@@ -691,6 +706,88 @@ def handle(handler, method: str) -> bool:
     # `/api/youtube/status` simply never answers — the panel says so rather
     # than offering a button that cannot work.
 
+    # ── the rendered video: play it, or hand it to an editor ───────────
+    #
+    # Both routes below take a file NAME from the browser and one of them
+    # hands it to the shell, so every one goes through `_video_path`, which
+    # allows a basename under out/video and nothing else. See this module's
+    # header for the two attacks that shape it.
+    if path == "/api/video":
+        from urllib.parse import parse_qs
+
+        qs = parse_qs(handler.path.split("?", 1)[1] if "?" in handler.path else "")
+        target = _video_path((qs.get("name") or [""])[0])
+        if not target:
+            _json(handler, 400, {"error": "name must be an .mp4 in out/video"})
+            return True
+        if not target.exists():
+            _json(handler, 404, {"error": f"{target.name} is not rendered yet"})
+            return True
+        # Whole body, no Range support. These are 2-20 MB files served to one
+        # <video> on localhost; a partial-content implementation would be more
+        # code than the problem deserves. Seeking still works in Chrome, it
+        # just re-fetches.
+        _bytes(handler, 200, target.read_bytes(), "video/mp4",
+               {"Accept-Ranges": "none",
+                "Content-Disposition": f'inline; filename="{target.name}"'})
+        return True
+
+    if path == "/api/video/open" and method == "POST":
+        import subprocess
+
+        body = _body(handler)
+        target = _video_path(str(body.get("name") or ""))
+        if not target or not target.exists():
+            _json(handler, 400, {"error": "no such rendered video"})
+            return True
+
+        did = []
+        # Reveal it first, and unconditionally: whatever happens with the
+        # editor, an Explorer window with the file selected always leaves a
+        # way forward (right-click -> Open with -> Clipchamp).
+        try:
+            if os.name == "nt":
+                subprocess.Popen(["explorer", "/select,", str(target)])
+                did.append("revealed in Explorer")
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", "-R", str(target)])
+                did.append("revealed in Finder")
+            else:
+                subprocess.Popen(["xdg-open", str(target.parent)])
+                did.append("opened the folder")
+        except Exception as exc:                              # noqa: BLE001
+            did.append(f"could not reveal it ({type(exc).__name__})")
+
+        # Then try to open it FOR EDITING. On Windows the "edit" verb is what
+        # Clipchamp and Photos register against .mp4; when nothing claims it,
+        # `startfile` raises and we fall back to the plain open verb (a
+        # player). Reported either way rather than pretending it worked.
+        opened = ""
+        try:
+            if os.name == "nt":
+                try:
+                    os.startfile(str(target), "edit")         # noqa: S606
+                    opened = "edit"
+                except OSError:
+                    os.startfile(str(target))                 # noqa: S606
+                    opened = "open"
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(target)])
+                opened = "open"
+            else:
+                subprocess.Popen(["xdg-open", str(target)])
+                opened = "open"
+        except Exception as exc:                              # noqa: BLE001
+            opened = f"failed ({type(exc).__name__})"
+
+        _json(handler, 200, {
+            "ok": True, "file": target.name, "dir": str(target.parent),
+            "revealed": did, "verb": opened,
+            "note": "Edit it, then EXPORT OVER THE SAME FILE (or pick the new "
+                    "file in the panel) and press Reload.",
+        })
+        return True
+
     if path == "/api/youtube/status":
         from . import pubqueue as q
         from . import youtube_upload as yt
@@ -732,6 +829,19 @@ def handle(handler, method: str) -> bool:
         # Written to a temp file rather than streamed: ffmpeg needs a seekable
         # path, and a reel's narration is a few hundred kilobytes — small
         # enough that the simple thing is also the right one.
+        # An edited file wins over a fresh render. This is the other half of
+        # the loop: `POST /api/video/open` hands the mp4 to Clipchamp, and
+        # naming it back here uploads what came out of the editor rather than
+        # re-rendering and throwing the edit away.
+        supplied = _video_path(str(body.get("video_name") or ""))
+        if body.get("video_name") and not supplied:
+            _json(handler, 400, {
+                "error": "video_name must be an .mp4 in out/video"})
+            return True
+        if supplied and not supplied.exists():
+            _json(handler, 400, {"error": f"{supplied.name} is not on disk"})
+            return True
+
         audio_path = None
         blob = body.get("audio_b64") or ""
         if blob:
@@ -765,17 +875,27 @@ def handle(handler, method: str) -> bool:
                 opener = endcard = None
                 company = slug
 
-            out = (store.OUT_DIR / "video" /
-                   f"{slug}-r{reel}-{lang}.mp4")
-            httpd, tmpdir, url = renderer._serve_gateless(port=8772)
-            try:
-                got = renderer.render(url, slug, reel, lang, out,
-                                      audio=audio_path, opener=opener,
-                                      endcard=endcard)
-            finally:
-                httpd.shutdown()
-                import shutil as _sh
-                _sh.rmtree(tmpdir, ignore_errors=True)
+            out = supplied or (store.OUT_DIR / "video" /
+                               f"{slug}-r{reel}-{lang}.mp4")
+            if supplied:
+                # Skip the renderer entirely. `seconds` and `scenes` are what
+                # the panel shows about the upload, and for a hand-edited cut
+                # the render's numbers would be a lie — so report the file's
+                # real size and say the duration is unknown rather than
+                # quoting the length of a video this is not.
+                got = {"company": "", "scenes": 0, "seconds": 0,
+                       "edited": True,
+                       "bytes": supplied.stat().st_size}
+            else:
+                httpd, tmpdir, url = renderer._serve_gateless(port=8772)
+                try:
+                    got = renderer.render(url, slug, reel, lang, out,
+                                          audio=audio_path, opener=opener,
+                                          endcard=endcard)
+                finally:
+                    httpd.shutdown()
+                    import shutil as _sh
+                    _sh.rmtree(tmpdir, ignore_errors=True)
 
             # ── queue it, then approve it with the visibility the panel chose
             #
@@ -790,9 +910,13 @@ def handle(handler, method: str) -> bool:
             if dry:
                 _json(handler, 200, {
                     "dry_run": True, "id": item["id"],
-                    "video": str(out), "seconds": got["seconds"],
+                    "video": str(out), "video_name": out.name,
+                    "seconds": got["seconds"],
                     "scenes": got["scenes"], "privacy": privacy,
                     "audio": bool(audio_path),
+                    "edited": bool(got.get("edited")),
+                    "bytes": got.get("bytes") or (out.stat().st_size
+                                                  if out.exists() else 0),
                 })
                 return True
 
@@ -810,6 +934,7 @@ def handle(handler, method: str) -> bool:
             q.mark_uploaded(item["id"], sent["id"], sent["url"])
             _json(handler, 200, {
                 "ok": True, "id": item["id"], "video_id": sent["id"],
+                "video_name": out.name, "edited": bool(got.get("edited")),
                 "url": sent["url"], "privacy": sent["privacy"],
                 "thumbnail": sent.get("thumbnail"),
                 "thumbnail_error": sent.get("thumbnail_error", ""),
@@ -850,6 +975,32 @@ def handle(handler, method: str) -> bool:
 
     _json(handler, 404, {"error": "No such endpoint"})
     return True
+
+
+def _video_path(name: str):
+    """A rendered video, by basename, or None.
+
+    Deliberately strict, because callers hand the result to the shell and to
+    YouTube. A basename under out/video with an .mp4 suffix, resolved and then
+    re-checked against the directory — so a name that escapes via `..`,
+    an absolute path, or a symlink out of the tree all return None.
+    """
+    from pathlib import Path
+
+    from . import sheets
+
+    raw = (name or "").strip().replace("\\", "/")
+    if not raw or "/" in raw or raw.startswith("."):
+        return None
+    if not raw.lower().endswith(".mp4"):
+        return None
+    root = (sheets.OUT_DIR / "video").resolve()
+    try:
+        target = (root / raw).resolve()
+        target.relative_to(root)              # raises if it escaped
+    except (ValueError, OSError):
+        return None
+    return target
 
 
 def _body(handler) -> dict:

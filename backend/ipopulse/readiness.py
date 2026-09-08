@@ -60,6 +60,20 @@ SUB_FRESH_DAYS = 1
 SUB_SETTLED_HOUR = 18
 
 
+def _ist_hour(when) -> int:
+    """The hour of `when` in IST, whatever timezone it arrived in.
+
+    A naive datetime is taken at face value: callers on this machine pass
+    local time and local time IS IST. An aware one is converted, which is
+    what makes a UTC runner agree with the desk it is reasoning about.
+    """
+    from .providers.market import IST
+
+    if when.tzinfo is None:
+        return when.hour
+    return when.astimezone(IST).hour
+
+
 def _at(day: date | None, hour: int, minute: int = 0) -> datetime | None:
     return datetime.combine(day, time(hour=hour, minute=minute)) if day else None
 
@@ -350,7 +364,11 @@ def freshness(ipo: Ipo, now: datetime | None = None) -> dict[str, Any]:
     sub_matters = state == "open"
     last_sub = ipo.subscription[-1].date if ipo.subscription else None
     sub_age = (today - last_sub).days if last_sub else None
-    settled = now.hour >= SUB_SETTLED_HOUR
+    # IST, not the host clock. SUB_SETTLED_HOUR is an Indian market hour, and
+    # comparing it against a UTC `now` on a GitHub runner reads 16:00 for
+    # 21:30 IST - three and a half hours after the threshold, judged as
+    # before it. See the module note in monitor.check.
+    settled = _ist_hour(now) >= SUB_SETTLED_HOUR
     out["subscription"] = {
         "matters": sub_matters,
         "last": last_sub.isoformat() if last_sub else None,

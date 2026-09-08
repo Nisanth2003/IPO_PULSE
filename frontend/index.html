@@ -3020,8 +3020,14 @@
   <button class="btn !rounded-full" @click="focus=false">✕</button>
 </div>
 
-</div>
-
+<!-- The publish panel lives HERE, inside the x-data root, and that is not
+     cosmetic. It used to sit after this div as a child of <body>, one
+     level outside the root - so Alpine never walked it and the whole
+     panel was inert: x-show never ran, the x-if blocks never rendered,
+     and ▶ YouTube set a flag against an overlay nobody could see. Same
+     rule the keyboard sheet above documents: outside the header for
+     layout, inside the root for state. `position: fixed` still escapes
+     this container, because it sets no transform or backdrop-filter. -->
 <!-- ── Publish to YouTube ────────────────────────────────────────────────
      Details in, optional narration attached, a look at what is about to go
      out, then one confirm. The render and the upload both happen in the local
@@ -3141,13 +3147,58 @@
           </div>
         </div>
 
+        <!-- ── the rendered file: watch it, edit it, bring it back ──────
+             This is the half the panel was missing. It used to render an mp4
+             and offer upload-or-nothing, so any hand edit meant leaving the
+             studio and uploading through YouTube Studio instead - which is
+             also how the sheet's Published tab ended up empty. -->
+        <template x-if="yt.videoName">
+          <div class="rounded-xl p-3"
+               style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.10)">
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="lbl mb-0">The file that will be uploaded</label>
+              <span class="text-2xs font-bold"
+                    :class="yt.edited ? 'text-emerald-400' : 'text-slate-500'"
+                    x-text="(yt.edited ? '✎ edited · ' : 'rendered · ')
+                            + (yt.videoBytes/1048576).toFixed(1) + ' MB'"></span>
+            </div>
+
+            <!-- Served through /api/video, not file:// - a page cannot read a
+                 local path, and the backend is already the thing that owns
+                 out/video. -->
+            <video class="w-full rounded-lg" controls preload="metadata"
+                   style="max-height:46vh;background:#000"
+                   :src="ytVideoUrl"></video>
+
+            <div class="text-2xs text-slate-500 font-mono mt-1" x-text="yt.videoName"></div>
+
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <button class="btn" :disabled="yt.opening || yt.busy"
+                      @click="ytOpenEditor()"
+                      x-text="yt.opening ? 'Opening…' : '✂ Open in Clipchamp'"></button>
+              <button class="btn" :disabled="yt.busy" @click="ytReload()"
+                      x-text="yt.busy ? 'Reading…' : '↻ Reload from disk'"></button>
+            </div>
+            <div class="text-2xs text-slate-500 mt-1.5 leading-relaxed">
+              Edit it, then <b class="text-slate-300">export over the same
+              file</b> and press Reload — the panel uploads whatever is on disk
+              under that name. Exporting somewhere else is fine too: drop it in
+              <span class="font-mono">backend/out/video/</span> with this name.
+            </div>
+          </div>
+        </template>
+
         <div x-show="yt.step" class="text-2xs text-sky-300" x-text="yt.step"></div>
         <div x-show="yt.msg" class="text-2xs"
              :class="yt.ok ? 'text-emerald-400' : 'text-red-400'" x-text="yt.msg"></div>
 
         <div class="flex gap-2 pt-1">
           <button class="btn flex-1" :disabled="yt.busy" @click="ytBuildPreview()"
-                  x-text="yt.busy ? 'Working…' : 'Render preview'"></button>
+                  :title="yt.videoName
+                    ? 'Renders again from the data, discarding any edit'
+                    : 'Builds the video so you can watch it before uploading'"
+                  x-text="yt.busy ? 'Working…'
+                          : (yt.videoName ? 'Re-render (discards edits)' : 'Render preview')"></button>
           <button class="btn flex-1"
                   style="background:#dc2626;color:#fff;border-color:#ef4444"
                   :disabled="yt.busy || !yt.title.trim() || (yt.status && !yt.status.authorised)"
@@ -3187,6 +3238,8 @@
     </template>
 
   </div>
+</div>
+
 </div>
 
 </body>

@@ -362,12 +362,17 @@ function studio() {
       title: '', desc: '', tags: '', privacy: 'unlisted',
       audioName: '', audioB64: '', audioKB: 0,
       preview: null, result: null, status: null,
+      /* The rendered file, once there is one. `name` is the basename the
+         backend will accept back (see _video_path there); `edited` flips
+         true once the file on disk is no longer what we rendered. */
+      videoName: '', videoBytes: 0, edited: false, opening: false,
     },
 
     async ytOpen() {
       const y = this.yt;
       y.open = true; y.msg = ''; y.ok = true;
       y.preview = null; y.result = null;
+      y.videoName = ''; y.videoBytes = 0; y.edited = false;
       // Prefilled from the studio's own packaging rather than composed here.
       // `output.js` already builds the title and description from the same
       // record the cards are drawn from; writing them a second time in this
@@ -438,6 +443,10 @@ function studio() {
         tags: this.yt.tags.split(/[\s,]+/).filter(Boolean),
         privacy: this.yt.privacy,
         audio_b64: this.yt.audioB64 || '',
+        // Naming the file is what makes the backend upload it instead of
+        // re-rendering. Empty on the first pass, so the first Render preview
+        // still renders.
+        video_name: this.yt.videoName || '',
         dry_run: !!dry,
       });
     },
@@ -451,7 +460,12 @@ function studio() {
       try {
         y.preview = await this._apiCall('/api/youtube/publish',
           { method: 'POST', body: this._ytPayload(true) });
-        y.msg = 'Rendered. Check the details below, then confirm.';
+        y.videoName = y.preview.video_name || '';
+        y.videoBytes = y.preview.bytes || 0;
+        y.edited = !!y.preview.edited;
+        y.msg = y.edited
+          ? 'Using your edited file. Watch it below, then confirm.'
+          : 'Rendered. Watch it below, edit it if you want, then confirm.';
       } catch (e) {
         y.msg = e.message; y.ok = false; y.preview = null;
       } finally {
@@ -480,6 +494,59 @@ function studio() {
       } finally {
         y.busy = false; y.step = '';
       }
+    },
+
+    /* The URL the panel's <video> plays. Same-origin through the backend
+       rather than a file:// path, which a page is not allowed to read. */
+    get ytVideoUrl() {
+      // The token rides in the query, not a header: a <video> element is
+      // fetched by the browser itself and cannot carry X-Token. See the note
+      // on the server side for why that is an acceptable trade here.
+      // `t=` is the cache-buster — the same name holds different bytes after
+      // an edit, and without it the player keeps showing the old cut.
+      return (this.yt.videoName && this.run.token)
+        ? `${this.api}/api/video?name=${encodeURIComponent(this.yt.videoName)}`
+          + `&t=${this.yt.videoBytes}&token=${encodeURIComponent(this.run.token)}`
+        : '';
+    },
+
+    /* Hand the file to Clipchamp (or whatever claims .mp4's edit verb) and
+       reveal it in Explorer. The backend does the launching: a page cannot
+       start a local application, and it should not be able to. */
+    async ytOpenEditor() {
+      const y = this.yt;
+      if (!y.videoName) return;
+      y.opening = true; y.msg = ''; y.ok = true;
+      try {
+        const r = await this._apiCall('/api/video/open', {
+          method: 'POST', body: JSON.stringify({ name: y.videoName }) });
+        y.msg = `${r.file} — ${r.revealed.join(', ')}, opened with the `
+              + `${r.verb} verb. Export over the same file, then press Reload.`;
+      } catch (e) { y.msg = e.message; y.ok = false; }
+      finally { y.opening = false; }
+    },
+
+    /* Re-read the file after an edit. Nothing re-renders: this asks the
+       backend to look at the same name again and report its new size, which
+       is how the panel knows an edit landed. */
+    async ytReload() {
+      const y = this.yt;
+      if (!y.videoName) return;
+      y.busy = true; y.ok = true;
+      y.step = 'Re-reading the file from disk…';
+      try {
+        const before = y.videoBytes;
+        y.preview = await this._apiCall('/api/youtube/publish',
+          { method: 'POST', body: this._ytPayload(true) });
+        y.videoBytes = y.preview.bytes || 0;
+        y.edited = true;
+        // Cache-bust the player by keying its URL on the size.
+        y.msg = y.videoBytes === before
+          ? 'Same file size — did the export overwrite it?'
+          : `Reloaded: ${(y.videoBytes / 1048576).toFixed(1)} MB (was `
+            + `${(before / 1048576).toFixed(1)} MB). This is what will upload.`;
+      } catch (e) { y.msg = e.message; y.ok = false; }
+      finally { y.busy = false; y.step = ''; }
     },
 
     /** What the preview card shows, so the template stays declarative. */

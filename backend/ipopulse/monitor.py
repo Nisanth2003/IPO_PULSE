@@ -35,6 +35,10 @@ from typing import Any
 
 from . import readiness, store
 from .models import Ipo
+# The desk's timezone, from the module that already defines it. Every
+# judgement in `check` is about an Indian trading day, so the default `now`
+# has to be IST and not the host clock — see check's docstring.
+from .providers.market import IST as _IST_TZ
 
 STATE = store.BACKEND_ROOT / ".cache" / "monitor.json"
 
@@ -117,9 +121,28 @@ def duplicates(ipos: list[Ipo]) -> list[dict[str, Any]]:
     return groups(ipos)
 
 
+_IST = _IST_TZ
+
+
 def check(now: datetime | None = None) -> dict[str, Any]:
-    """The full health picture. Read-only apart from its own history file."""
-    now = now or datetime.now()
+    """The full health picture. Read-only apart from its own history file.
+
+    `now` defaults to IST rather than to the host clock, because every
+    judgement below is about an Indian trading day: which issues are open,
+    whether a bidding day has been missed, and whether the evening's
+    subscription figure is late (`SUB_SETTLED_HOUR`, 18:00 IST).
+
+    On this machine the two are the same. On a GitHub runner they are five and
+    a half hours apart, and the difference silently disabled the 21:30 IST
+    watchdog: 16:00 UTC read as "before 18:00", so a missing subscription was
+    never reported. Watchdog #1 succeeded and said nothing for that reason.
+    """
+    # IST wall-clock, but NAIVE. Every other datetime in here — the stored
+    # fingerprint, the issue calendar, readiness' own comparisons — is naive,
+    # and an aware `now` makes each of those a TypeError. `.replace(tzinfo=
+    # None)` keeps the arithmetic working while making `now.hour` the hour in
+    # Mumbai rather than the hour on the runner.
+    now = now or datetime.now(_IST).replace(tzinfo=None)
     today = now.date()
     ipos = store.load_all()
     prev = _previous()

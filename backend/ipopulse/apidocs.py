@@ -2,7 +2,7 @@
 
 Served at ``/api-docs`` by ``control.handle``, from the same process and the
 same port as the studio and ``/trigger``. Nothing is fetched from a CDN and
-there is no OpenAPI toolchain in the dependency list: this is one page, ten
+there is no OpenAPI toolchain in the dependency list: this is one page, twelve
 endpoints, and a spec that lives beside the handlers it describes.
 
 ── Why not Swagger UI proper ──────────────────────────────────────────────
@@ -16,10 +16,11 @@ handler and is small enough to read in one screen.
 
 ── The part Swagger gets wrong for this API ───────────────────────────────
 
-"Try it out" on a read endpoint is free. On THIS API three of the ten spend
+"Try it out" on a read endpoint is free. On THIS API four of the twelve spend
 something that cannot be taken back:
 
     POST /api/run              starts a pipeline job that rewrites sheet tabs
+    POST /api/video/open       starts a process on the machine
     POST /api/voice            spends TTS credit / daily quota
     POST /api/youtube/publish  renders and UPLOADS to the channel
 
@@ -172,6 +173,46 @@ ENDPOINTS: list[dict[str, Any]] = [
                    "X-Voice-Left, X-Voice-Provider, X-Voice-Format",
     },
     {
+        "method": "GET", "path": "/api/video", "auth": True, "effect": "read",
+        "summary": "Stream a rendered video, so the panel can play it.",
+        "why": "A page cannot read a local path, so the file is served here "
+               "rather than linked as file://. Whole body, no Range support: "
+               "these are 2-20 MB files on localhost and seeking simply "
+               "re-fetches. `name` is a BASENAME under out/video and nothing "
+               "else - see the note on POST /api/video/open for why that rule "
+               "is strict.",
+        "params": [
+            {"name": "name", "in": "query", "type": "string", "required": True,
+             "note": "e.g. \"rays-of-belief-r2-en.mp4\". Anything with a path "
+                     "separator, a leading dot, or a suffix other than .mp4 is "
+                     "refused with 400"},
+        ],
+        "returns": "video/mp4 bytes, or 400 for a bad name / 404 if not rendered yet",
+    },
+    {
+        "method": "POST", "path": "/api/video/open", "auth": True, "effect": "write",
+        "summary": "Hand a rendered video to Clipchamp, and reveal it in Explorer.",
+        "why": "The other half of the render-edit-upload loop: the panel can "
+               "render an mp4 but had no way to let you touch it, so any hand "
+               "edit meant leaving the studio and uploading through YouTube "
+               "Studio by hand. This launches the OS `edit` verb (which is what "
+               "Clipchamp and Photos register against .mp4) and falls back to "
+               "the plain open verb, reporting which it used rather than "
+               "pretending. It always reveals the file too, so right-click -> "
+               "Open with is available when nothing claims the verb.\n\n"
+               "Marked `write` because it starts a process on the machine. "
+               "`name` is validated exactly as GET /api/video does: it is a "
+               "browser-supplied string that reaches the shell, and a name of "
+               "`../../.env` must never resolve.",
+        "params": [
+            {"name": "name", "in": "body", "type": "string", "required": True,
+             "note": "basename of a file in out/video"},
+        ],
+        "returns": {"ok": True, "file": "…-r2-en.mp4", "dir": "…/out/video",
+                    "revealed": ["revealed in Explorer"], "verb": "edit",
+                    "note": "Edit it, then export over the same file…"},
+    },
+    {
         "method": "GET", "path": "/api/youtube/status", "auth": True, "effect": "read",
         "summary": "Is a channel connected, and what is in the publish queue?",
         "why": "`configured` means an OAuth client exists; `authorised` means "
@@ -208,6 +249,11 @@ ENDPOINTS: list[dict[str, Any]] = [
             {"name": "audio_b64", "in": "body", "type": "string", "required": False,
              "note": "narration as a data URL or bare base64, max 40 MB. Without it "
                      "the reel is uploaded silent"},
+            {"name": "video_name", "in": "body", "type": "string", "required": False,
+             "note": "a file in out/video to upload AS IS, skipping the render "
+                     "entirely. This is how an edit survives: render once, open "
+                     "it in Clipchamp, export over the same name, then send it "
+                     "back here. Same basename validation as /api/video"},
             {"name": "dry_run", "in": "body", "type": "boolean", "required": False,
              "default": True, "note": "render and queue, do not upload"},
         ],
