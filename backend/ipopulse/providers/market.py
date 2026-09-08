@@ -438,10 +438,21 @@ def snapshot() -> dict[str, Any]:
     snap = indices()
     pre = pre_open()
     mv = movers()
-    # Pivots come from the last SETTLED session, never from the live row —
-    # see `settled_levels`. A row with no settled band gets no band at all,
-    # which empties the setups section rather than publishing a level built
-    # on a partial range.
+    # Candidates AND pivots from the last SETTLED session, never from the
+    # live feed. Two calls to the live feed are two different snapshots, so
+    # choosing a stock on one and pricing it on another is a mismatch that
+    # cannot be detected after the fact; one bhavcopy for both cannot drift.
+    #
+    # The live `movers()` above is kept as the fallback for the window before
+    # the archive publishes. When that happens `selection_from` is empty,
+    # which is how `review` knows the day is not scoreable — a silent
+    # fallback would put an unscoreable day into the track record.
+    from .. import review
+
+    picked = review.settled_movers(day["day"])
+    if picked["gainers"] or picked["losers"]:
+        mv = {"bucket": picked["universe"],
+              "gainers": picked["gainers"], "losers": picked["losers"]}
     settled = settled_levels(day["day"])
     for group in ("gainers", "losers"):
         for row in mv.get(group) or []:
@@ -461,11 +472,14 @@ def snapshot() -> dict[str, Any]:
         "breadth": {"advances": snap.get("advances", 0),
                     "declines": snap.get("declines", 0),
                     "unchanged": snap.get("unchanged", 0)},
-        # Which session the pivot bands were computed from. Recorded rather
-        # than assumed, so a briefing can never again quote levels built on
-        # the day it is predicting without that being visible on the row.
+        # Which session each half of the setup came from. Recorded rather
+        # than assumed, so a briefing can never again quote levels or pick
+        # candidates from the day it is predicting without that being visible
+        # on the row. Empty `selection_from` means the live feed was used.
         "levels_from": settled["date"],
         "levels_count": len(settled["bands"]),
+        "selection_from": picked["date"],
+        "universe": picked["universe"] if picked["date"] else "live feed",
         # Whether the mover lists could see the session being briefed. False
         # means the candidates were picked with part of the day already on
         # the tape — the levels are still settled, but the SELECTION is not

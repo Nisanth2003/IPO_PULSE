@@ -117,6 +117,16 @@ SECTOR_LISTS = {
 CONSTITUENTS_URL = ("https://nsearchives.nseindia.com/content/indices/"
                     "ind_{name}.csv")
 
+# Tradeable universes for candidate selection, by the same constituent-list
+# mechanism as the sectors. NIFTY 50 is the default and the reason is the one
+# `movers(bucket="NIFTY")` gave: a briefing whose movers are microcaps nobody
+# can exit is not a briefing.
+UNIVERSE_LISTS = {
+    "NIFTY50": "nifty50list",
+    "NIFTYNEXT50": "niftynext50list",
+    "NIFTY100": None,                 # the two above, combined
+}
+
 # What to CALL each sector in a sentence. Derived names do not survive
 # contact with acronyms — str.title() renders "NIFTY IT" as "It" — and these
 # go into a voiceover, so they are written out rather than computed.
@@ -186,6 +196,94 @@ def _fetch_csv(day: str, url: str, marker: str, kind: str,
     except OSError:
         pass                              # a cache that cannot be written is fine
     return body
+
+
+def universe(name: str = "NIFTY50", force: bool = False) -> list[str]:
+    """The symbols in one index, from NSE's own constituent list.
+
+    Cached under a fixed key like `sector_map`: membership changes on a
+    quarterly review, and a stale roster is a far smaller error than
+    refetching on every run. Empty list when the file cannot be read, and
+    callers must treat that as "cannot select" rather than falling back to
+    every symbol in the bhavcopy — a top-ten mover list drawn from the whole
+    cash market is microcaps and nothing else.
+    """
+    import json
+
+    from .store import CACHE_DIR
+
+    name = name.upper()
+    if name == "NIFTY100":
+        return universe("NIFTY50", force) + universe("NIFTYNEXT50", force)
+    listing = UNIVERSE_LISTS.get(name)
+    if not listing:
+        return []
+
+    path = CACHE_DIR / "index" / f"universe-{name}.json"
+    if path.exists() and not force:
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+
+    from .providers import scrape
+
+    try:
+        body = scrape._Session()._get(
+            CONSTITUENTS_URL.format(name=listing), timeout=30)
+    except Exception:                                         # noqa: BLE001
+        return []
+    if "Symbol" not in body[:200]:
+        return []
+    out = []
+    for row in csv.DictReader(io.StringIO(body), skipinitialspace=True):
+        sym = (row.get("Symbol") or "").strip().upper()
+        if sym:
+            out.append(sym)
+    if out:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(out, indent=1), encoding="utf-8")
+        except OSError:
+            pass
+    return out
+
+
+def settled_movers(day: str, name: str = "NIFTY50",
+                   top: int = 10) -> dict[str, Any]:
+    """The previous session's biggest movers, from the exchange's own file.
+
+    The settled counterpart to `providers.market.movers`. Same row shape, so
+    it drops into the snapshot unchanged, plus `volume` and `delivery` which
+    the live feed does not carry.
+
+    Percentage change is computed from the bhavcopy's own PREV_CLOSE rather
+    than from the session before it, so a corporate action that the exchange
+    adjusted for is adjusted here too — deriving it from two days of closes
+    would report a bonus issue as a 50% crash.
+    """
+    prev = previous_session(day)
+    if not prev:
+        return {"date": "", "universe": name, "gainers": [], "losers": []}
+    tape = bhavcopy(prev)
+    syms = universe(name)
+    rows = []
+    for sym in syms:
+        t = tape.get(sym)
+        if not t or not t["prev"]:
+            continue
+        rows.append({
+            "symbol": sym,
+            "last": t["close"], "prev_close": t["prev"],
+            "pct": round(100 * (t["close"] - t["prev"]) / t["prev"], 2),
+            "high": t["high"], "low": t["low"],
+            "volume": t["volume"], "delivery": t["delivery"],
+        })
+    rows.sort(key=lambda r: r["pct"], reverse=True)
+    return {"date": prev, "universe": name,
+            "gainers": rows[:top],
+            # Reversed so the worst is first, matching the live feed's order.
+            "losers": list(reversed(rows[-top:])) if len(rows) > top else []}
 
 
 def sector_map(force: bool = False) -> dict[str, dict[str, str]]:
@@ -293,6 +391,13 @@ def bhavcopy(day: str, force: bool = False) -> dict[str, dict[str, float]]:
                 "high": float(row["HIGH_PRICE"]),
                 "low": float(row["LOW_PRICE"]),
                 "close": float(row["CLOSE_PRICE"]),
+                # Kept because the live feed cannot supply them. Delivery
+                # quantity against total traded quantity is the share of the
+                # day's volume that was actually taken into demat rather than
+                # squared off — the difference between a move with conviction
+                # behind it and a session of churn.
+                "volume": float(row.get("TTL_TRD_QNTY") or 0),
+                "delivery": float(row.get("DELIV_QTY") or 0),
             }
         except (KeyError, ValueError):
             continue                      # a malformed row is not a reason to fail
@@ -305,40 +410,56 @@ OPEN_HHMM = (9, 15)
 
 
 def lookahead(brief: Any, day: str) -> str:
-    """"" if the briefing was written before the session it calls, else why not.
+    """"" if the briefing saw nothing of `day`, else why it cannot be scored.
 
-    The stamp NSE returns looks like "07-Sep-2026 12:57", and it is the time
-    the market data was read rather than the time the row was saved — which
-    is the stricter of the two and the one that matters.
+    Judged on the INPUTS the row records, not on when it was written. Both
+    halves of a setup now come from the previous session's settled file, so a
+    briefing built at 12:57 whose pivots and candidates are both dated
+    yesterday is a genuine forecast — late to publish, but honest to score.
+    Excluding it on the clock alone would throw away real evidence.
+
+    The timestamp is still the fallback for rows written before these notes
+    existed, because it is the only evidence they carry. That keeps the three
+    original briefings excluded on the correct grounds.
     """
+    notes = _text(brief, "notes")
+
+    # ── the modern test: did any input come from the scored session? ─────
+    if "pivots from" in notes or "selection from" in notes:
+        bad = []
+        if f"pivots from {day}" in notes:
+            bad.append("its pivot levels were built on the session it calls")
+        if "pivots from none" in notes:
+            bad.append("it carries no pivot session at all")
+        if "selection from LIVE FEED" in notes:
+            bad.append("its candidates came from the live feed, which reports "
+                       "the current session once the market is open")
+        if f"selection from {day}" in notes:
+            bad.append("its candidates were chosen from the session it calls")
+        if bad:
+            return "; ".join(bad)
+        return ""
+
+    # ── the legacy test: all we have is when it was written ─────────────
     stamp = _text(brief, "at")
     if not stamp:
-        # No stamp is not proof of innocence, but it is also not proof of
-        # contamination, and excluding every unstamped day would throw away
-        # the record. Flagged by the pivot note instead, below.
-        pass
-    else:
-        for fmt in ("%d-%b-%Y %H:%M", "%d-%b-%Y %H:%M:%S", "%Y-%m-%d %H:%M"):
-            try:
-                at = datetime.strptime(stamp, fmt)
-            except ValueError:
-                continue
-            if at.date().isoformat() != day:
-                break                     # a different day: nothing to judge
-            if (at.hour, at.minute) >= OPEN_HHMM:
-                return (f"built at {at:%H:%M} on {day}, after the "
-                        f"{OPEN_HHMM[0]:02d}:{OPEN_HHMM[1]:02d} open — its "
-                        f"levels came from the session it was calling, so "
-                        f"scoring it would measure hindsight, not a forecast")
-            break
-
-    # Belt and braces: briefings written after the fix record which session
-    # the pivots came from, and that must never be the day being scored.
-    notes = _text(brief, "notes")
-    if f"pivots from {day}" in notes:
-        return (f"its notes say the pivots came from {day} itself — the "
-                f"session it was calling")
-    return ""
+        return ("no timestamp and no input record — nothing in this row says "
+                "which session it was built from")
+    for fmt in ("%d-%b-%Y %H:%M", "%d-%b-%Y %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            at = datetime.strptime(stamp, fmt)
+        except ValueError:
+            continue
+        if at.date().isoformat() != day:
+            return ""                     # written on another day: fine
+        if (at.hour, at.minute) >= OPEN_HHMM:
+            return (f"built at {at:%H:%M} on {day}, after the "
+                    f"{OPEN_HHMM[0]:02d}:{OPEN_HHMM[1]:02d} open, and it "
+                    f"records no input session — before that record existed "
+                    f"the levels came from the session being called, so this "
+                    f"would measure hindsight")
+        return ""
+    return (f"unreadable timestamp {stamp!r} and no input record")
 
 
 def previous_session(day: str) -> str:

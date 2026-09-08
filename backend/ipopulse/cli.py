@@ -2380,25 +2380,42 @@ def cmd_market(args) -> int:
               f"`--replace --write` to rebuild it.")
         return 1
 
-    # A briefing built after the open is not a forecast, whatever it says on
-    # the card. The pivots are settled either way, but the candidate lists
-    # come from the live feed, so the stocks were chosen with part of the day
-    # already visible. `review` refuses to score such a day; warn here so it
-    # is known at the time of writing rather than a week later.
-    snap_at = mkt.pre_market_now(day)
-    if not snap_at.get("pre_market"):
-        print(f"  ! {day}: the market feed is stamped {snap_at.get('at')} — "
-              f"at or after the 09:15 open.")
-        print(f"    Pivots come from the last settled session and are fine, "
-              f"but the gainer/loser lists are TODAY's, so the stocks were "
-              f"picked")
-        print(f"    with part of the session already on the tape. "
-              f"`ipopulse review` will exclude this day from the track "
-              f"record.")
+    # Both halves of every setup — the candidates and the pivot band — are
+    # read from the previous session's bhavcopy. Without it the pipeline falls
+    # back to the live feed, and THAT is the case worth refusing: a briefing
+    # that looks entirely correct, carries real prices, and cannot be scored
+    # because nothing in it is dated to a completed session.
+    #
+    # The clock is deliberately not the test any more. A build at 12:57 whose
+    # inputs are both dated yesterday saw nothing of today, so it is a real
+    # forecast — too late to publish as a pre-market reel, which is an
+    # editorial call for the operator, not a fact about the data.
+    from . import review as _rv
+
+    prev = _rv.previous_session(day)
+    have_tape = bool(prev) and bool(_rv.bhavcopy(prev))
+    have_universe = bool(_rv.universe())
+    if not (have_tape and have_universe):
+        missing = ("no settled bhavcopy for the session before "
+                   f"{day}" if not have_tape else
+                   "the NIFTY 50 constituent list could not be read")
+        print(f"  ! {day}: {missing}.")
+        print(f"    Candidates and pivot levels both come from that file, so "
+              f"without it the pipeline falls back to the live feed and the "
+              f"day")
+        print(f"    cannot be scored. `ipopulse review` will exclude it.")
         if not args.force:
-            print(f"    Nothing was built. Re-run before 09:15, or pass "
-                  f"--force to build it anyway.")
+            print(f"    Nothing was built. Try again once the archive "
+                  f"publishes, or pass --force to build it anyway.")
             return 1
+
+    stamp = mkt.pre_market_now(day)
+    if not stamp.get("pre_market"):
+        print(f"  · {day}: the market feed is stamped {stamp.get('at')}, at "
+              f"or after the 09:15 open. The data is still honest — "
+              f"candidates and")
+        print(f"    levels both come from {prev} — but this is late for a "
+              f"reel that calls itself a pre-market briefing.")
 
     try:
         b = outlook.build(day=day, model=args.model, verbose=True)

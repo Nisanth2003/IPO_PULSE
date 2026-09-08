@@ -448,7 +448,8 @@ def _apply(day: str, snap: dict, cands: list[dict], stories: dict,
                  f"from {len(stories.get('feeds') or [])} feeds; "
                  f"index from {settled['source']}; "
                  f"pivots from {snap.get('levels_from') or 'none'}; "
-                 f"selection {'pre-market' if snap.get('pre_market') else 'INTRADAY (hindsight)'}",
+                 f"selection from {snap.get('selection_from') or 'LIVE FEED'} "
+                 f"({snap.get('universe', '')})",
         "news": picked,
         "sectors": sectors,
         "setups": ranked["long"] + ranked["short"],
