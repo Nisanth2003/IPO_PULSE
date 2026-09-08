@@ -1,0 +1,35 @@
+[Unit]
+Description=IPO Pulse timer: market (reel 7's pre-market briefing)
+
+[Timer]
+# The one unit here whose VALUE depends on the hour it fires, not just its
+# success. The pivot levels are computed from the last settled session either
+# way — see `market.settled_levels` — but the gainer and loser lists come from
+# NSE's live feed, and that feed reports the PREVIOUS session before the 09:15
+# open and TODAY after it. A late run therefore picks its stocks with part of
+# the session already on the tape, which is not a forecast however correct the
+# arithmetic is.
+#
+# This unit did not exist until 8 Sep 2026, and neither did its Task Scheduler
+# counterpart, so every briefing had been built by hand at 12:57 or 15:30.
+# Scoring those measured hindsight: `review.lookahead` now excludes any
+# briefing stamped after the open, and `ipopulse market` refuses to build one
+# without --force, so a missed slot fails loudly instead of quietly producing
+# a briefing that looks right.
+#
+# 08:00 leaves 75 minutes before the open for the AI step, one retry and the
+# sheet write. Weekdays only, and the job checks the exchange holiday
+# calendar itself, so a holiday exits 0 with nothing written.
+OnCalendar=Mon..Fri *-*-* 08:00:00 Asia/Kolkata
+
+# Persistent, unlike the watchdog: a briefing is worth running late only
+# within the same morning, and the command's own pre-open check enforces that
+# far more precisely than a timer flag can. Without it, a machine asleep at
+# 08:00 silently skips reel 7 for the day.
+Persistent=true
+RandomizedDelaySec=60
+
+Unit=ipopulse@market.service
+
+[Install]
+WantedBy=timers.target
