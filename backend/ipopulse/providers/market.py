@@ -356,6 +356,72 @@ def levels(row: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+# The open, in IST. A feed stamped after this on the day being briefed is
+# reporting that day rather than the last completed one.
+OPEN_HHMM = (9, 15)
+
+
+def _is_pre_market(stamp: str, day: str) -> bool:
+    """Could the feed behind `stamp` see the session on `day`?
+
+    NSE stamps its payloads "08-Sep-2026 15:30". A stamp from any other day is
+    pre-market by definition — it predates the session entirely. An unparseable
+    stamp counts as NOT pre-market: the whole point is to avoid a hindsight
+    briefing that looks clean, so the unknown case has to fail closed.
+    """
+    if not stamp:
+        return False
+    for fmt in ("%d-%b-%Y %H:%M", "%d-%b-%Y %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            at = datetime.strptime(stamp, fmt)
+        except ValueError:
+            continue
+        if at.date().isoformat() != day:
+            return True
+        return (at.hour, at.minute) < OPEN_HHMM
+    return False
+
+
+def pre_market_now(day: str) -> dict[str, Any]:
+    """{"at": stamp, "pre_market": bool} for `day`, in one cheap call.
+
+    Exists so the CLI can warn before spending a full `snapshot()` and an AI
+    request on a briefing it is about to refuse. Reads the index feed only,
+    which carries the same stamp the snapshot would report.
+    """
+    stamp = (indices() or {}).get("at") or ""
+    return {"at": stamp, "pre_market": _is_pre_market(stamp, day)}
+
+
+def settled_levels(day: str) -> dict[str, Any]:
+    """Pivot bands for every stock, from the last completed session.
+
+    Returns {"date": iso, "bands": {SYMBOL: levels}}. A floor pivot needs one
+    session's high, low and close, and the exchange's own bhavcopy is the only
+    source that carries all three settled — the live feed carries whatever the
+    current session has managed so far, which is the trap this exists to
+    close. Empty `bands` when the file is not published, and callers must
+    publish no levels at all rather than fall back to the live feed: a level
+    built on a partial range looks exactly like a real one.
+    """
+    from .. import review                    # late: review imports IST here
+
+    prev = review.previous_session(day)
+    if not prev:
+        return {"date": "", "bands": {}}
+    tape = review.bhavcopy(prev)
+    bands = {}
+    for sym, row in tape.items():
+        # `last` is the parameter name `levels` uses for the close, and for a
+        # settled session the close IS the last price. Passing the settled
+        # close is the whole point of this function.
+        band = levels({"high": row["high"], "low": row["low"],
+                       "last": row["close"]})
+        if band:
+            bands[sym] = band
+    return {"date": prev, "bands": bands}
+
+
 def snapshot() -> dict[str, Any]:
     """Everything the briefing needs, in one call, with levels attached.
 
@@ -372,9 +438,16 @@ def snapshot() -> dict[str, Any]:
     snap = indices()
     pre = pre_open()
     mv = movers()
+    # Pivots come from the last SETTLED session, never from the live row —
+    # see `settled_levels`. A row with no settled band gets no band at all,
+    # which empties the setups section rather than publishing a level built
+    # on a partial range.
+    settled = settled_levels(day["day"])
     for group in ("gainers", "losers"):
         for row in mv.get(group) or []:
-            row["levels"] = levels(row)
+            sym = str(row.get("symbol") or "").strip().upper()
+            row["levels"] = settled["bands"].get(sym, {})
+            row["levels_from"] = settled["date"] if row["levels"] else ""
     missing = [name for name, got in (("indices", snap), ("pre_open", pre),
                                       ("movers", mv.get("gainers")))
                if not got]
@@ -388,6 +461,17 @@ def snapshot() -> dict[str, Any]:
         "breadth": {"advances": snap.get("advances", 0),
                     "declines": snap.get("declines", 0),
                     "unchanged": snap.get("unchanged", 0)},
+        # Which session the pivot bands were computed from. Recorded rather
+        # than assumed, so a briefing can never again quote levels built on
+        # the day it is predicting without that being visible on the row.
+        "levels_from": settled["date"],
+        "levels_count": len(settled["bands"]),
+        # Whether the mover lists could see the session being briefed. False
+        # means the candidates were picked with part of the day already on
+        # the tape — the levels are still settled, but the SELECTION is not
+        # a forecast. See `_is_pre_market`.
+        "pre_market": _is_pre_market(snap.get("at") or pre.get("at") or "",
+                                     day["day"]),
         "sectors": sectors(snap),
         "pre_open": pre,
         "movers": mv,

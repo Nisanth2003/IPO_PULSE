@@ -2380,6 +2380,26 @@ def cmd_market(args) -> int:
               f"`--replace --write` to rebuild it.")
         return 1
 
+    # A briefing built after the open is not a forecast, whatever it says on
+    # the card. The pivots are settled either way, but the candidate lists
+    # come from the live feed, so the stocks were chosen with part of the day
+    # already visible. `review` refuses to score such a day; warn here so it
+    # is known at the time of writing rather than a week later.
+    snap_at = mkt.pre_market_now(day)
+    if not snap_at.get("pre_market"):
+        print(f"  ! {day}: the market feed is stamped {snap_at.get('at')} — "
+              f"at or after the 09:15 open.")
+        print(f"    Pivots come from the last settled session and are fine, "
+              f"but the gainer/loser lists are TODAY's, so the stocks were "
+              f"picked")
+        print(f"    with part of the session already on the tape. "
+              f"`ipopulse review` will exclude this day from the track "
+              f"record.")
+        if not args.force:
+            print(f"    Nothing was built. Re-run before 09:15, or pass "
+                  f"--force to build it anyway.")
+            return 1
+
     try:
         b = outlook.build(day=day, model=args.model, verbose=True)
     except AiUnavailable as exc:
