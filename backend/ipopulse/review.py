@@ -1336,7 +1336,8 @@ def record_report(r: dict[str, Any]) -> list[str]:
     if r.get("excluded"):
         out.append(f"   ! {r['excluded']} briefing(s) excluded for hindsight "
                    f"— see below. Nothing here is a track record until the "
-                   f"first briefing built before 09:15 has been scored.")
+                   f"first briefing built from settled inputs has been "
+                   f"scored.")
     for day in r["days"]:
         if day.get("skipped"):
             flag = "EXCLUDED " if day.get("contaminated") else ""
