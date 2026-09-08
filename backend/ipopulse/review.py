@@ -286,6 +286,353 @@ def settled_movers(day: str, name: str = "NIFTY50",
             "losers": list(reversed(rows[-top:])) if len(rows) > top else []}
 
 
+# Sessions a swing position is given to resolve. Five, about a trading week:
+# the shortest hold the swing description fits. A longer default would let
+# every failed call sit in "still open" instead of being counted.
+SWING_HORIZON = 5
+
+# A position still open when the horizon expires.
+EXPIRED = "expired"
+
+
+def next_sessions(day: str, count: int) -> list[str]:
+    """Up to `count` trading sessions from `day` forward, `day` included.
+
+    Walks the calendar looking for a published index file, the same way
+    `previous_session` walks backwards, so weekends and exchange holidays are
+    skipped without this module needing its own holiday list. Stops early at
+    the edge of the archive, which is what bounds a horizon that runs into
+    the future: a position opened on Friday can only be scored as far as the
+    exchange has published.
+    """
+    try:
+        d = datetime.strptime(day, "%Y-%m-%d").date()
+    except ValueError:
+        return []
+    out: list[str] = []
+    # `count * 2 + 10` calendar days is enough slack for two weekends and a
+    # holiday cluster; beyond that the archive has simply not caught up.
+    for step in range(count * 2 + 10):
+        if len(out) >= count:
+            break
+        cand = (d + timedelta(days=step)).isoformat()
+        if index_close(cand):
+            out.append(cand)
+    return out
+
+
+def score_swing(setup: Any, day: str,
+                horizon: int = SWING_HORIZON) -> dict[str, Any]:
+    """One setup held across sessions until it resolves or the horizon ends.
+
+    The intraday scorer answers "did this work today". This answers "did it
+    work at all, and what did holding it cost" — a different question, and it
+    needs the honesty rules in this module's header: resolution is decided by
+    the first session that touches a level, an overnight gap past the stop
+    exits at the OPEN rather than at the stop, and a position still open when
+    the horizon expires is `expired`, not a win in waiting.
+    """
+    side = (_text(setup, "side") or "long").lower()
+    long_ = side != "short"
+    entry, target, stop = (_num(setup, "entry"), _num(setup, "target"),
+                           _num(setup, "stop"))
+    out: dict[str, Any] = {
+        "symbol": _text(setup, "symbol").upper(), "side": side,
+        "entry": entry, "target": target, "stop": stop,
+        "horizon": horizon, "verdict": "", "why": "",
+        "entered_on": "", "exit_on": "", "exit": 0.0,
+        "sessions_held": 0, "slippage": 0.0, "gapped_exit": False,
+        "return_pct": None,
+    }
+    if not (entry and target and stop):
+        out.update(verdict=NO_DATA, why="the setup carried no levels")
+        return out
+
+    days = next_sessions(day, horizon)
+    if not days:
+        out.update(verdict=NO_DATA,
+                   why=f"no settled session at or after {day}")
+        return out
+
+    entered = False
+    for n, d in enumerate(days, 1):
+        tape = bhavcopy(d).get(out["symbol"])
+        if not tape:
+            continue                      # not traded that session
+
+        if not entered:
+            # The entry is a resting order at the pivot: it fills on the
+            # first session whose range reaches it. Unlike the intraday
+            # scorer there is no rush — that is the whole point of a horizon.
+            #
+            # The fill is booked AT the entry even when the session opened
+            # beyond it, where a resting order would really have filled at
+            # the better opening price. That understates the result, and it
+            # is deliberate: the bias has to point away from flattering the
+            # record, and unlike the exit gap — which is booked honestly at
+            # the open, against us — an optimistic entry has no offsetting
+            # cost to a viewer who acts on it.
+            if not (tape["low"] <= entry <= tape["high"]):
+                continue
+            entered = True
+            out["entered_on"] = d
+
+        out["sessions_held"] = n
+        opened = tape["open"]
+
+        # A gap past a level is an exit AT THE OPEN. Only from the session
+        # after entry: on the entry session the fill and the gap cannot be
+        # ordered, so that case falls through to the touch tests below.
+        if d != out["entered_on"]:
+            if (opened <= stop) if long_ else (opened >= stop):
+                out.update(verdict=STOPPED, exit_on=d, exit=opened,
+                           gapped_exit=True,
+                           slippage=round(abs(opened - stop), 2),
+                           why=f"gapped through the {stop:g} stop and left at "
+                               f"the {opened:g} open, {abs(opened - stop):g} "
+                               f"worse than the stop")
+                break
+            if (opened >= target) if long_ else (opened <= target):
+                out.update(verdict=TARGET, exit_on=d, exit=opened,
+                           gapped_exit=True,
+                           slippage=round(abs(opened - target), 2),
+                           why=f"gapped past the {target:g} target and left "
+                               f"at the {opened:g} open")
+                break
+
+        hit_t = tape["high"] >= target if long_ else tape["low"] <= target
+        hit_s = tape["low"] <= stop if long_ else tape["high"] >= stop
+        if hit_t and hit_s:
+            out.update(verdict=UNRESOLVED, exit_on=d, exit=tape["close"],
+                       why=f"{d} touched both levels; within one session the "
+                           f"tape cannot say which came first")
+            break
+        if hit_t:
+            out.update(verdict=TARGET, exit_on=d, exit=target,
+                       why=f"reached {target:g} on {d}")
+            break
+        if hit_s:
+            out.update(verdict=STOPPED, exit_on=d, exit=stop,
+                       why=f"broke {stop:g} on {d}")
+            break
+    else:
+        if entered:
+            last = days[-1]
+            tape = bhavcopy(last).get(out["symbol"]) or {}
+            close = tape.get("close", 0.0)
+            out.update(verdict=EXPIRED, exit_on=last, exit=close,
+                       why=f"still open after {len(days)} session(s); marked "
+                           f"to the {close:g} close on {last}")
+        else:
+            out.update(verdict=NO_TRADE,
+                       why=f"{entry:g} never traded in {len(days)} session(s) "
+                           f"from {day}")
+
+    if out["exit"] and entry:
+        gain = (out["exit"] - entry) if long_ else (entry - out["exit"])
+        out["return_pct"] = round(100 * gain / entry, 2)
+    return out
+
+
+def swing(day: str, horizon: int = SWING_HORIZON) -> dict[str, Any]:
+    """One stored briefing's setups, scored on a multi-session horizon."""
+    from . import briefing
+
+    out: dict[str, Any] = {"date": day, "horizon": horizon, "setups": [],
+                           "counts": {}, "skipped": "", "contaminated": False,
+                           "sessions": []}
+    try:
+        brief = briefing.load(day)
+    except FileNotFoundError:
+        out["skipped"] = f"no briefing stored for {day}"
+        return out
+
+    blocked = lookahead(brief, day)
+    if blocked:
+        out.update(skipped=blocked, contaminated=True)
+        return out
+
+    out["sessions"] = next_sessions(day, horizon)
+    if not out["sessions"]:
+        out["skipped"] = f"no settled session at or after {day}"
+        return out
+    # An honest horizon needs the whole window published. Scoring a 5-session
+    # hold against 2 available sessions would report every unresolved position
+    # as expired, which reads as a loss.
+    if len(out["sessions"]) < horizon:
+        out["partial"] = (f"only {len(out['sessions'])} of {horizon} sessions "
+                          f"have settled; positions still open are not final")
+
+    for setup in (getattr(brief, "setups", None) or []):
+        out["setups"].append(score_swing(setup, day, horizon))
+    for row in out["setups"]:
+        out["counts"][row["verdict"]] = out["counts"].get(row["verdict"], 0) + 1
+
+    resolved = [r for r in out["setups"] if r["verdict"] in RESOLVED]
+    out["resolved"] = len(resolved)
+    out["hit_rate"] = (round(100 * sum(1 for r in resolved
+                                       if r["verdict"] == TARGET)
+                             / len(resolved), 1) if resolved else None)
+    rets = [r["return_pct"] for r in out["setups"]
+            if r["return_pct"] is not None]
+    # The average outcome per position TAKEN, losers included. A hit rate
+    # alone cannot distinguish a strategy with small wins and large losses
+    # from its opposite.
+    out["avg_return_pct"] = (round(sum(rets) / len(rets), 2) if rets else None)
+    out["gapped_exits"] = sum(1 for r in out["setups"] if r["gapped_exit"])
+    out["total_slippage"] = round(sum(r["slippage"] for r in out["setups"]), 2)
+    held = [r["sessions_held"] for r in out["setups"] if r["sessions_held"]]
+    out["avg_sessions_held"] = (round(sum(held) / len(held), 1)
+                                if held else None)
+    return out
+
+
+def swing_report(r: dict[str, Any]) -> list[str]:
+    """One day's swing scoring, as lines."""
+    if r.get("skipped"):
+        return [f"── {r['date']} (swing): {r['skipped']}"]
+    out = [f"── {r['date']}  ·  {r['horizon']}-session horizon  ·  "
+           f"{len(r['setups'])} setup(s)"]
+    if r.get("partial"):
+        out.append(f"   ! {r['partial']}")
+    out.append(f"   sessions: {', '.join(r['sessions'])}")
+    out.append("")
+    for s in r["setups"]:
+        ret = "" if s["return_pct"] is None else f"{s['return_pct']:+.2f}%"
+        out.append(f"   {s['symbol']:<12} {s['side']:<6} "
+                   f"{s['verdict']:<10} {ret:>8}  "
+                   f"held {s['sessions_held']} session(s)")
+        if s["why"]:
+            out.append(f"        {s['why']}")
+        if s["gapped_exit"]:
+            out.append(f"        ! exited on a gap, {s['slippage']:g} worse "
+                       f"than the level — a stop is not a fill overnight")
+    out.append("")
+    out.append(f"   verdicts: {r['counts']}")
+    if r["resolved"]:
+        out.append(f"   resolved {r['resolved']}, hit rate {r['hit_rate']}%")
+    if r["avg_return_pct"] is not None:
+        out.append(f"   average return per position taken: "
+                   f"{r['avg_return_pct']:+.2f}%  (losers included)")
+    if r["avg_sessions_held"]:
+        out.append(f"   average hold: {r['avg_sessions_held']} session(s)")
+    if r["gapped_exits"]:
+        out.append(f"   {r['gapped_exits']} of {len(r['setups'])} exited on an "
+                   f"overnight gap rather than at their level")
+    return out
+
+
+def swing_record(days: list[str] | None = None,
+                 horizon: int = SWING_HORIZON) -> dict[str, Any]:
+    """The running swing record across every stored briefing.
+
+    Reports the average return per position alongside the hit rate, because
+    the two answer different questions and a swing hold makes the gap between
+    them wide. A 30% hit rate with targets three times the stop distance beats
+    a 60% one with the reverse, and a hit rate on its own cannot tell them
+    apart — over a multi-session hold, where the gaps land decides which of
+    those two a strategy actually is.
+    """
+    from . import briefing
+
+    days = days or briefing.list_days()
+    per_day, setups = [], []
+    for day in days:
+        r = swing(day, horizon)
+        if r.get("skipped"):
+            per_day.append({"date": day, "skipped": r["skipped"],
+                            "contaminated": r.get("contaminated", False)})
+            continue
+        per_day.append({"date": day, "counts": r["counts"],
+                        "hit_rate": r["hit_rate"], "resolved": r["resolved"],
+                        "avg_return_pct": r["avg_return_pct"],
+                        "partial": r.get("partial", "")})
+        setups.extend(r["setups"])
+
+    counts: dict[str, int] = {}
+    for row in setups:
+        counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
+    resolved = sum(counts.get(v, 0) for v in RESOLVED)
+    rets = [r["return_pct"] for r in setups if r["return_pct"] is not None]
+    wins = [x for x in rets if x > 0]
+    losses = [x for x in rets if x <= 0]
+    held = [r["sessions_held"] for r in setups if r["sessions_held"]]
+    return {
+        "horizon": horizon,
+        "days": per_day,
+        "sessions_scored": sum(1 for d in per_day if not d.get("skipped")),
+        "excluded": sum(1 for d in per_day if d.get("contaminated")),
+        "setups": len(setups),
+        "counts": counts,
+        "resolved": resolved,
+        "hit_rate": (round(100 * counts.get(TARGET, 0) / resolved, 1)
+                     if resolved else None),
+        "expired": counts.get(EXPIRED, 0),
+        "avg_return_pct": (round(sum(rets) / len(rets), 2) if rets else None),
+        "avg_win_pct": (round(sum(wins) / len(wins), 2) if wins else None),
+        "avg_loss_pct": (round(sum(losses) / len(losses), 2)
+                         if losses else None),
+        "avg_sessions_held": (round(sum(held) / len(held), 1)
+                              if held else None),
+        # How often an overnight gap decided the exit instead of the level.
+        # The number that says whether a swing hold is being priced honestly.
+        "gapped_exits": sum(1 for r in setups if r["gapped_exit"]),
+        "total_slippage": round(sum(r["slippage"] for r in setups), 2),
+    }
+
+
+def swing_record_report(r: dict[str, Any]) -> list[str]:
+    """The running swing record, as lines."""
+    out = [f"── Swing record  ·  {r['horizon']}-session horizon  ·  "
+           f"{r['sessions_scored']} session(s), {r['setups']} setup(s)"]
+    if r.get("excluded"):
+        out.append(f"   ! {r['excluded']} briefing(s) excluded for hindsight. "
+                   f"Nothing here is a track record until the first briefing "
+                   f"built from settled inputs has been scored.")
+    for day in r["days"]:
+        if day.get("skipped"):
+            flag = "EXCLUDED " if day.get("contaminated") else ""
+            out.append(f"   {day['date']}  {flag}{day['skipped']}")
+        else:
+            ret = ("—" if day["avg_return_pct"] is None
+                   else f"{day['avg_return_pct']:+.2f}%")
+            out.append(f"   {day['date']}  hit "
+                       f"{day['counts'].get(TARGET, 0)}/{day['resolved']}  "
+                       f"avg {ret}   {day['counts']}")
+    if not r["setups"]:
+        return out
+    out.append("")
+    out.append(f"   verdicts: {r['counts']}")
+    if r["resolved"]:
+        out.append(f"   resolved {r['resolved']}, hit rate {r['hit_rate']}% "
+                   f"({r['counts'].get(TARGET, 0)} of {r['resolved']})")
+    if r["expired"]:
+        out.append(f"   {r['expired']} still open when the horizon expired — "
+                   f"counted as neither, marked to the last close")
+    if r["avg_return_pct"] is not None:
+        out.append("")
+        out.append(f"   average per position   : {r['avg_return_pct']:+.2f}% "
+                   f"(every position taken, losers included)")
+    if r["avg_win_pct"] is not None and r["avg_loss_pct"] is not None:
+        out.append(f"   average win vs loss    : {r['avg_win_pct']:+.2f}% "
+                   f"against {r['avg_loss_pct']:+.2f}%")
+        # The reason both numbers are printed: this ratio is what decides
+        # whether a low hit rate is a problem or the design.
+        if r["avg_loss_pct"]:
+            edge = abs(r["avg_win_pct"] / r["avg_loss_pct"])
+            out.append(f"   win/loss size ratio    : {edge:.2f}x — a hit rate "
+                       f"below {100 / (1 + edge):.0f}% loses money at this "
+                       f"ratio")
+    if r["avg_sessions_held"]:
+        out.append(f"   average hold           : {r['avg_sessions_held']} "
+                   f"session(s) of {r['horizon']}")
+    if r["gapped_exits"]:
+        out.append(f"   exits decided by a gap : {r['gapped_exits']} of "
+                   f"{r['setups']}, {r['total_slippage']:g} total worse than "
+                   f"the levels — overnight risk a day trade never carries")
+    return out
+
+
 def sector_map(force: bool = False) -> dict[str, dict[str, str]]:
     """{SYMBOL: {"index": "NIFTY IT", "industry": "Information Technology"}}.
 

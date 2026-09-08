@@ -2862,10 +2862,21 @@ def cmd_review(args) -> int:
     """
     from . import review as rv
 
+    # `--swing` answers a different question from the default. The default
+    # asks "did the call work THAT DAY", which is the intraday claim reel 7
+    # actually makes; --swing asks "did it work at all within N sessions, and
+    # what did holding it cost", which is the delivery-holder's question.
+    # They are reported separately because a level that failed intraday and
+    # worked on day three is a win for one audience and a loss for the other.
+    horizon = args.horizon or rv.SWING_HORIZON
+
     if args.record:
-        r = rv.record()
-        for line in rv.record_report(r):
-            print(line)
+        if args.swing:
+            for line in rv.swing_record_report(rv.swing_record(horizon=horizon)):
+                print(line)
+        else:
+            for line in rv.record_report(rv.record()):
+                print(line)
         return 0
 
     from . import briefing
@@ -2875,7 +2886,9 @@ def cmd_review(args) -> int:
         print("No briefing stored yet. Build one:  ipopulse market --write")
         return 1
     for day in days:
-        for line in rv.report(rv.review(day)):
+        lines = (rv.swing_report(rv.swing(day, horizon)) if args.swing
+                 else rv.report(rv.review(day)))
+        for line in lines:
             print(line)
         print()
     return 0
@@ -3993,6 +4006,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--record", action="store_true",
                     help="the running track record across all stored days — "
                          "the number a scorecard reel would state")
+    sp.add_argument("--swing", action="store_true",
+                    help="score on a multi-session horizon instead of one "
+                         "day: the delivery holder's question, with honest "
+                         "gap exits and the win/loss size ratio")
+    sp.add_argument("--horizon", type=int, metavar="N",
+                    help="sessions a swing position gets to resolve "
+                         "(default 5, about a trading week)")
     sp.set_defaults(func=cmd_review)
 
     sp = sub.add_parser("settings", help="read or write the sheet's Settings "
