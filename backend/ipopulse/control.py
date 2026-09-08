@@ -168,7 +168,13 @@ JOBS: dict[str, dict[str, Any]] = {
         # Deliberately NOT in the `daily` chain. That chain runs at 10:00 and
         # 18:35 — both after the open — and a briefing built then is a
         # description of a session the viewer can already see.
-        "argv": ["market", "--write"],
+        # `--if-missing` because TWO schedulers build this: the local task,
+        # which fires at 08:00 on the dot but only while the machine is awake,
+        # and GitHub Actions, which always fires eventually but was measured
+        # on 9 Sep 2026 at a median 388 minutes late. Whichever gets there
+        # first wins; without this the other returns 1 and reports itself
+        # broken every day it correctly did nothing.
+        "argv": ["market", "--write", "--if-missing"],
         # Mon-Fri, not daily: a pre-market briefing for a day with no session
         # is not a stale briefing, it is a fictional one. schedule.yml's
         # '30 2 * * 1-5' is the cron this describes; change both together.

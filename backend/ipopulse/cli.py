@@ -2376,6 +2376,18 @@ def cmd_market(args) -> int:
         return 0
 
     if briefing.exists(day) and not args.replace:
+        # `--if-missing` is for the schedulers. Reel 7 is built by two of
+        # them — a local task that fires on time but needs the machine awake,
+        # and Actions which always fires eventually but was measured at a
+        # median 388 minutes late — so whichever arrives first must win and
+        # the other must exit quietly. Returning 1 here would make the
+        # backstop red every day it did its job correctly.
+        #
+        # Not the default: a person who types this and finds the day already
+        # done should be told, not silently given a zero.
+        if args.if_missing:
+            print(f"{day} already has a briefing — nothing to do.")
+            return 0
         print(f"{day} already has a briefing. `--show` to read it, "
               f"`--replace --write` to rebuild it.")
         return 1
@@ -4102,6 +4114,10 @@ def build_parser() -> argparse.ArgumentParser:
                     help="print the stored briefing instead of building one")
     sp.add_argument("--force", action="store_true",
                     help="build even on a day the exchange is shut")
+    sp.add_argument("--if-missing", action="store_true", dest="if_missing",
+                    help="exit 0 rather than 1 when the day already has a "
+                         "briefing. For schedulers: reel 7 is built by two of "
+                         "them and the loser must not report itself broken")
     sp.add_argument("--model",
                     help="override the model. Defaults to the strongest one "
                          "reachable, not the cheap one the rest of the "

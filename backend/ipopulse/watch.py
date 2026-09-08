@@ -132,6 +132,32 @@ def _from_invariants() -> list[dict[str, str]]:
     return out
 
 
+def _text_of(obj: Any, name: str) -> str:
+    val = obj.get(name) if isinstance(obj, dict) else getattr(obj, name, "")
+    return str(val or "").strip()
+
+
+def _after_open(stamp: str, day: str) -> str:
+    """"HH:MM" when `stamp` is at or after the open on `day`, else "".
+
+    Same stamp formats `review.lookahead` reads, and the same 09:15 boundary
+    `readiness` expires reel 7 on — deliberately duplicated as a read rather
+    than shared, because this asks a different question of the same field:
+    lookahead asks "can it be scored", this asks "could it be recorded".
+    """
+    from datetime import datetime as _dt
+
+    for fmt in ("%d-%b-%Y %H:%M", "%d-%b-%Y %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            at = _dt.strptime(stamp, fmt)
+        except ValueError:
+            continue
+        if at.date().isoformat() != day:
+            return ""
+        return f"{at:%H:%M}" if (at.hour, at.minute) >= (9, 15) else ""
+    return ""
+
+
 def _from_briefing() -> list[dict[str, str]]:
     """Reel 7: did it run, were its inputs settled, and was it scored?
 
@@ -159,10 +185,12 @@ def _from_briefing() -> list[dict[str, str]]:
         sev = ERROR if hour >= 10 else WARN
         out.append(_finding(
             sev, "briefing", today, "No briefing stored for today",
-            f"`ipopulse job market` should have written one at 08:00. "
-            f"It is {hour:02d}:xx. Check the Task Scheduler entry "
-            f"'IPO Pulse - market' — that task did not exist at all until "
-            f"8 Sep 2026, which is why no briefing ever ran on schedule."))
+            f"`ipopulse job market` should have written one at 08:00; it is "
+            f"{hour:02d}:xx. Two schedulers can produce it and both may have "
+            f"missed: the local task 'IPO Pulse - market' only fires while "
+            f"the machine is awake, and the GitHub Actions slot was measured "
+            f"at a median 388 minutes late, so it often has not arrived yet. "
+            f"Reel 7 expires at 09:15 either way."))
 
     # ── 2. were the inputs dated to a COMPLETED session? ─────────────────
     #
@@ -177,6 +205,22 @@ def _from_briefing() -> list[dict[str, str]]:
         except Exception as exc:                              # noqa: BLE001
             out.append(_broken("briefing", exc))
             continue
+        # Late but honest. Now that the inputs are settled, a briefing
+        # written after the open is still scoreable — it just miscarried as a
+        # reel, because `readiness` expires reel 7 at 09:15. Worth a WARN and
+        # not an error: the record keeps it, only the video was lost.
+        stamp = _text_of(brief, "at")
+        if day == today and stamp and not review.lookahead(brief, day):
+            late = _after_open(stamp, day)
+            if late:
+                out.append(_finding(
+                    WARN, "briefing", day,
+                    "Briefing arrived too late to record",
+                    f"written at {late}, after the 09:15 expiry. Its numbers "
+                    f"are settled so it still counts towards the track "
+                    f"record, but reel 7 could not be cut from it. The local "
+                    f"08:00 task is the only scheduler that hits that window."))
+
         why = review.lookahead(brief, day)
         if why:
             out.append(_finding(

@@ -35,17 +35,42 @@ name: Scheduled data refresh
 
 on:
   schedule:
-    # 08:00 IST, Mon-Fri. The hour is the whole point and it is a narrow
-    # window: after the overnight news window closes at 07:30, and before the
-    # pre-open auction at 09:00, so the briefing has the complete overnight
-    # picture and nothing from the session it is about to describe. readiness
-    # expires reel 7 at 09:15, which leaves 75 minutes to record it — and
-    # Actions cron drifts 5-20 minutes late under load, which this window
-    # absorbs and an 08:45 slot would not.
+    # ── reel 7's briefing: 08:00 IST, and Actions will miss it ──────────
+    #
+    # "Actions cron drifts 5-20 minutes late under load, which this window
+    # absorbs" is what used to be written here. It was wrong by a factor of
+    # twenty. Measured 9 Sep 2026 across the previous ten weekdays of this
+    # workflow's own run history, the first scheduled run of the day landed a
+    # MEDIAN of 388 minutes late, worst 773:
+    #
+    #     2026-09-08  cron 02:30 UTC -> ran 07:21 UTC = 12:51 IST  (+291m)
+    #     2026-09-07  cron 02:30 UTC -> ran 07:27 UTC = 12:57 IST  (+297m)
+    #     2026-09-04  cron 02:30 UTC -> ran 08:58 UTC = 14:28 IST  (+388m)
+    #
+    # Those two IST times are exactly where the 7 and 8 Sep briefings' own
+    # timestamps came from. Before `settled_levels`/`settled_movers`, the job
+    # read live data at execution time — so a delayed run did not produce a
+    # late briefing, it produced a WRONG one, built out of the session it was
+    # supposed to be predicting. That delay, not the missing Windows task,
+    # was the actual cause of the contamination.
+    #
+    # No cron time fixes this, and an earlier slot was tried and rejected:
+    # `news.window` ends at 07:30 IST because that is after the overnight US
+    # close, so a run early enough to absorb six hours of drift has a news
+    # window ending in the future and misses Wall Street entirely. Any slot
+    # late enough for the news lands past the 09:15 expiry.
+    #
+    # So this slot is the BACKSTOP and the local Task Scheduler entry is the
+    # primary — it fires at 08:00 on the dot, which is the only way to hit a
+    # 75-minute window, and its weakness is needing the machine awake. Both
+    # carry --if-missing (control.JOBS), so whichever arrives first wins and
+    # the other exits 0 having done nothing. A late Actions run is now worth
+    # having on its own terms: correct, and still usable as a scorecard input
+    # even when it is too late to record as a reel.
     #
     # Weekdays only, unlike everything else here. A pre-market briefing for a
     # day with no session is not a stale briefing, it is a fictional one.
-    - cron: '30 2 * * 1-5'    # 08:00 IST Mon-Fri — pre-market briefing (reel 7)
+    - cron: '30 2 * * 1-5'    # 08:00 IST Mon-Fri — briefing (reel 7), backstop
     - cron: '30 4 * * *'      # 10:00 IST daily   — bidding opens; the day's first read
     - cron: '45 5 * * *'      # 11:15 IST daily   — GMP only, after the ~10:55 revision
     - cron: '45 8 * * *'      # 14:15 IST daily   — GMP only, afternoon revision
@@ -136,6 +161,9 @@ jobs:
             # and left. Deliberately not `grey`, which would drag the model step
             # and `build` along four extra times a day for nothing.
             '45 5 * * *'|'45 8 * * *'|'45 15 * * *')  JOBS='gmp-sync' ;;
+            # The briefing. --if-missing in control.JOBS makes this a
+            # no-op rather than a failure when the local 08:00 task
+            # already wrote today's — see the schedule comment above.
             '30 2 * * 1-5') JOBS=market ;;
             '30 21 * * 6')  JOBS=translate ;;
             '30 22 * * 6')  JOBS=report ;;
