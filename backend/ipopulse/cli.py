@@ -2815,6 +2815,35 @@ def cmd_monitor(args) -> int:
     return 1 if (r["errors"] and args.strict) else 0
 
 
+def cmd_review(args) -> int:
+    """Mark reel 7's morning calls against the exchange's own end-of-day file.
+
+    Read-only, and deliberately so: this is the measurement, and a measurement
+    that edits what it measures is worthless. `--record` is the number the
+    scorecard reel would state — the running rate across every stored
+    briefing, because one session is noise.
+    """
+    from . import review as rv
+
+    if args.record:
+        r = rv.record()
+        for line in rv.record_report(r):
+            print(line)
+        return 0
+
+    from . import briefing
+
+    days = [args.day] if args.day else briefing.list_days()
+    if not days:
+        print("No briefing stored yet. Build one:  ipopulse market --write")
+        return 1
+    for day in days:
+        for line in rv.report(rv.review(day)):
+            print(line)
+        print()
+    return 0
+
+
 def cmd_settings(args) -> int:
     """Read or write the sheet's Settings tab — where the backend lives.
 
@@ -3920,6 +3949,14 @@ def build_parser() -> argparse.ArgumentParser:
                     help="exit 1 on any error-level finding, so a failed "
                          "timer run is visible as a failed task")
     sp.set_defaults(func=cmd_monitor)
+
+    sp = sub.add_parser("review", help="did reel 7's morning calls hold up? "
+                                       "scores them against NSE's bhavcopy")
+    sp.add_argument("--day", help="ISO date; defaults to every stored briefing")
+    sp.add_argument("--record", action="store_true",
+                    help="the running track record across all stored days — "
+                         "the number a scorecard reel would state")
+    sp.set_defaults(func=cmd_review)
 
     sp = sub.add_parser("settings", help="read or write the sheet's Settings "
                                         "tab — where the backend lives")

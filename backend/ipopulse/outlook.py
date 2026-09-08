@@ -163,6 +163,47 @@ def candidates(snap: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+def _settled_headline(day: str, nifty: dict[str, Any],
+                      bank: dict[str, Any]) -> dict[str, float]:
+    """The last completed session's index closes, for the "closed at" line.
+
+    The live feed is the wrong source for this. Before 09:15 its `last` IS the
+    previous close and the two agree, but the briefing is not guaranteed to be
+    built before 09:15 — the 07-Sep one was built at 12:57 and went out
+    stating a mid-session value as a close. So the settled file wins whenever
+    it exists, and the live feed is only the fallback for the window between
+    the open and the archive's publication, when nothing better exists.
+
+    `nifty_prev` becomes the close BEFORE the one being quoted, which is what
+    makes the change figure checkable rather than merely stated.
+    """
+    from . import review
+
+    def num(d, k):
+        try:
+            return float(d.get(k) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    out = {"nifty": num(nifty, "last"), "nifty_pct": num(nifty, "pct"),
+           "nifty_prev": num(nifty, "prev_close"),
+           "banknifty": num(bank, "last"),
+           "banknifty_pct": num(bank, "pct"), "source": "live feed"}
+    prev = review.previous_session(day)
+    if not prev:
+        return out
+    idx = review.index_close(prev)
+    n, b = idx.get("NIFTY 50"), idx.get("NIFTY BANK")
+    if not n:
+        return out
+    out.update(nifty=n["close"], nifty_pct=n["pct"],
+               nifty_prev=round(n["close"] - n["change"], 2),
+               source=f"index bhavcopy {prev}")
+    if b:
+        out.update(banknifty=b["close"], banknifty_pct=b["pct"])
+    return out
+
+
 def _bias(snap: dict[str, Any]) -> str:
     """up | down | flat, from breadth and the index, not from the model.
 
@@ -378,14 +419,20 @@ def _apply(day: str, snap: dict, cands: list[dict], stories: dict,
                             or f"a move back through {c['stop']}")[:200],
         })
 
+    settled = _settled_headline(day, nifty, bank)
+
     return Briefing.from_dict({
         "date": day,
         "trading": snap.get("trading", True),
         "why_closed": snap.get("why_closed", ""),
         "at": snap.get("at", ""),
-        "nifty": nifty.get("last", 0), "nifty_pct": nifty.get("pct", 0),
-        "nifty_prev": nifty.get("prev_close", 0),
-        "banknifty": bank.get("last", 0), "banknifty_pct": bank.get("pct", 0),
+        # The narration says "NIFTY closed at" — so these must be the last
+        # SETTLED session's numbers, not whatever the live feed happens to be
+        # holding when the job runs. See `_settled_headline`.
+        "nifty": settled["nifty"], "nifty_pct": settled["nifty_pct"],
+        "nifty_prev": settled["nifty_prev"],
+        "banknifty": settled["banknifty"],
+        "banknifty_pct": settled["banknifty_pct"],
         "advances": b.get("advances", 0), "declines": b.get("declines", 0),
         "unchanged": b.get("unchanged", 0),
         "bias": _bias(snap),
@@ -393,9 +440,13 @@ def _apply(day: str, snap: dict, cands: list[dict], stories: dict,
         "levels_note": (said.get("levels_note") or "")[:400],
         "model": model,
         "partial": ", ".join(snap.get("partial") or []),
+        # The index source is recorded, not assumed: a briefing built after
+        # the open falls back to the live feed, and a reader six months from
+        # now needs to be able to tell which of the two this one used.
         "notes": f"news window {stories.get('from', '')} to "
                  f"{stories.get('to', '')}; {stories.get('count', 0)} stories "
-                 f"from {len(stories.get('feeds') or [])} feeds",
+                 f"from {len(stories.get('feeds') or [])} feeds; "
+                 f"index from {settled['source']}",
         "news": picked,
         "sectors": sectors,
         "setups": ranked["long"] + ranked["short"],
