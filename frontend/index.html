@@ -191,7 +191,12 @@
               ? 'background:rgba(34,197,94,.14);color:#86EFAC;border:1px solid rgba(34,197,94,.4)'
               : 'background:rgba(255,255,255,.05);color:#94A3B8;border:1px solid rgba(255,255,255,.10)'"
             @click="run.open=true" :title="backendNote">
-      <span x-text="(run.token ? '● ' : '○ ') + backendHost"></span></button>
+      <span x-text="(run.token ? '● ' : '○ ') + modeLabel + ' · ' + backendHost"></span>
+      <!-- A declared mode that disagrees with the one detected is worth
+           interrupting for: it means the sheet and the machine have different
+           ideas about where this pipeline runs. -->
+      <span x-show="modeMismatch" class="ml-1" title="The sheet declares a
+            different mode than the backend that answered">⚠</span></button>
     <span x-show="!hasBackend && backendNoAuth" x-cloak class="pill"
           style="background:rgba(245,158,11,.15);color:#FCD34D;border:1px solid rgba(245,158,11,.4)"
           :title="backendNote">⚠ no job password</span>

@@ -194,6 +194,24 @@ MARKET_SETUP_COLS = ["date", "side", "rank", "symbol", "last", "entry",
                      "target", "stop", "pivot", "r1", "s1", "pct",
                      "close_pos", "reason", "invalidates"]
 
+# One key per row, so a new setting costs a row rather than a column. `note`
+# is written by us and read by a human in the sheet — it is where the warning
+# about this sheet being world-readable actually lives.
+SETTINGS_COLS = ["key", "value", "note"]
+
+# Every key this project understands, with the note written beside it. A key
+# absent from the tab means "not set", which every reader treats as auto.
+SETTINGS_KNOWN: dict[str, str] = {
+    "backend_mode": "vm | local | (blank = auto-detect). Declares where the "
+                    "pipeline is meant to run. Leaks nothing.",
+    "backend_url": "Only needed when the studio is served from GitHub Pages: "
+                   "scheme://host:port of the backend. PUBLIC — this sheet is "
+                   "link-viewable, so this address is too. Leave blank when "
+                   "the studio and the backend share an origin.",
+}
+
+SETTINGS_TABS: dict[str, list[str]] = {"Settings": SETTINGS_COLS}
+
 MARKET_TABS: dict[str, list[str]] = {
     "Market": MARKET_COLS,
     "MarketNews": MARKET_NEWS_COLS,
@@ -205,7 +223,7 @@ MARKET_TABS: dict[str, list[str]] = {
 # creation list regardless of which record type a tab belongs to (`_span`
 # and `ensure_tabs`). Deliberately NOT what `_fetch` or `to_tables` iterate —
 # those stay on `TABS` so the IPO path is untouched by any of this.
-ALL_TABS: dict[str, list[str]] = {**TABS, **MARKET_TABS}
+ALL_TABS: dict[str, list[str]] = {**TABS, **MARKET_TABS, **SETTINGS_TABS}
 
 
 # The list-valued fields, as paths into to_dict().
@@ -688,6 +706,31 @@ def from_market_tables(tabs: dict[str, list[list]]) -> dict[str, dict]:
         })
 
     return out
+
+
+def from_settings_tab(tabs: dict[str, list[list]]) -> dict[str, str]:
+    """The Settings tab -> {key: value}. Unknown keys are kept, not dropped.
+
+    Kept because the sheet is the human-editable surface: somebody adding a
+    row we do not read yet should not have it silently deleted the next time
+    anything writes this tab.
+    """
+    out: dict[str, str] = {}
+    for row in _dicts(tabs.get("Settings") or [], SETTINGS_COLS):
+        key = _txt(row.get("key")).strip()
+        if key:
+            out[key] = _txt(row.get("value")).strip()
+    return out
+
+
+def to_settings_tab(values: dict[str, str]) -> dict[str, list[list]]:
+    """{key: value} -> the Settings tab, header first, known keys in order."""
+    rows: list[list] = [list(SETTINGS_COLS)]
+    for key in SETTINGS_KNOWN:
+        rows.append([key, values.get(key, ""), SETTINGS_KNOWN[key]])
+    for key in sorted(k for k in values if k not in SETTINGS_KNOWN):
+        rows.append([key, values[key], ""])
+    return {"Settings": rows}
 
 
 def to_market_tables(records: dict[str, dict]) -> dict[str, list[list]]:

@@ -2815,6 +2815,67 @@ def cmd_monitor(args) -> int:
     return 1 if (r["errors"] and args.strict) else 0
 
 
+def cmd_settings(args) -> int:
+    """Read or write the sheet's Settings tab — where the backend lives.
+
+    The point of putting this in the sheet rather than .env: .env reaches the
+    browser only through `frontend/js/config.js`, written at serve/deploy
+    time, so the published site carries whatever was baked in at build. The
+    sheet is read at runtime by every copy of the studio, so changing the
+    backend address here needs no rebuild and no redeploy.
+    """
+    from . import sheets, tables
+
+    current = sheets.settings(force=True)
+
+    if not args.set:
+        print(f"Settings — {sheets.where() if hasattr(sheets, 'where') else 'the sheet'}")
+        if not current:
+            print("  (empty; every key falls back to auto-detect)")
+        for key, note in tables.SETTINGS_KNOWN.items():
+            val = current.get(key, "")
+            print(f"  {key:<14} {val or '(unset)'}")
+            print(f"                 {note}")
+        extra = {k: v for k, v in current.items()
+                 if k not in tables.SETTINGS_KNOWN}
+        for key, val in sorted(extra.items()):
+            print(f"  {key:<14} {val}   (not read by this project)")
+        print("\nSet one:  ipopulse settings --set backend_mode=vm --write")
+        return 0
+
+    updates = {}
+    for pair in args.set:
+        if "=" not in pair:
+            print(f"  ! {pair} is not key=value")
+            return 1
+        key, _, val = pair.partition("=")
+        key, val = key.strip(), val.strip()
+        if key not in tables.SETTINGS_KNOWN and not args.force:
+            print(f"  ! {key} is not a key this project reads. "
+                  f"Known: {', '.join(tables.SETTINGS_KNOWN)}. "
+                  f"--force to write it anyway.")
+            return 1
+        if key == "backend_mode" and val not in ("vm", "local", ""):
+            print("  ! backend_mode must be vm, local, or empty for auto")
+            return 1
+        updates[key] = val
+
+    for key, val in updates.items():
+        was = current.get(key, "")
+        print(f"  {key}: {was or '(unset)'} -> {val or '(unset)'}")
+    if "backend_url" in updates and updates["backend_url"]:
+        print("\n  ! This sheet is link-viewable, so that address is public.")
+        print("    The trigger password is what protects the API, not obscurity.")
+
+    if not args.write:
+        print("\n(dry run — nothing written. Re-run with --write)")
+        return 0
+
+    sheets.write_settings(updates)
+    print("\nWritten. The studio picks it up on its next reload.")
+    return 0
+
+
 def cmd_check(args) -> int:
     """The regular sweep — the write-time rules re-run on a schedule.
 
@@ -3859,6 +3920,17 @@ def build_parser() -> argparse.ArgumentParser:
                     help="exit 1 on any error-level finding, so a failed "
                          "timer run is visible as a failed task")
     sp.set_defaults(func=cmd_monitor)
+
+    sp = sub.add_parser("settings", help="read or write the sheet's Settings "
+                                        "tab — where the backend lives")
+    sp.add_argument("--set", action="append", metavar="KEY=VALUE",
+                    help="a setting to change; repeatable. "
+                         "backend_mode=vm|local, backend_url=https://host:port")
+    sp.add_argument("--write", action="store_true",
+                    help="actually write it (dry run without it)")
+    sp.add_argument("--force", action="store_true",
+                    help="allow a key this project does not read")
+    sp.set_defaults(func=cmd_settings)
 
     sp = sub.add_parser("check", help="the regular sweep: the insertion-time "
                                       "rules, staleness, and AI spend vs the "

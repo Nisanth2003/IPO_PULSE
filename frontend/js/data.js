@@ -23,7 +23,11 @@ const TABS = ['IPOs', 'Financials', 'GMP', 'Subscription',
               // Reel 7's four. Separate from the IPO tabs on purpose: a
               // briefing is keyed by DATE, not by slug, so it cannot join the
               // record rebuild below — see `briefing()`.
-              'Market', 'MarketNews', 'MarketSectors', 'MarketSetups'];
+              'Market', 'MarketNews', 'MarketSectors', 'MarketSetups',
+              // Global key/value, not per-IPO: where the backend lives, and
+              // which host this sheet's pipeline is meant to run on. Read at
+              // runtime so it can be changed without rebuilding config.js.
+              'Settings'];
 
 /* The Market tabs carry a header row (tables.to_market_tables writes the
  * column list as row 0), so SHEET.table() keys them by name like every other
@@ -350,6 +354,28 @@ const DATA = {
     const stored = Object.keys(days).sort();
     const pick = day && days[day] ? day : stored[stored.length - 1];
     return { schema: 1, days: stored, briefing: pick ? days[pick] : null };
+  },
+
+  /* The sheet's Settings tab as {key: value}.
+   *
+   * Never throws and never rejects: this is read on the studio's boot path
+   * before anything is on screen, and a missing tab is the normal state of a
+   * sheet that predates it. An absent key means "auto", which is what every
+   * caller already does when it gets ''.
+   */
+  async settings() {
+    try {
+      await this._load();
+      const rows = SHEET.table(this._raw.get('Settings'));
+      const out = {};
+      for (const r of rows) {
+        const k = _s(r.key).trim();
+        if (k) out[k] = _s(r.value).trim();
+      }
+      return out;
+    } catch (_) {
+      return {};
+    }
   },
 
   /** Full record: { ipo, derived }. */

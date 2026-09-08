@@ -57,6 +57,10 @@ function studio() {
        it is four small tabs and the same fetch already pulls them. */
     briefing: null,
     briefingDays: [],
+    /* The sheet's Settings tab. `backend_mode` is a declaration of where this
+       pipeline is meant to run; `backend_url` is only needed when the studio
+       is served from a host with no backend of its own (Pages). */
+    sheetSettings: {},
     hasBackend: false,          // set by probeBackend(); gates the Trigger button
     /* Where the trigger API is. '' means same-origin (a local `ipopulse
        serve`); a URL means the hosted one from config.js. `api` is whichever
@@ -263,9 +267,13 @@ function studio() {
        'defaultGif', 'themePerReel', 'previewVoice']
         .forEach((k) => this.$watch(k, () => this.savePrefs()));
 
-      this.probeBackend();
       this.initRemote();
+      // The catalogue read is what fills `sheetSettings`, and probeBackend
+      // needs it to know about `backend_url` — so the probe happens after,
+      // not before. It stays un-awaited: no answer is the normal case on a
+      // static host and must not delay first paint.
       await this.loadCatalogue();
+      this.probeBackend();
       this.$nextTick(() => this.autoFit && this.fit());
     },
 
@@ -281,7 +289,17 @@ function studio() {
       // one is configured. Local wins: if you are running the server you are
       // working on this machine, and a round trip to a sleeping free-tier
       // instance would be a slower answer to the same question.
-      const bases = ['', this.apiBase].filter((b, i, a) => a.indexOf(b) === i);
+      // Same-origin first, then whatever the SHEET names, then config.js.
+      //
+      // The order is the whole design. Local and VM both serve the studio and
+      // the API from one origin, so '' answers and nothing needs configuring.
+      // Only a static host (Pages) falls through, and for that case the sheet
+      // is the one place both copies read at runtime — config.js is written at
+      // build time and would need a redeploy to change.
+      const fromSheet = String((this.sheetSettings || {}).backend_url || '')
+        .trim().replace(/\/+$/, '');
+      const bases = ['', fromSheet, this.apiBase]
+        .filter((b, i, a) => b !== null && b !== undefined && a.indexOf(b) === i);
       const tryNext = (i) => {
         if (i >= bases.length) { this.hasBackend = false; return; }
         fetch(`${bases[i]}/api/health`, { cache: 'no-store' })
@@ -315,10 +333,46 @@ function studio() {
         return new URL(this.api || location.origin).host;   // host:port
       } catch (_) { return this.api || location.host; }
     },
+    /* Which host is this, and does it match what the sheet declares?
+     *
+     * `detected` is what actually answered: a same-origin backend on a
+     * loopback address is this machine; a same-origin backend on anything
+     * else is the server that served the page; a cross-origin backend is
+     * remote by definition. `declared` is the sheet's `backend_mode`.
+     *
+     * The pair matters more than either alone — "the sheet says vm and you
+     * are on localhost" is the exact confusion this is here to end.
+     */
+    get detectedMode() {
+      if (!this.hasBackend) return 'none';
+      if (this.api) return 'vm';
+      return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
+        ? 'local' : 'vm';
+    },
+    get declaredMode() {
+      return String((this.sheetSettings || {}).backend_mode || '').trim();
+    },
+    get modeMismatch() {
+      const d = this.declaredMode;
+      return !!(d && this.detectedMode !== 'none' && d !== this.detectedMode);
+    },
+    get modeLabel() {
+      const m = this.detectedMode;
+      if (m === 'none') return 'no backend';
+      return m === 'local' ? 'local' : 'VM';
+    },
+
     get backendNote() {
       if (this.hasBackend) {
-        return (this.api ? 'Hosted backend' : 'Local backend') + ' at '
-             + this.backendHost + (this.run.token ? ' · signed in' : ' · not signed in');
+        const where = this.api ? 'Hosted backend' : 'Local backend';
+        const declared = this.declaredMode
+          ? (this.modeMismatch
+              ? ` — but the sheet declares ${this.declaredMode}, so one of the two is wrong`
+              : ` — matches the sheet's ${this.declaredMode}`)
+          : ' — the sheet declares no mode, so this was auto-detected';
+        return `${where} at ${this.backendHost}`
+             + (this.run.token ? ' · signed in' : ' · not signed in')
+             + declared;
       }
       if (this.backendNoAuth) {
         return 'A backend answered but IPOPULSE_TRIGGER_PASSWORD is not set, so '
@@ -793,10 +847,12 @@ function studio() {
         // the parse. `catch` rather than `Promise.all` failure — a missing
         // Market tab must not stop the six IPO reels from loading, which is
         // exactly what would happen on a sheet that predates reel 7.
-        const [idx, board, brief] = await Promise.all([
+        const [idx, board, brief, cfg] = await Promise.all([
           DATA.index(), DATA.board(),
           DATA.briefing().catch(() => ({ briefing: null, days: [] })),
+          DATA.settings(),
         ]);
+        this.sheetSettings = cfg || {};
         this.catalogue = idx.ipos || [];
         this.boardRows = board.rows || [];
         this.briefing = brief.briefing || null;

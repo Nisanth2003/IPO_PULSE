@@ -543,6 +543,7 @@ def drop(slug: str) -> bool:
 # `_cache["records"]` claiming to hold a store it never read.
 
 _market_cache: dict[str, Any] = {"loaded": False, "records": {}}
+_settings_cache: dict[str, Any] = {"loaded": False, "values": {}}
 
 
 def _fetch_market() -> dict[str, list[list]]:
@@ -581,6 +582,52 @@ def market_records(force: bool = False) -> dict[str, dict]:
 
 def invalidate_market() -> None:
     _market_cache.update(loaded=False, records={})
+
+
+def settings(force: bool = False) -> dict[str, str]:
+    """The Settings tab as {key: value}, held for the process.
+
+    Absent tab, empty tab and unreachable sheet all return {} — every caller
+    treats a missing key as "auto", so there is nothing to fail over. This is
+    read on the studio's critical path, so it must never raise.
+    """
+    if force or not _settings_cache["loaded"]:
+        try:
+            service = _connect()
+            have = set(_tab_titles(service))
+            if "Settings" not in have:
+                _settings_cache.update(loaded=True, values={})
+                return _settings_cache["values"]
+            res = service.spreadsheets().values().get(
+                spreadsheetId=sheet_id(), range="Settings").execute()
+            rows = res.get("values", []) or []
+            _settings_cache.update(
+                loaded=True, values=tables.from_settings_tab({"Settings": rows}))
+        except Exception:                                     # noqa: BLE001
+            _settings_cache.update(loaded=True, values={})
+    return _settings_cache["values"]
+
+
+def invalidate_settings() -> None:
+    _settings_cache.update(loaded=False, values={})
+
+
+def write_settings(values: dict[str, str]) -> None:
+    """Replace the Settings tab. Touches nothing else.
+
+    Read-modify-write on purpose: callers pass only the keys they are
+    changing, so a hand-added row survives a `--set` of something unrelated.
+    """
+    service = _connect()
+    ensure_tabs(service)
+    merged = {**settings(force=True), **{k: v for k, v in values.items()}}
+    for name, rows in tables.to_settings_tab(merged).items():
+        service.spreadsheets().values().clear(
+            spreadsheetId=sheet_id(), range=name).execute()
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id(), range=f"{name}!A1",
+            valueInputOption="RAW", body={"values": rows}).execute()
+    invalidate_settings()
 
 
 def write_market_records(updated: dict[str, dict]) -> None:
