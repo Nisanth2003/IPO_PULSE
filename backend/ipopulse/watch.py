@@ -132,6 +132,102 @@ def _from_invariants() -> list[dict[str, str]]:
     return out
 
 
+def _from_briefing() -> list[dict[str, str]]:
+    """Reel 7: did it run, were its inputs settled, and was it scored?
+
+    Runs against today and the previous session, which is the window where
+    something can still be done about what it finds. Older days are history
+    and `ipopulse review --record` already reports them.
+    """
+    from datetime import date
+
+    from . import briefing, review
+    from .providers import market as mkt
+
+    out: list[dict[str, str]] = []
+    closed = _non_trading_reason()
+    today = date.today().isoformat()
+
+    # ── 1. did it run at all? ────────────────────────────────────────────
+    if closed:
+        out.append(_finding(WARN, "briefing", today,
+                            "No briefing expected today", closed))
+    elif not briefing.exists(today):
+        # After the open this is a missed reel, not a pending one. Before it,
+        # the 08:00 slot may simply not have come round yet.
+        hour = datetime.now().hour
+        sev = ERROR if hour >= 10 else WARN
+        out.append(_finding(
+            sev, "briefing", today, "No briefing stored for today",
+            f"`ipopulse job market` should have written one at 08:00. "
+            f"It is {hour:02d}:xx. Check the Task Scheduler entry "
+            f"'IPO Pulse - market' — that task did not exist at all until "
+            f"8 Sep 2026, which is why no briefing ever ran on schedule."))
+
+    # ── 2. were the inputs dated to a COMPLETED session? ─────────────────
+    #
+    # The check that cannot be done by eye. `review.lookahead` reads the
+    # provenance the row records and says whether anything in it came from
+    # the session it was calling.
+    for day in (today, review.previous_session(today)):
+        if not day or not briefing.exists(day):
+            continue
+        try:
+            brief = briefing.load(day)
+        except Exception as exc:                              # noqa: BLE001
+            out.append(_broken("briefing", exc))
+            continue
+        why = review.lookahead(brief, day)
+        if why:
+            out.append(_finding(
+                ERROR, "briefing", day,
+                "Briefing cannot be scored — it may have seen the session "
+                "it called",
+                f"{why}. Nothing looks wrong in the row: the prices are real "
+                f"and the arithmetic is right. It is excluded from the track "
+                f"record, so reel 8 will not quote it."))
+
+    # ── 3. once the archive is out, has the day been scored? ─────────────
+    prev = review.previous_session(today)
+    if prev and briefing.exists(prev):
+        try:
+            scored = review.review(prev)
+        except Exception as exc:                              # noqa: BLE001
+            out.append(_broken("briefing", exc))
+            scored = {}
+        if scored.get("skipped") and not scored.get("contaminated"):
+            out.append(_finding(WARN, "briefing", prev,
+                                "Last session not scored yet",
+                                str(scored["skipped"])))
+        elif scored.get("setups"):
+            # 4. the geometry. Reported as information rather than a fault:
+            # it is a fact about the setup structure, and the decision it
+            # informs is an editorial one. Only stated once there is enough
+            # to mean anything — a single day of it is noise.
+            rec = review.record()
+            n = rec.get("setups", 0)
+            if n >= 10 and rec.get("median_stop_share") is not None:
+                if rec["median_stop_share"] <= 0.4:
+                    out.append(_finding(
+                        WARN, "briefing", "-",
+                        "Setup stops are inside the day's noise band",
+                        f"Median stop sits {rec['median_stop_share']:.0%} of "
+                        f"the realised range from entry against a "
+                        f"{rec['median_target_share']:.0%} target, over "
+                        f"{n} setups. The nearer level is reached first, so "
+                        f"the structure loses even when the call is right."))
+            if n >= 10 and rec.get("voided"):
+                share = rec["voided"] / n
+                if share >= 0.4:
+                    out.append(_finding(
+                        WARN, "briefing", "-",
+                        "Most setups are voided by the opening print",
+                        f"{rec['voided']} of {n} opened past their own stop "
+                        f"or target, so no entry was available. The levels "
+                        f"are being placed where price has already been."))
+    return out
+
+
 def _from_grade() -> list[dict[str, str]]:
     """Only the self-contradictions, not the disagreements.
 
@@ -196,6 +292,7 @@ CHECKS = (
     ("models", _from_models),
     ("invariants", _from_invariants),
     ("monitor", _from_monitor),
+    ("briefing", _from_briefing),
     ("grade", _from_grade),
 )
 
