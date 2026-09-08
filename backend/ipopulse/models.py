@@ -593,6 +593,13 @@ class Briefing:
     date: date | None = None
     trading: bool = True
     why_closed: str = ""
+    # Where the numbers came from and how stale they are. `trading` and
+    # `why_closed` above are about TODAY; these are about the gap behind the
+    # levels. On a Monday `levels_age_days` is 3 and `market_closed` reads
+    # "market closed Sat, Sun" — see `providers.market.closure_gap`.
+    levels_from: str = ""
+    levels_age_days: int = 0
+    market_closed: str = ""
     at: str = ""                     # the exchange timestamp the data carried
     nifty: float = 0.0
     nifty_pct: float = 0.0
@@ -626,6 +633,13 @@ class Briefing:
             else str("yes" if raw is None else raw).strip().lower()
             not in ("no", "false", "0"),
             why_closed=d.get("why_closed", "") or "",
+            # Absent on rows written before 9 Sep 2026. Zero and "" are the
+            # honest defaults: "we do not know how stale these were", which is
+            # different from "they were fresh" — and `review.lookahead`
+            # excludes those rows anyway.
+            levels_from=d.get("levels_from", "") or "",
+            levels_age_days=int(_f(d.get("levels_age_days"))),
+            market_closed=d.get("market_closed", "") or "",
             at=d.get("at", "") or "",
             nifty=_f(d.get("nifty")), nifty_pct=_f(d.get("nifty_pct")),
             nifty_prev=_f(d.get("nifty_prev")),

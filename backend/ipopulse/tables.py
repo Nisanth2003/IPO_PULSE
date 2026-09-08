@@ -169,6 +169,12 @@ TABS: dict[str, list[str]] = {
 # the disclosure. Everything scalar about the day.
 MARKET_COLS = [
     "date", "trading", "why_closed", "at",
+    # Where the numbers came from and how old they are. `trading`/`why_closed`
+    # above describe TODAY — is there a session — and say nothing about the gap
+    # behind the levels. On a Monday `levels_age_days` is 3 and
+    # `market_closed` reads "market closed Sat, Sun", which is the difference
+    # between a one-night-old range and one with a weekend of news over it.
+    "levels_from", "levels_age_days", "market_closed",
     "nifty", "nifty_pct", "nifty_prev", "banknifty", "banknifty_pct",
     "advances", "declines", "unchanged",
     "bias", "outlook", "levels_note", "model", "partial", "notes",

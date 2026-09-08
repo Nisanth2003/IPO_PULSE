@@ -393,6 +393,50 @@ def pre_market_now(day: str) -> dict[str, Any]:
     return {"at": stamp, "pre_market": _is_pre_market(stamp, day)}
 
 
+def closure_gap(day: str, settled: str) -> dict[str, Any]:
+    """What was shut between the session `settled` and the morning of `day`.
+
+    Returns `{days, closed, why}`. `days` is CALENDAR days, deliberately: the
+    risk this describes is elapsed time in which news could arrive, and the
+    exchange being closed is why that risk is larger, not smaller. A Monday
+    briefing reads 3 against a Tuesday's 1.
+
+    `why` names the closed dates using the same holiday feed `trading_day`
+    uses, so the briefing and the calendar can never disagree about whether a
+    Thursday was a session.
+    """
+    out: dict[str, Any] = {"days": 0, "closed": [], "why": ""}
+    if not settled or not day:
+        return out
+    try:
+        d0 = date.fromisoformat(settled)
+        d1 = date.fromisoformat(day)
+    except ValueError:
+        return out
+    out["days"] = (d1 - d0).days
+    if out["days"] <= 1:
+        return out                        # one night: nothing was missed
+
+    names = []
+    for step in range(1, out["days"]):
+        cand = d0 + timedelta(days=step)
+        session = trading_day(cand)
+        if session.get("trading"):
+            continue                      # a session we simply have no file for
+        out["closed"].append(cand.isoformat())
+        why = str(session.get("why") or "").strip()
+        # "Sat (weekend)" says nothing the day name did not. A holiday's name
+        # is the part worth carrying, because it is the part a viewer might
+        # not know.
+        if why.lower() in ("", "weekend", "saturday", "sunday"):
+            names.append(f"{cand:%a}")
+        else:
+            names.append(f"{cand:%a} ({why})")
+    if names:
+        out["why"] = "market closed " + ", ".join(names)
+    return out
+
+
 def settled_levels(day: str) -> dict[str, Any]:
     """Pivot bands for every stock, from the last completed session.
 
@@ -480,6 +524,12 @@ def snapshot() -> dict[str, Any]:
         "levels_count": len(settled["bands"]),
         "selection_from": picked["date"],
         "universe": picked["universe"] if picked["date"] else "live feed",
+        # How old the numbers are, and what was shut in between. On a Monday
+        # the pivots come from Friday, so the range they describe is three
+        # calendar days and a weekend of news away from the open they will be
+        # traded into — a materially weaker claim than Tuesday's one night,
+        # and the reel was making both in the same voice.
+        "gap": closure_gap(day["day"], settled["date"]),
         # Whether the mover lists could see the session being briefed. False
         # means the candidates were picked with part of the day already on
         # the tape — the levels are still settled, but the SELECTION is not

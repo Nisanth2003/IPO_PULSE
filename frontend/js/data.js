@@ -291,6 +291,16 @@ const DATA = {
         // `trading` and `partial` are written as text by the Python side.
         trading: !/^(false|0|no)$/i.test(_s(r.trading).trim()),
         why_closed: _s(r.why_closed),
+        // Where the numbers came from and how stale they are. `trading` and
+        // `why_closed` above are about TODAY; these are about the gap behind
+        // the levels. On a Monday levels_age_days is 3 and market_closed
+        // reads "market closed Sat, Sun" — the difference between a
+        // one-night-old range and one with a weekend of news over it.
+        // Absent on rows written before 9 Sep 2026, where 0/'' honestly means
+        // "unknown" rather than "fresh".
+        levels_from: _s(r.levels_from),
+        levels_age_days: _f(r.levels_age_days),
+        market_closed: _s(r.market_closed),
         at: _s(r.at),
         nifty: _f(r.nifty), nifty_pct: _f(r.nifty_pct),
         nifty_prev: _f(r.nifty_prev),

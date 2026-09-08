@@ -92,7 +92,59 @@ from .providers import market, news
 # `enrich` or `translate` — but a briefing is exactly one call, once a
 # morning. So reel 7 gets the better model at no risk to anything else, which
 # is what "accuracy over cost on this reel" actually asked for.
-BRIEFING_MODEL = os.getenv("IPOPULSE_BRIEFING_MODEL") or "gemini-3.8-flash"
+# A pin, when one is wanted. Empty by default so `rotate_model` chooses —
+# see it for why rotating beats pinning here.
+BRIEFING_MODEL = os.getenv("IPOPULSE_BRIEFING_MODEL") or ""
+
+# The pin that used to live here. Kept as the head of the preference order
+# rather than as a hard choice: it is still the best model for this reel, it
+# just should not be the ONLY one that ever writes it.
+PREFERRED_MODEL = "gemini-3.8-flash"
+
+
+def rotate_model(day: str, gem: Any = None) -> str:
+    """Which model writes today's briefing.
+
+    Rotates by date over every model the key can reach, rather than pinning
+    one. Three reasons that beats a pin, all of which bit this project:
+
+      * a pinned id gets retired and the reel degrades on the morning it
+        happens, with nothing having warned anybody;
+      * one family's daily cap becomes reel 7's cap — `flash` allows 20
+        requests a DAY, shared with whatever else reaches for it;
+      * a model that has quietly stopped working is discovered the day it is
+        finally needed, instead of the next time its turn comes round.
+
+    Deterministic on the date, not random: the same day reproduces the same
+    choice, which is what makes a bad briefing reproducible enough to blame.
+
+    An explicit pin still wins absolutely. When a model has to be compared or
+    blamed, the escape hatch has to exist.
+    """
+    if BRIEFING_MODEL:
+        return BRIEFING_MODEL
+    if os.getenv("GEMINI_MODEL"):
+        return os.getenv("GEMINI_MODEL")
+
+    from .ai import Gemini, list_models
+
+    try:
+        gem = gem or Gemini()
+        pool = list_models(gem._client_or_raise())
+    except Exception:                                         # noqa: BLE001
+        return PREFERRED_MODEL            # no list: the old behaviour
+    if not pool:
+        return PREFERRED_MODEL
+    # `list_models` returns them best-first, and PREFERRED_MODEL leads the
+    # order when it is reachable — so index 0 is the strongest and the
+    # rotation walks outward from there rather than starting anywhere.
+    pool = ([PREFERRED_MODEL] + [m for m in pool if m != PREFERRED_MODEL]
+            if PREFERRED_MODEL in pool else pool)
+    try:
+        ordinal = datetime.strptime(day, "%Y-%m-%d").timetuple().tm_yday
+    except ValueError:
+        return pool[0]
+    return pool[ordinal % len(pool)]
 
 # How many setups of each side reach the reel. Five and five, per the spec.
 PER_SIDE = 5
@@ -315,6 +367,20 @@ def _prompt(day: str, snap: dict, cands: list[dict], stories: dict) -> str:
         f"  Computed bias from breadth and the index: {_bias(snap)}",
         f"  Exchange timestamp on this data: {snap.get('at')}",
     ])
+    # The model has to know how old the range is. Every level below is
+    # computed from the last COMPLETED session, so on a Monday it describes
+    # Friday and carries a weekend of news it cannot see. Left unsaid, the
+    # outlook gets written in the same confident register either way.
+    gap = snap.get("gap") or {}
+    if gap.get("days", 0) > 1:
+        why = gap.get("why") or "no session in between"
+        market_txt += (
+            "\n  STALENESS: every level below is computed from the session of "
+            f"{snap.get('levels_from')}, which is {gap['days']} calendar days "
+            f"before this morning — {why}. Say so in the outlook: the range "
+            f"is older than one night, so news has had longer to move against "
+            f"it and the levels deserve less weight than usual."
+        )
     sectors_txt = "\n".join(
         f"  {r['name']}: {r['pct']:+}% (at {r['last']})"
         for r in (snap.get("sectors") or {}).get("all") or [])
@@ -435,6 +501,12 @@ def _apply(day: str, snap: dict, cands: list[dict], stories: dict,
         "banknifty_pct": settled["banknifty_pct"],
         "advances": b.get("advances", 0), "declines": b.get("declines", 0),
         "unchanged": b.get("unchanged", 0),
+        # The gap behind the numbers. Recorded rather than implied, because
+        # on a Monday the levels are three days and a weekend old and reel 7
+        # was stating them in the same voice as a one-night-old range.
+        "levels_from": snap.get("levels_from", ""),
+        "levels_age_days": (snap.get("gap") or {}).get("days", 0),
+        "market_closed": (snap.get("gap") or {}).get("why", ""),
         "bias": _bias(snap),
         "outlook": (said.get("outlook") or "")[:600],
         "levels_note": (said.get("levels_note") or "")[:400],
@@ -483,15 +555,15 @@ def build(day: str | None = None, model: str | None = None,
               f"{sum(1 for c in cands if c['side'] == 'short')} short candidates "
               f"cleared rr >= {MIN_RR}")
 
-    picked_model = model or BRIEFING_MODEL
+    picked_model = model or rotate_model(day, gem)
     gem = gem or Gemini(model=picked_model)
     if not gem.available():
         raise AiUnavailable(
             "No GEMINI_API_KEY — the briefing's numbers are free but its "
             "words are not. Set the key, or write the outlook by hand.")
     if verbose:
-        print(f"  model    : {picked_model} (uncached — a briefing is about "
-              f"one morning)")
+        print(f"  model    : {picked_model} (rotated by date; uncached — a "
+              f"briefing is about one morning)")
 
     said = gem._generate_json(_prompt(day, snap, cands, stories))
     if not isinstance(said, dict):
