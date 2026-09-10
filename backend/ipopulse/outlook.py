@@ -102,6 +102,44 @@ BRIEFING_MODEL = os.getenv("IPOPULSE_BRIEFING_MODEL") or ""
 PREFERRED_MODEL = "gemini-3.8-flash"
 
 
+# Substrings that disqualify a model from writing a briefing. This is a
+# different question from `ai._rank`, which asks which model is BETTER — and
+# conflating the two is what put `gemini-3.5-transcribe` into a text rotation.
+#
+#   transcribe / embed / tts / image  wrong modality entirely
+#   preview                           quota and behaviour change without
+#                                     notice, and gemini-3.1-pro-preview is
+#                                     specifically what caused the 429 storms
+#                                     that ai.py's throttle exists for
+INELIGIBLE = ("transcribe", "embed", "tts", "image", "vision", "preview",
+              "exp")
+
+
+def briefing_pool(gem: Any = None) -> list[str]:
+    """Models eligible to write a briefing, best first.
+
+    Filtered on capability, not on quality — `_rank` already ordered them.
+    Falls back to PREFERRED_MODEL alone if the filter empties the list, which
+    would mean the key has changed shape and a one-model rotation is the safe
+    answer rather than a crash.
+    """
+    from .ai import Gemini, list_models
+
+    try:
+        gem = gem or Gemini()
+        pool = list_models(gem._client_or_raise())
+    except Exception:                                         # noqa: BLE001
+        return [PREFERRED_MODEL]
+    ok = [m for m in pool
+          if not any(bad in m.lower() for bad in INELIGIBLE)]
+    if not ok:
+        return [PREFERRED_MODEL]
+    # PREFERRED_MODEL leads when it is reachable, so index 0 is the strongest
+    # and the rotation walks outward from there rather than starting anywhere.
+    return ([PREFERRED_MODEL] + [m for m in ok if m != PREFERRED_MODEL]
+            if PREFERRED_MODEL in ok else ok)
+
+
 def rotate_model(day: str, gem: Any = None) -> str:
     """Which model writes today's briefing.
 
@@ -126,20 +164,7 @@ def rotate_model(day: str, gem: Any = None) -> str:
     if os.getenv("GEMINI_MODEL"):
         return os.getenv("GEMINI_MODEL")
 
-    from .ai import Gemini, list_models
-
-    try:
-        gem = gem or Gemini()
-        pool = list_models(gem._client_or_raise())
-    except Exception:                                         # noqa: BLE001
-        return PREFERRED_MODEL            # no list: the old behaviour
-    if not pool:
-        return PREFERRED_MODEL
-    # `list_models` returns them best-first, and PREFERRED_MODEL leads the
-    # order when it is reachable — so index 0 is the strongest and the
-    # rotation walks outward from there rather than starting anywhere.
-    pool = ([PREFERRED_MODEL] + [m for m in pool if m != PREFERRED_MODEL]
-            if PREFERRED_MODEL in pool else pool)
+    pool = briefing_pool(gem)
     try:
         ordinal = datetime.strptime(day, "%Y-%m-%d").timetuple().tm_yday
     except ValueError:
