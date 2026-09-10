@@ -54,6 +54,16 @@ from . import sheets
 # anything — see `record`.
 LOOKBACK = 10
 
+# Sessions before a rate may be STATED. Below this both scorecard reels say
+# "too early to say" instead of a percentage, because a hit rate computed
+# from three trades is a number a trust channel cannot defend.
+#
+# MIRRORED in `frontend/js/data.js` as ENOUGH_SESSIONS — the cards cannot
+# import Python. `mirrors.py` checks the two agree; it was a bare `5` in four
+# separate places before, which is exactly how the published-versus-graded
+# drift happened.
+ENOUGH_SESSIONS = 5
+
 
 def today() -> str:
     """Today in IST, as the store key. Mirrors `briefing.today`."""
@@ -257,7 +267,7 @@ def record(days: list[str] | None = None) -> dict[str, Any]:
         # Whether the reel may state a rate at all. Below this the honest
         # line is "too early to say", and saying it is better for a trust
         # channel than a percentage computed from three trades.
-        "enough": len(picked) >= 5,
+        "enough": len(picked) >= ENOUGH_SESSIONS,
     }
 
 

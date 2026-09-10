@@ -116,6 +116,25 @@ def _from_monitor() -> list[dict[str, str]]:
     return out
 
 
+def _from_mirrors() -> list[dict[str, str]]:
+    """Constants that exist in both Python and JavaScript, and disagree.
+
+    ERROR, not WARN, and deliberately so. A drifted mirror produces a
+    plausible wrong answer on BOTH sides independently, so neither looks
+    wrong on its own — which is why reel 8 graded eight calls against a card
+    showing six for as long as reel 8 existed, with nothing failing. It is
+    the class of fault that only a comparison can see, so the comparison has
+    to page somebody.
+    """
+    from . import mirrors
+
+    out = []
+    for f in mirrors.check():
+        out.append(_finding(ERROR, "mirrors", f.get("mirror", "-"),
+                            f.get("what", ""), f.get("detail", "")))
+    return out
+
+
 def _from_invariants() -> list[dict[str, str]]:
     """The write-time rules, applied to what is already stored."""
     from . import invariants, sheets
@@ -334,6 +353,7 @@ def _from_models() -> list[dict[str, str]]:
 CHECKS = (
     ("usage", _from_usage),
     ("models", _from_models),
+    ("mirrors", _from_mirrors),
     ("invariants", _from_invariants),
     ("monitor", _from_monitor),
     ("briefing", _from_briefing),

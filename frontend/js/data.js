@@ -18,6 +18,14 @@
  * every container exists.
  */
 
+/* Sessions before a scorecard reel may state a rate. Below this the cards
+ * say "too early to say" instead of a percentage.
+ *
+ * MIRRORS `scorecard.ENOUGH_SESSIONS`. Checked by backend/ipopulse/mirrors.py,
+ * because it was a bare 5 in four places and that is precisely how the
+ * published-versus-graded count drifted apart. */
+const ENOUGH_SESSIONS = 5;
+
 const TABS = ['IPOs', 'Financials', 'GMP', 'Subscription',
               'Lists', 'I18n', 'Benchmarks', 'Sources', 'Published',
               // Reel 7's four. Separate from the IPO tabs on purpose: a
@@ -398,7 +406,7 @@ const DATA = {
         breakeven_rate: ratio ? Math.round(1000 / (1 + ratio)) / 10 : null,
         gapped_exits: every.filter((p) => p.gapped_exit === true).length,
         open_now: all.reduce((n, d) => n + d.open_now, 0),
-        enough: keys.length >= 5,
+        enough: keys.length >= ENOUGH_SESSIONS,
       },
     };
   },
@@ -491,7 +499,7 @@ const DATA = {
         voided: sum((d) => d.voided),
         bias_scored: biasDays.length,
         bias_right: biasDays.filter((d) => d.bias_correct).length,
-        enough: keys.length >= 5,
+        enough: keys.length >= ENOUGH_SESSIONS,
       },
     };
   },

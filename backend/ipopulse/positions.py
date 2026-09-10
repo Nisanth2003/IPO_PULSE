@@ -42,6 +42,11 @@ from . import sheets
 # to rescore. Mirrors `review.SWING_HORIZON`; read from there rather than
 # duplicated so the two cannot drift.
 from .review import SWING_HORIZON  # noqa: E402
+# The same floor reel 8 uses. Imported rather than repeated: a swing hold
+# produces FEWER resolved outcomes per session than an intraday call, so if
+# the two ever justify different thresholds it should be a deliberate edit
+# with a reason, not a number that drifted.
+from .scorecard import ENOUGH_SESSIONS  # noqa: E402
 
 
 def today() -> str:
@@ -266,7 +271,7 @@ def record() -> dict[str, Any]:
         # Same floor as reel 8's, and it binds harder here: a multi-session
         # hold produces fewer resolved outcomes per session, so five days is
         # already a thin sample.
-        "enough": len(picked) >= 5,
+        "enough": len(picked) >= ENOUGH_SESSIONS,
     }
 
 
