@@ -150,6 +150,20 @@ JOBS: dict[str, dict[str, Any]] = {
         "argv": ["validate"],
         "schedule": "part of daily",
     },
+    "swing": {
+        "label": "Hold the calls for days, not minutes (reel 9)",
+        "detail": "Scores reel 7's setups over a multi-session horizon for "
+                  "the delivery holder: did the call work at all within five "
+                  "sessions, and what did holding it cost. Books an overnight "
+                  "gap through a stop at the OPEN rather than at the stop, "
+                  "because that is where it would really have filled.",
+        # Runs right after `score`, and unlike `score` it rewrites the last
+        # five days rather than one: a position opened five sessions ago may
+        # only resolve today, so scoring yesterday alone would leave four
+        # days of rows permanently stale.
+        "argv": ["swing", "--write"],
+        "schedule": "18:50 IST Mon-Fri",
+    },
     "score": {
         "label": "Score the morning's calls (reel 8)",
         "detail": "Marks reel 7's setups against NSE's own end-of-day files "

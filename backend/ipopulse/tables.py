@@ -255,6 +255,42 @@ SCORECARD_CALL_COLS = [
     "stop_share", "target_share", "gap_pct", "entry_pos",
 ]
 
+# ── reel 9: positions held across sessions ────────────────────────────────
+#
+# One row per briefing day, holding the aggregate for the positions that day
+# opened. `open_now` is what makes this tab different from Scorecard: while it
+# is non-zero the row is still provisional and gets rewritten.
+SWING_COLS = [
+    "date", "scored_at", "horizon", "sessions",
+    "position_count", "resolved", "target_hit", "hit_rate",
+    "expired", "no_trade", "open_now",
+    # The numbers that decide whether a low hit rate is a problem or the
+    # design. Over a multi-session hold these come apart from the hit rate,
+    # and quoting the rate alone is how a losing structure looks fine.
+    "avg_return_pct", "avg_win_pct", "avg_loss_pct", "win_loss_ratio",
+    "breakeven_rate", "avg_sessions_held",
+    # Overnight risk a day trade never carries.
+    "gapped_exits", "total_slippage",
+    "note",
+]
+
+# One row per position. `verdict` and `sessions_held` are the CURRENT state
+# while `open_now` above is non-zero, not a settled outcome.
+SWING_POSITION_COLS = [
+    "date", "idx", "symbol", "side",
+    "entry", "target", "stop",
+    "verdict", "why",
+    "entered_on", "exit_on", "exit", "sessions_held", "return_pct",
+    # `gapped_exit` yes/no: the position left at an OPEN rather than at its
+    # level, which is the risk that only exists once you hold overnight.
+    "gapped_exit", "slippage",
+]
+
+SWING_TABS: dict[str, list[str]] = {
+    "Swing": SWING_COLS,
+    "SwingPositions": SWING_POSITION_COLS,
+}
+
 SCORECARD_TABS: dict[str, list[str]] = {
     "Scorecard": SCORECARD_COLS,
     "ScorecardCalls": SCORECARD_CALL_COLS,
@@ -272,7 +308,8 @@ MARKET_TABS: dict[str, list[str]] = {
 # and `ensure_tabs`). Deliberately NOT what `_fetch` or `to_tables` iterate —
 # those stay on `TABS` so the IPO path is untouched by any of this.
 ALL_TABS: dict[str, list[str]] = {**TABS, **MARKET_TABS,
-                                  **SCORECARD_TABS, **SETTINGS_TABS}
+                                  **SCORECARD_TABS, **SWING_TABS,
+                                  **SETTINGS_TABS}
 
 
 # The list-valued fields, as paths into to_dict().
@@ -793,11 +830,20 @@ _SCORE_NUM = {
     "idx", "entry", "target", "stop", "high", "low", "close",
     "stock_pct", "sector_pct", "market_pct",
     "stop_share", "target_share", "gap_pct", "entry_pos",
+    # reel 9's numerics. Every one of these can legitimately be zero — a
+    # slippage of 0 means the stop filled exactly at its level, which is a
+    # measurement and not an absence.
+    "horizon", "position_count", "expired", "open_now",
+    "avg_return_pct", "avg_win_pct", "avg_loss_pct", "win_loss_ratio",
+    "breakeven_rate", "avg_sessions_held", "gapped_exits", "total_slippage",
+    "sessions_held", "return_pct", "slippage", "exit",
 }
 
 # Columns that are yes/no/unknown rather than truthy. `False` here means the
 # call was WRONG, which is a measurement; blank means it was not measured.
-_SCORE_BOOL = {"direction", "bias_correct"}
+# `gapped_exit` joins them for the same reason: "no" means we checked and it
+# filled at its level, blank means we never looked.
+_SCORE_BOOL = {"direction", "bias_correct", "gapped_exit"}
 
 
 def _score_cell(col: str, value: Any) -> Any:
@@ -820,6 +866,65 @@ def _score_bool(cell: Any) -> bool | None:
     if txt in ("no", "false", "0"):
         return False
     return None
+
+
+def to_swing_tables(records: dict[str, dict]) -> dict[str, list[list]]:
+    """{date: dict} -> {tab: rows-including-header}, oldest day first."""
+    order = sorted(records)
+    tabs: dict[str, list[list]] = {name: [list(cols)]
+                                   for name, cols in SWING_TABS.items()}
+    for day in order:
+        d = records[day] or {}
+        tabs["Swing"].append([
+            _date_cell(day),
+            *[_score_cell(col, d.get(col)) for col in SWING_COLS[1:]],
+        ])
+        for i, row in enumerate(d.get("positions") or [], 1):
+            tabs["SwingPositions"].append([
+                _date_cell(day), _num_cell(row.get("idx") or i),
+                *[_score_cell(col, row.get(col))
+                  for col in SWING_POSITION_COLS[2:]],
+            ])
+    return tabs
+
+
+def from_swing_tables(tabs: dict[str, list[list]]) -> dict[str, dict]:
+    """The inverse, keyed by date, with positions regrouped under their day."""
+    out: dict[str, dict] = {}
+
+    for row in _dicts(tabs.get("Swing") or [], SWING_COLS):
+        day = _txt(row.get("date"))
+        if not day:
+            continue
+        rec: dict[str, Any] = {"date": day, "positions": []}
+        for col in SWING_COLS:
+            if col == "date":
+                continue
+            cell = row.get(col)
+            if _blank(cell):
+                continue
+            rec[col] = _raw(cell) if col == "note" else _txt(cell)
+        out[day] = rec
+
+    for row in _dicts(tabs.get("SwingPositions") or [], SWING_POSITION_COLS):
+        day = _txt(row.get("date"))
+        rec = out.get(day)
+        if rec is None:
+            continue
+        pos: dict[str, Any] = {}
+        for col in SWING_POSITION_COLS:
+            cell = row.get(col)
+            if col in _SCORE_BOOL:
+                pos[col] = _score_bool(cell)
+                continue
+            if _blank(cell):
+                continue
+            pos[col] = _raw(cell) if col == "why" else _txt(cell)
+        rec["positions"].append(pos)
+
+    for rec in out.values():
+        rec["positions"].sort(key=lambda r: _txt(r.get("idx")) or "")
+    return out
 
 
 def to_scorecard_tables(records: dict[str, dict]) -> dict[str, list[list]]:

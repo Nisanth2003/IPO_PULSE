@@ -420,9 +420,21 @@ def score_swing(setup: Any, day: str,
             last = days[-1]
             tape = bhavcopy(last).get(out["symbol"]) or {}
             close = tape.get("close", 0.0)
-            out.update(verdict=EXPIRED, exit_on=last, exit=close,
-                       why=f"still open after {len(days)} session(s); marked "
-                           f"to the {close:g} close on {last}")
+            # OPEN vs EXPIRED turns on whether the WINDOW finished, not on
+            # whether we ran out of sessions to read. An archive that has not
+            # caught up leaves the position genuinely running, and reporting
+            # that as expired states an outcome the data does not support —
+            # with a "return" marked to a close that is not an exit.
+            if len(days) < horizon:
+                out.update(verdict=OPEN, exit_on=last, exit=close,
+                           why=f"still running — {len(days)} of {horizon} "
+                               f"session(s) have settled, marked to the "
+                               f"{close:g} close on {last}")
+            else:
+                out.update(verdict=EXPIRED, exit_on=last, exit=close,
+                           why=f"still open after {len(days)} session(s); "
+                               f"the horizon closed on it, marked to the "
+                               f"{close:g} close on {last}")
         else:
             out.update(verdict=NO_TRADE,
                        why=f"{entry:g} never traded in {len(days)} session(s) "

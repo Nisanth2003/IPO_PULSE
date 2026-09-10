@@ -2924,6 +2924,43 @@ def cmd_review(args) -> int:
     return 0
 
 
+def cmd_swing(args) -> int:
+    """Score the calls on a multi-session horizon — reel 9's data.
+
+    Rescores the last `horizon` briefings rather than one day, because a
+    position opened five sessions ago may only resolve today. That is also
+    why it writes them in one batch: five separate upserts would be five
+    read-modify-write cycles against a 60-per-minute quota.
+    """
+    from . import positions
+
+    if args.record:
+        for line in positions.record_report(positions.record()):
+            print(line)
+        return 0
+
+    horizon = args.horizon or positions.SWING_HORIZON
+    r = positions.rescore(horizon, [args.day] if args.day else None)
+
+    for day in sorted(r["days"]):
+        for line in positions.report(r["days"][day]):
+            print(line)
+        print()
+    for day, why in r["skipped"]:
+        print(f"── {day}: {why}")
+
+    if not r["days"]:
+        print("Nothing scoreable. Every stored briefing is either excluded "
+              "for hindsight or has no settled session yet.")
+        return 0
+    if args.write:
+        print(f"-> {positions.save(r['days'])}")
+        print(f"stored {len(r['days'])} day(s), skipped {len(r['skipped'])}")
+    else:
+        print("(dry run — nothing written. Re-run with --write)")
+    return 0
+
+
 def cmd_score(args) -> int:
     """Score reel 7's calls and store the result — reel 8's data.
 
@@ -4095,6 +4132,19 @@ def build_parser() -> argparse.ArgumentParser:
                     help="sessions a swing position gets to resolve "
                          "(default 5, about a trading week)")
     sp.set_defaults(func=cmd_review)
+
+    sp = sub.add_parser("swing", help="score the calls over several "
+                                      "sessions — reel 9's data")
+    sp.add_argument("--day", help="ISO date of one briefing; default is every "
+                                  "briefing whose horizon could still be open")
+    sp.add_argument("--horizon", type=int, metavar="N",
+                    help="sessions a position gets to resolve (default 5)")
+    sp.add_argument("--write", action="store_true",
+                    help="store it in the sheet's Swing tabs")
+    sp.add_argument("--record", action="store_true",
+                    help="the running record — the win/loss ratio and the "
+                         "break-even hit rate it implies, not just the rate")
+    sp.set_defaults(func=cmd_swing)
 
     sp = sub.add_parser("score", help="score reel 7's calls against NSE's "
                                       "end-of-day files — reel 8's data")

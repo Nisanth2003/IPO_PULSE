@@ -572,6 +572,86 @@ def _fetch_market() -> dict[str, list[list]]:
             for name, block in zip(wanted, res.get("valueRanges", []))}
 
 
+_swing_cache: dict[str, Any] = {"loaded": False, "records": {}}
+
+
+def _fetch_swing() -> dict[str, list[list]]:
+    """Both Swing tabs in one round trip. No all-empty retry, as above."""
+    service = _connect()
+    have = set(_tab_titles(service))
+    wanted = [name for name in tables.SWING_TABS if name in have]
+    if not wanted:
+        return {}
+    try:
+        res = service.spreadsheets().values().batchGet(
+            spreadsheetId=sheet_id(),
+            ranges=[_span(name) for name in wanted],
+            valueRenderOption="UNFORMATTED_VALUE",
+        ).execute()
+    except Exception as exc:
+        raise _explain(exc) from exc
+    return {name: block.get("values", [])
+            for name, block in zip(wanted, res.get("valueRanges", []))}
+
+
+def swing_records(force: bool = False) -> dict[str, dict]:
+    """Every stored swing day, keyed by ISO date, held for the process."""
+    if force or not _swing_cache["loaded"]:
+        _swing_cache.update(
+            loaded=True, records=tables.from_swing_tables(_fetch_swing()))
+    return _swing_cache["records"]
+
+
+def invalidate_swing() -> None:
+    _swing_cache.update(loaded=False, records={})
+
+
+def write_swing_records(updated: dict[str, dict]) -> None:
+    """Replace both Swing tabs with `updated`. Touches nothing else.
+
+    Unlike the Scorecard writer this one genuinely REWRITES history, and by
+    design: a position stays open across sessions, so yesterday's row is
+    provisional until it resolves or the horizon expires. Callers pass the
+    whole book, same as every other writer here.
+    """
+    service = _connect()
+    ensure_tabs(service)
+    grid = tables.to_swing_tables(updated)
+
+    stray = [name for name in grid if name not in tables.SWING_TABS]
+    if stray:
+        raise RuntimeError(
+            f"refusing to write: {', '.join(stray)} is not a Swing tab. "
+            f"This writer must never clear an IPO, Market or Scorecard tab.")
+
+    def _attempt() -> None:
+        service.spreadsheets().values().batchUpdate(
+            spreadsheetId=sheet_id(),
+            body={
+                "valueInputOption": "RAW",
+                "data": [{"range": f"{name}!A1", "values": rows}
+                         for name, rows in _clearable(grid).items()],
+            },
+        ).execute()
+        _trim(service, sheet_id(), grid)
+
+    _with_retry(_attempt)
+    _swing_cache.update(loaded=True, records=updated)
+
+
+def upsert_swing(days: dict[str, dict]) -> None:
+    """Merge several scored days at once, keeping every other day.
+
+    Takes a dict rather than one day because re-scoring is inherently
+    multi-day: a position opened five sessions ago may only resolve today, so
+    every day inside the horizon has to be rewritten together. One sheet
+    write for the lot, which also keeps it inside the 60-per-minute quota.
+    """
+    current = dict(swing_records())
+    current.update(days)
+    write_swing_records(current)
+
+
 _scorecard_cache: dict[str, Any] = {"loaded": False, "records": {}}
 
 
