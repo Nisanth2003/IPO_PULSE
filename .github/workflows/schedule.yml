@@ -75,6 +75,13 @@ on:
     - cron: '45 5 * * *'      # 11:15 IST daily   — GMP only, after the ~10:55 revision
     - cron: '45 8 * * *'      # 14:15 IST daily   — GMP only, afternoon revision
     - cron: '5 13 * * *'      # 18:35 IST daily   — after close; the settled figures
+    # 18:45 IST Mon-Fri — reel 8 scores the session that just closed.
+    # After the 18:35 daily chain (both take the ipopulse-data concurrency
+    # group, so they queue rather than race) and after NSE publishes its
+    # end-of-day files. Weekdays only: there is nothing to score on a day
+    # with no session. Re-running is harmless — scoring is a pure function
+    # of the stored briefing and the exchange's settled files.
+    - cron: '15 13 * * 1-5'   # 18:45 IST Mon-Fri — score the day (reel 8)
     - cron: '45 15 * * *'     # 21:15 IST daily   — GMP only, after the ~21:00 revision
     - cron: '15 18 * * *'     # 23:45 IST daily   — GMP once InvestorGain has settled the day
     - cron: '30 21 * * 6'     # 03:00 IST Sunday  — translate
@@ -164,6 +171,7 @@ jobs:
             # The briefing. --if-missing in control.JOBS makes this a
             # no-op rather than a failure when the local 08:00 task
             # already wrote today's — see the schedule comment above.
+            '15 13 * * 1-5') JOBS=score ;;
             '30 2 * * 1-5') JOBS=market ;;
             '30 21 * * 6')  JOBS=translate ;;
             '30 22 * * 6')  JOBS=report ;;
