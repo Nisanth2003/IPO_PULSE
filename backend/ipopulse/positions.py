@@ -233,7 +233,14 @@ def record() -> dict[str, Any]:
         except (TypeError, ValueError):
             return None
 
-    rets = [x for x in (_ret(p) for p in all_pos) if x is not None]
+    # Realised only, matching `build` and data.js's `swing()`. An OPEN
+    # position's return_pct is a mark to the last close, not a result — and
+    # leaving them in here made the sheet and the card state different
+    # numbers (0.64x against 0.95x), which is the one thing reading the
+    # record off the stored rows was supposed to prevent.
+    closed = [p for p in all_pos
+              if str(p.get("verdict") or "").strip().lower() != "open"]
+    rets = [x for x in (_ret(p) for p in closed) if x is not None]
     wins = [x for x in rets if x > 0]
     losses = [x for x in rets if x <= 0]
     avg_win = round(sum(wins) / len(wins), 2) if wins else None

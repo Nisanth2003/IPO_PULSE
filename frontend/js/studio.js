@@ -64,6 +64,12 @@ function studio() {
     scored: null,
     scoredDates: [],
     scoreRecord: null,
+    /* Reel 9's swing book. `swungRecord.open_now` is why this one is
+     * different: while it is non-zero the newest rows are provisional and
+     * the card says so rather than presenting a mark as a result. */
+    swung: null,
+    swungDates: [],
+    swungRecord: null,
     /* The sheet's Settings tab. `backend_mode` is a declaration of where this
        pipeline is meant to run; `backend_url` is only needed when the studio
        is served from a host with no backend of its own (Pages). */
@@ -854,13 +860,14 @@ function studio() {
         // the parse. `catch` rather than `Promise.all` failure — a missing
         // Market tab must not stop the six IPO reels from loading, which is
         // exactly what would happen on a sheet that predates reel 7.
-        const [idx, board, brief, card, cfg] = await Promise.all([
+        const [idx, board, brief, card, swg, cfg] = await Promise.all([
           DATA.index(), DATA.board(),
           DATA.briefing().catch(() => ({ briefing: null, days: [] })),
           // Same `catch` reasoning as the briefing above, one reel later: a
           // sheet with no Scorecard tabs is every sheet until the first
           // session is scored, and that must not stop the other seven reels.
           DATA.scorecard().catch(() => ({ latest: null, dates: [], record: null })),
+          DATA.swing().catch(() => ({ latest: null, dates: [], record: null })),
           DATA.settings(),
         ]);
         this.sheetSettings = cfg || {};
@@ -871,6 +878,9 @@ function studio() {
         this.scored = card.latest || null;
         this.scoredDates = card.dates || [];
         this.scoreRecord = card.record || null;
+        this.swung = swg.latest || null;
+        this.swungDates = swg.dates || [];
+        this.swungRecord = swg.record || null;
         const saved = localStorage.getItem('ipoPulse.slug');
         const pick = this.catalogue.find((c) => c.slug === saved) || this.catalogue[0];
         if (pick) await this.select(pick.slug);
@@ -1081,6 +1091,7 @@ function studio() {
      * in the sheet. */
     get cardReady() {
       if (this.reel.score) return !!this.scored;
+      if (this.reel.swing) return !!this.swung;
       return this.reel.market ? !!this.briefing : !!(this.ipo && this.d);
     },
     /* What the card says when it cannot draw. Named rather than inlined
@@ -1092,7 +1103,14 @@ function studio() {
           ? `No scorecard for today yet. The newest stored is ${this.scoredDates[this.scoredDates.length - 1]}.`
           : 'Nothing scored yet. Score the last session with:  ipopulse score --write';
       }
-      if (!this.reel.market && !this.reel.score) return 'Pick an IPO from the dropdown.';
+      if (this.reel.swing) {
+        return this.swungDates.length
+          ? `No swing row for today yet. The newest stored is ${this.swungDates[this.swungDates.length - 1]}.`
+          : 'Nothing scored yet. Run:  ipopulse swing --write';
+      }
+      if (!this.reel.market && !this.reel.score && !this.reel.swing) {
+        return 'Pick an IPO from the dropdown.';
+      }
       return this.briefingDays.length
         ? `No briefing for today yet. The newest stored is ${this.briefingDays[this.briefingDays.length - 1]}.`
         : 'No briefing in the sheet yet. Build one with:  ipopulse market --write';

@@ -28,6 +28,10 @@ const TABS = ['IPOs', 'Financials', 'GMP', 'Subscription',
               // same reason they cannot join the record rebuild: a scored
               // session is not a company.
               'Scorecard', 'ScorecardCalls',
+              // Reel 9's two. Unlike every other source here a Swing row can
+              // be PROVISIONAL: an open position is marked to the last close
+              // and rewritten on the next run.
+              'Swing', 'SwingPositions',
               // Global key/value, not per-IPO: where the backend lives, and
               // which host this sheet's pipeline is meant to run on. Read at
               // runtime so it can be changed without rebuilding config.js.
@@ -290,6 +294,115 @@ const DATA = {
    * was wrong, and null is one that could not be scored either way. Writing
    * `!!cell` here would turn every unscoreable call into a wrong one.
    */
+  /* Reel 9's swing book, keyed by the briefing date. {days, latest, record}.
+   *
+   * `gapped_exit` is decoded from yes/no like the scorecard's `direction`,
+   * and for the same reason: "no" means we checked and it filled at its
+   * level, blank means we never looked. A boolean cast loses that.
+   *
+   * `record` averages over POSITIONS, not over days - a day with one
+   * position must not weigh the same as a day with ten - and it excludes
+   * open positions, whose return is a mark to the last close rather than a
+   * result.
+   */
+  async swing(day) {
+    await this._load();
+    const rows = (name) => SHEET.table(this._raw.get(name));
+
+    const yesno = (v) => {
+      const t = _s(v).trim().toLowerCase();
+      if (t === 'yes' || t === 'true' || t === '1') return true;
+      if (t === 'no' || t === 'false' || t === '0') return false;
+      return null;
+    };
+
+    const days = {};
+    for (const r of rows('Swing')) {
+      const date = _d(r.date);
+      if (!date) continue;
+      days[date] = {
+        date,
+        scored_at: _s(r.scored_at),
+        horizon: _f(r.horizon), sessions: _f(r.sessions),
+        position_count: _f(r.position_count),
+        resolved: _f(r.resolved), target_hit: _f(r.target_hit),
+        hit_rate: _f(r.hit_rate),
+        expired: _f(r.expired), no_trade: _f(r.no_trade),
+        open_now: _f(r.open_now),
+        avg_return_pct: _f(r.avg_return_pct),
+        avg_win_pct: _f(r.avg_win_pct), avg_loss_pct: _f(r.avg_loss_pct),
+        win_loss_ratio: _f(r.win_loss_ratio),
+        breakeven_rate: _f(r.breakeven_rate),
+        avg_sessions_held: _f(r.avg_sessions_held),
+        gapped_exits: _f(r.gapped_exits), total_slippage: _f(r.total_slippage),
+        note: _s(r.note),
+        positions: [],
+      };
+    }
+
+    for (const r of rows('SwingPositions')) {
+      const date = _d(r.date);
+      const host = days[date];
+      if (!host) continue;
+      host.positions.push({
+        idx: _f(r.idx), symbol: _s(r.symbol), side: _s(r.side),
+        entry: _f(r.entry), target: _f(r.target), stop: _f(r.stop),
+        verdict: _s(r.verdict), why: _s(r.why),
+        entered_on: _s(r.entered_on), exit_on: _s(r.exit_on),
+        exit: _f(r.exit),
+        sessions_held: _f(r.sessions_held), return_pct: _f(r.return_pct),
+        gapped_exit: yesno(r.gapped_exit), slippage: _f(r.slippage),
+      });
+    }
+
+    for (const d of Object.values(days)) {
+      d.positions.sort((a, b) => a.idx - b.idx);
+      d.holding = d.positions.filter((p) => p.verdict === 'open');
+      d.done = d.positions.filter(
+        (p) => p.verdict === 'target' || p.verdict === 'stopped'
+            || p.verdict === 'unresolved' || p.verdict === 'expired');
+      d.gaps = d.positions.filter((p) => p.gapped_exit === true);
+    }
+
+    const keys = Object.keys(days).sort();
+    const picked = days[_d(day)] || (keys.length ? days[keys[keys.length - 1]] : null);
+
+    const all = keys.map((k) => days[k]);
+    const every = all.flatMap((d) => d.positions);
+    // Realised only. An open position's return is a mark, not a result.
+    const rets = every.filter((p) => p.verdict !== 'open'
+                                  && p.verdict !== 'no-trade'
+                                  && p.verdict !== 'no-data')
+                      .map((p) => p.return_pct);
+    const wins = rets.filter((x) => x > 0);
+    const losses = rets.filter((x) => x <= 0);
+    const mean = (xs) => (xs.length
+      ? Math.round(100 * xs.reduce((a, b) => a + b, 0) / xs.length) / 100 : null);
+    const avgWin = mean(wins);
+    const avgLoss = mean(losses);
+    const ratio = (avgWin !== null && avgLoss)
+      ? Math.round(100 * Math.abs(avgWin / avgLoss)) / 100 : null;
+    const resolved = all.reduce((n, d) => n + d.resolved, 0);
+    const hits = all.reduce((n, d) => n + d.target_hit, 0);
+
+    return {
+      days, latest: picked, dates: keys,
+      record: {
+        sessions: keys.length,
+        positions: every.length,
+        resolved, target_hit: hits,
+        hit_rate: resolved ? Math.round(1000 * hits / resolved) / 10 : null,
+        avg_return_pct: mean(rets),
+        avg_win_pct: avgWin, avg_loss_pct: avgLoss,
+        win_loss_ratio: ratio,
+        breakeven_rate: ratio ? Math.round(1000 / (1 + ratio)) / 10 : null,
+        gapped_exits: every.filter((p) => p.gapped_exit === true).length,
+        open_now: all.reduce((n, d) => n + d.open_now, 0),
+        enough: keys.length >= 5,
+      },
+    };
+  },
+
   async scorecard(day) {
     await this._load();
     const rows = (name) => SHEET.table(this._raw.get(name));

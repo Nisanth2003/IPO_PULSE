@@ -181,6 +181,34 @@ const REELS = [
       { id: 'record',    hold: 6 },  // hits over total, across sessions
     ],
   },
+
+  /* Reel 9 - the same calls, held for days instead of minutes.
+   *
+   * A different audience from reel 7's and 8's, asking a different question
+   * of the same setups: not "did this work today" but "did it work at all
+   * within a week, and what did holding it cost". The user named this
+   * audience themselves - hold in delivery, sell after some days.
+   *
+   * `swing: true` selects the Swing tabs, which differ from every other
+   * source here in one way worth knowing: a row can be PROVISIONAL. A
+   * position stays open across sessions, so `open` positions are marked to
+   * the last close and rewritten on the next run.
+   *
+   * `gaps` is the scene nobody else's channel can do from free data, and it
+   * is the honest half of a multi-session claim: held overnight, a stop does
+   * not fill AT the stop, it fills at an open. That risk simply does not
+   * exist for reel 7's intraday calls.
+   */
+  {
+    n: 9, key: 'reel9', acc: '#38BDF8', swing: true,
+    scenes: [
+      { id: 'swinghook', hold: 3 },  // the horizon, and what it cost
+      { id: 'holding',   hold: 7 },  // positions still running
+      { id: 'closed',    hold: 8 },  // resolved, with the return
+      { id: 'gaps',      hold: 6 },  // the overnight risk, quantified
+      { id: 'edge',      hold: 7 },  // win/loss size and the break-even rate
+    ],
+  },
 ];
 
 /**

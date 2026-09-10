@@ -23,6 +23,9 @@ const LABELS = {
   // than for the mechanism - a viewer scrolling past does not know
   // what a scorecard is, but they know what "did we get it right" means.
   reel8:       ['Did We Get It Right?', 'क्या हम सही थे?', 'మేము సరిగా చెప్పామా?'],
+  // Reel 9 is the delivery holder's reel. Named for the holding
+  // period rather than for "swing", which not every viewer uses.
+  reel9:       ['Held For A Week', 'एक हफ्ते तक', 'ఒక వారం పాటు'],
   // The end card's own labels. Short on purpose: they sit on a card that is
   // on screen for 2.4 seconds, and a sentence there competes with the spoken
   // sign-off rather than reinforcing it.
