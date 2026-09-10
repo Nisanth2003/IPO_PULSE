@@ -150,6 +150,27 @@ JOBS: dict[str, dict[str, Any]] = {
         "argv": ["validate"],
         "schedule": "part of daily",
     },
+    "score": {
+        "label": "Score the morning's calls (reel 8)",
+        "detail": "Marks reel 7's setups against NSE's own end-of-day files "
+                  "and stores the result: per stock what was expected, what "
+                  "happened, and why — the reason triangulated from the "
+                  "stock's close, its sector index and NIFTY 50, never "
+                  "written by a model. Read-only against the market; the "
+                  "only thing it writes is the Scorecard tabs.",
+        # 18:45 IST. The equity and index bhavcopies publish in the early
+        # evening, so anything earlier reports "the session has not settled
+        # yet" — which is the truth, and not worth a scheduled run to hear.
+        # Placed after the 18:35 `daily` chain so the two do not queue on
+        # each other; both take the ipopulse-data concurrency group.
+        #
+        # Re-running is safe by design: scoring is a pure function of the
+        # stored briefing and the exchange's settled files, so a second run
+        # cannot produce a different answer. Hence no --if-missing and no
+        # --replace guard, unlike `market`.
+        "argv": ["score", "--write"],
+        "schedule": "18:45 IST Mon-Fri",
+    },
     "market": {
         "label": "Pre-market briefing (reel 7)",
         "detail": "The daily market briefing: index levels, breadth and every "

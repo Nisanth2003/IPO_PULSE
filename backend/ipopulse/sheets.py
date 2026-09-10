@@ -572,6 +572,91 @@ def _fetch_market() -> dict[str, list[list]]:
             for name, block in zip(wanted, res.get("valueRanges", []))}
 
 
+_scorecard_cache: dict[str, Any] = {"loaded": False, "records": {}}
+
+
+def _fetch_scorecard() -> dict[str, list[list]]:
+    """Both Scorecard tabs in one round trip.
+
+    Like `_fetch_market`, no all-empty retry: an empty scorecard is the
+    honest state of this sheet until the first session is scored, and reel 8
+    was built before it had any data to show.
+    """
+    service = _connect()
+    have = set(_tab_titles(service))
+    wanted = [name for name in tables.SCORECARD_TABS if name in have]
+    if not wanted:
+        return {}
+    try:
+        res = service.spreadsheets().values().batchGet(
+            spreadsheetId=sheet_id(),
+            ranges=[_span(name) for name in wanted],
+            valueRenderOption="UNFORMATTED_VALUE",
+        ).execute()
+    except Exception as exc:
+        raise _explain(exc) from exc
+    return {name: block.get("values", [])
+            for name, block in zip(wanted, res.get("valueRanges", []))}
+
+
+def scorecard_records(force: bool = False) -> dict[str, dict]:
+    """Every scored session, keyed by ISO date, held for the process."""
+    if force or not _scorecard_cache["loaded"]:
+        _scorecard_cache.update(
+            loaded=True,
+            records=tables.from_scorecard_tables(_fetch_scorecard()))
+    return _scorecard_cache["records"]
+
+
+def invalidate_scorecard() -> None:
+    _scorecard_cache.update(loaded=False, records={})
+
+
+def write_scorecard_records(updated: dict[str, dict]) -> None:
+    """Replace both Scorecard tabs with `updated`. Touches nothing else."""
+    service = _connect()
+    ensure_tabs(service)
+    grid = tables.to_scorecard_tables(updated)
+
+    # The same assertion the Market writer carries, for the same reason: this
+    # is a writer whose ranges come from a dict rather than a constant, so it
+    # states the constraint instead of trusting it. Cheaper than a restore.
+    stray = [name for name in grid if name not in tables.SCORECARD_TABS]
+    if stray:
+        raise RuntimeError(
+            f"refusing to write: {', '.join(stray)} is not a Scorecard tab. "
+            f"This writer must never clear an IPO or Market tab.")
+
+    # Write first, then trim — see the long note in `write_records`. Clearing
+    # before writing is what emptied the whole book on 4 Sep.
+    def _attempt() -> None:
+        service.spreadsheets().values().batchUpdate(
+            spreadsheetId=sheet_id(),
+            body={
+                "valueInputOption": "RAW",
+                "data": [{"range": f"{name}!A1", "values": rows}
+                         for name, rows in _clearable(grid).items()],
+            },
+        ).execute()
+        _trim(service, sheet_id(), grid)
+
+    _with_retry(_attempt)
+    _scorecard_cache.update(loaded=True, records=updated)
+
+
+def upsert_scorecard(day: str, record: dict) -> None:
+    """Write one scored session, keeping every other day.
+
+    Read-modify-write of both tabs, like `upsert_market`. Unlike the briefing
+    this one is genuinely safe to re-run: scoring is a pure function of the
+    stored briefing and the exchange's settled files, so rewriting a day
+    cannot change what it says — which is why `score` has no --replace guard.
+    """
+    current = dict(scorecard_records())
+    current[day] = record
+    write_scorecard_records(current)
+
+
 def market_records(force: bool = False) -> dict[str, dict]:
     """Every stored briefing, keyed by ISO date, held for the process."""
     if force or not _market_cache["loaded"]:

@@ -2924,6 +2924,57 @@ def cmd_review(args) -> int:
     return 0
 
 
+def cmd_score(args) -> int:
+    """Score reel 7's calls and store the result — reel 8's data.
+
+    Dry run unless `--write`, like everything else here that touches the
+    sheet. `--record` is the running rate across every stored session, which
+    is the only number the reel should ever state: one session is noise.
+
+    Defaults to yesterday rather than today, because the exchange's files for
+    today do not exist until the evening and the common case is scoring the
+    session that just closed.
+    """
+    from . import scorecard
+
+    if args.record:
+        for line in scorecard.record_report(scorecard.record()):
+            print(line)
+        return 0
+
+    from . import briefing, review
+
+    if args.day:
+        days = [args.day]
+    elif args.all:
+        days = briefing.list_days()
+    else:
+        # Yesterday's session by default: today's bhavcopy is not published
+        # until the evening, and `score` runs at 18:45 for the day that just
+        # closed. `previous_session` walks the exchange calendar, so this is
+        # Friday on a Monday.
+        days = [review.previous_session(scorecard.today()) or scorecard.today()]
+
+    wrote = skipped = 0
+    for day in days:
+        rec = scorecard.build(day)
+        for line in scorecard.report(rec):
+            print(line)
+        if rec.get("skipped"):
+            skipped += 1
+            continue
+        if args.write:
+            print(f"   -> {scorecard.save(rec)}")
+            wrote += 1
+        print()
+
+    if not args.write:
+        print("(dry run — nothing written. Re-run with --write)")
+    else:
+        print(f"stored {wrote} session(s), skipped {skipped}")
+    return 0
+
+
 def cmd_settings(args) -> int:
     """Read or write the sheet's Settings tab — where the backend lives.
 
@@ -4044,6 +4095,19 @@ def build_parser() -> argparse.ArgumentParser:
                     help="sessions a swing position gets to resolve "
                          "(default 5, about a trading week)")
     sp.set_defaults(func=cmd_review)
+
+    sp = sub.add_parser("score", help="score reel 7's calls against NSE's "
+                                      "end-of-day files — reel 8's data")
+    sp.add_argument("--day", help="ISO date; defaults to the session that "
+                                  "just closed")
+    sp.add_argument("--all", action="store_true",
+                    help="every stored briefing, not just the last session")
+    sp.add_argument("--write", action="store_true",
+                    help="store it in the sheet's Scorecard tabs")
+    sp.add_argument("--record", action="store_true",
+                    help="the running rate across stored sessions — the only "
+                         "number reel 8 should state")
+    sp.set_defaults(func=cmd_score)
 
     sp = sub.add_parser("settings", help="read or write the sheet's Settings "
                                         "tab — where the backend lives")

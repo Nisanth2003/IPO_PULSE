@@ -218,6 +218,48 @@ SETTINGS_KNOWN: dict[str, str] = {
 
 SETTINGS_TABS: dict[str, list[str]] = {"Settings": SETTINGS_COLS}
 
+# ── reel 8: the scorecard ──────────────────────────────────────────────────
+#
+# One row per scored session. `direction_rate` and `hit_rate` are kept apart
+# on purpose: they answer different questions and reel 8 states both, because
+# a day can be 6-of-8 on the call and 0-of-2 on the level — which is exactly
+# what 9 Sep 2026 was, the first session with clean inputs.
+SCORECARD_COLS = [
+    "date", "scored_at", "setups",
+    # the CALL: did the stock close the way we said
+    "directional", "direction_right", "direction_rate",
+    # the LEVEL: did the setup reach target before its stop
+    "resolved", "target_hit", "hit_rate",
+    # settled by the opening print before an entry existed
+    "voided", "no_trade",
+    # the directional call on the index, scored on its settled Change(%)
+    "bias_called", "bias_actual", "bias_correct", "nifty_close", "nifty_pct",
+    # the geometry, so a drift in the setup structure is visible on the sheet
+    "median_stop_share", "median_target_share", "causes", "note",
+]
+
+# One row per scored setup — the rows reel 8's cards are made of. This is
+# where "what we expected / what happened / why" lives.
+SCORECARD_CALL_COLS = [
+    "date", "idx", "symbol", "side",
+    "entry", "target", "stop",
+    "high", "low", "close",
+    "verdict", "why",
+    # `direction` is the CALL scored alone: True when the stock closed the way
+    # we said, whatever the setup did. Kept even for setups that never
+    # triggered, because a read that was right is right without a trade.
+    "direction", "stock_pct",
+    # the attribution, triangulated from the stock, its sector and NIFTY
+    "cause", "because", "sector", "sector_pct", "market_pct",
+    # the geometry for this one setup
+    "stop_share", "target_share", "gap_pct", "entry_pos",
+]
+
+SCORECARD_TABS: dict[str, list[str]] = {
+    "Scorecard": SCORECARD_COLS,
+    "ScorecardCalls": SCORECARD_CALL_COLS,
+}
+
 MARKET_TABS: dict[str, list[str]] = {
     "Market": MARKET_COLS,
     "MarketNews": MARKET_NEWS_COLS,
@@ -229,7 +271,8 @@ MARKET_TABS: dict[str, list[str]] = {
 # creation list regardless of which record type a tab belongs to (`_span`
 # and `ensure_tabs`). Deliberately NOT what `_fetch` or `to_tables` iterate —
 # those stay on `TABS` so the IPO path is untouched by any of this.
-ALL_TABS: dict[str, list[str]] = {**TABS, **MARKET_TABS, **SETTINGS_TABS}
+ALL_TABS: dict[str, list[str]] = {**TABS, **MARKET_TABS,
+                                  **SCORECARD_TABS, **SETTINGS_TABS}
 
 
 # The list-valued fields, as paths into to_dict().
@@ -737,6 +780,120 @@ def to_settings_tab(values: dict[str, str]) -> dict[str, list[list]]:
     for key in sorted(k for k in values if k not in SETTINGS_KNOWN):
         rows.append([key, values[key], ""])
     return {"Settings": rows}
+
+
+# Columns whose value is a number, INCLUDING when that number is zero. A
+# hit rate of 0.0 is the most important figure this feature can hold — it is
+# the answer on a day nothing worked — and `_cell_for`'s `value or None`
+# would file it as an empty cell, which reads as "not measured".
+_SCORE_NUM = {
+    "setups", "directional", "direction_right", "direction_rate",
+    "resolved", "target_hit", "hit_rate", "voided", "no_trade",
+    "nifty_close", "nifty_pct", "median_stop_share", "median_target_share",
+    "idx", "entry", "target", "stop", "high", "low", "close",
+    "stock_pct", "sector_pct", "market_pct",
+    "stop_share", "target_share", "gap_pct", "entry_pos",
+}
+
+# Columns that are yes/no/unknown rather than truthy. `False` here means the
+# call was WRONG, which is a measurement; blank means it was not measured.
+_SCORE_BOOL = {"direction", "bias_correct"}
+
+
+def _score_cell(col: str, value: Any) -> Any:
+    """One scorecard value, in the form that survives the round trip."""
+    if col in _SCORE_BOOL:
+        # Our own words, for the reason `trading` uses them: a real boolean
+        # renders as a locale-dependent checkbox and comes back as 'TRUE' or
+        # '' depending on where the sheet is opened.
+        return None if value is None or value == "" else ("yes" if value else "no")
+    if col in _SCORE_NUM:
+        return _num_cell(value)
+    return value if value not in (None, "") else None
+
+
+def _score_bool(cell: Any) -> bool | None:
+    """The inverse. None when the cell is blank — not measured, not wrong."""
+    txt = _txt(cell).strip().lower()
+    if txt in ("yes", "true", "1"):
+        return True
+    if txt in ("no", "false", "0"):
+        return False
+    return None
+
+
+def to_scorecard_tables(records: dict[str, dict]) -> dict[str, list[list]]:
+    """{date: dict} -> {tab: rows-including-header}, oldest day first.
+
+    Ascending like the Market tabs and for the same reason: this grows by one
+    session a day and is read by a human scrolling it.
+    """
+    order = sorted(records)
+    tabs: dict[str, list[list]] = {name: [list(cols)]
+                                   for name, cols in SCORECARD_TABS.items()}
+
+    for day in order:
+        d = records[day] or {}
+        tabs["Scorecard"].append([
+            _date_cell(day),
+            *[_score_cell(col, d.get(col)) for col in SCORECARD_COLS[1:]],
+        ])
+        for i, row in enumerate(d.get("calls") or [], 1):
+            tabs["ScorecardCalls"].append([
+                _date_cell(day), _num_cell(row.get("idx") or i),
+                *[_score_cell(col, row.get(col))
+                  for col in SCORECARD_CALL_COLS[2:]],
+            ])
+    return tabs
+
+
+def from_scorecard_tables(tabs: dict[str, list[list]]) -> dict[str, dict]:
+    """The inverse of `to_scorecard_tables`, keyed by date.
+
+    Blank cells are DROPPED rather than coerced, the same as the market
+    reader: an absent verdict is not the empty string and an absent rate is
+    not zero. `because` is prose and keeps its raw value.
+    """
+    out: dict[str, dict] = {}
+
+    for row in _dicts(tabs.get("Scorecard") or [], SCORECARD_COLS):
+        day = _txt(row.get("date"))
+        if not day:
+            continue
+        rec: dict[str, Any] = {"date": day, "calls": []}
+        for col in SCORECARD_COLS:
+            if col == "date":
+                continue
+            cell = row.get(col)
+            if col in _SCORE_BOOL:
+                # Decoded even when blank: None is a value here, meaning the
+                # call could not be scored either way.
+                rec[col] = _score_bool(cell)
+                continue
+            if _blank(cell):
+                continue                  # absent, not zero and not False
+            rec[col] = _raw(cell) if col in ("note", "causes") else _txt(cell)
+        out[day] = rec
+
+    for row in _dicts(tabs.get("ScorecardCalls") or [], SCORECARD_CALL_COLS):
+        day = _txt(row.get("date"))
+        rec = out.get(day)
+        if rec is None:
+            continue                      # a call with no scored day above it
+        call: dict[str, Any] = {}
+        for col in SCORECARD_CALL_COLS:
+            cell = row.get(col)
+            if col in _SCORE_BOOL:
+                call[col] = _score_bool(cell)
+                continue
+            if _blank(cell):
+                continue
+            call[col] = _raw(cell) if col in ("why", "because") else _txt(cell)
+        rec["calls"].append(call)
+
+    for rec in out.values():
+        rec["calls"].sort(key=lambda r: _txt(r.get("idx")) or "")
+    return out
 
 
 def to_market_tables(records: dict[str, dict]) -> dict[str, list[list]]:
