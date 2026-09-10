@@ -2924,6 +2924,104 @@ def cmd_review(args) -> int:
     return 0
 
 
+def cmd_investigate(args) -> int:
+    """Ask the Antigravity agent about a data contradiction. READ-ONLY.
+
+    Two shapes. With `--finding` it takes the watchdog's own findings and
+    asks about each, so the thing investigated is provably the thing that was
+    flagged — a question retyped from memory is a question about a slightly
+    different number. With a free-text question it just asks that.
+
+    Nothing here writes. The agent returns prose and citations for you to
+    read, and the decision stays yours: an agent that browses and executes
+    code is BETTER at producing a plausible wrong number than a plain model
+    call, so its output is evidence rather than data. See the module note in
+    providers/agent.py.
+    """
+    from .providers import agent as ag
+
+    if not ag.available():
+        print("The agent needs GEMINI_API_KEY and a google-genai with "
+              "`interactions` (2.17+). Everything else still works without "
+              "it.")
+        return 1
+
+    questions: list[tuple[str, str]] = []
+
+    if args.finding:
+        from . import store, watch
+
+        r = watch.sweep(skip=("usage", "models", "grade"))
+        found = [f for f in r["findings"] if f.get("slug") not in ("-", "", None)]
+        if args.slug:
+            found = [f for f in found if f["slug"] in args.slug]
+        # One question per SLUG, not per finding: lalithaa has three PAT rows
+        # and they are one story. Three interactions would be 60k tokens to
+        # learn the same thing once.
+        by_slug: dict[str, list[dict]] = {}
+        for f in found:
+            by_slug.setdefault(f["slug"], []).append(f)
+        known = set(store.list_slugs())
+        for slug, rows in by_slug.items():
+            # Only IPOs. `briefing` findings carry a DATE in the slug field —
+            # "no briefing stored for 2026-09-11" — and that is an operational
+            # fault, not a filing contradiction. Left in, it would spend 20k
+            # tokens researching a date as though it were a company.
+            if slug not in known:
+                continue
+            try:
+                ipo = store.load(slug)
+            except FileNotFoundError:
+                ipo = None
+            merged = {
+                "slug": slug,
+                "what": rows[0].get("what", ""),
+                "detail": "; ".join(x.get("detail", "") for x in rows),
+            }
+            questions.append((slug, ag.question_for(merged, ipo)))
+        if not questions:
+            print("No findings with a slug to investigate. `ipopulse check` "
+                  "first, or pass a question directly.")
+            return 0
+    elif args.question:
+        questions.append(("-", " ".join(args.question)))
+    else:
+        print("Give a question, or --finding to work the watchdog's list.")
+        return 2
+
+    if args.limit:
+        questions = questions[:args.limit]
+
+    print(f"{len(questions)} question(s). Each interaction runs an autonomous "
+          f"loop and measured ~20k tokens, so this is not free — "
+          f"{ag.BUDGET:,} token budget each.\n")
+
+    spent = 0
+    for slug, q in questions:
+        head = slug if slug != "-" else "question"
+        print(f"── {head}")
+        if args.dry_run:
+            print(q)
+            print()
+            continue
+        try:
+            r = ag.ask(q, budget=args.budget, verbose=True)
+        except ag.AgentUnavailable as exc:
+            print(f"   ! {exc}\n")
+            continue
+        spent += r["tokens"]
+        for line in r["answer"].splitlines():
+            print(f"   {line}")
+        print(f"\n   [{r['tokens']:,} tokens · {len(r['sources'])} source(s)]\n")
+
+    if args.dry_run:
+        print("(dry run — no interaction was created, nothing was spent)")
+    else:
+        print(f"{spent:,} tokens across {len(questions)} question(s). "
+              f"Nothing was written: this is evidence, not data.")
+    return 0
+
+
 def cmd_swing(args) -> int:
     """Score the calls on a multi-session horizon — reel 9's data.
 
@@ -4132,6 +4230,25 @@ def build_parser() -> argparse.ArgumentParser:
                     help="sessions a swing position gets to resolve "
                          "(default 5, about a trading week)")
     sp.set_defaults(func=cmd_review)
+
+    sp = sub.add_parser("investigate",
+                        help="ask the Antigravity agent about a data "
+                             "contradiction — read-only, writes nothing")
+    sp.add_argument("question", nargs="*",
+                    help="the question, in words; omit with --finding")
+    sp.add_argument("--finding", action="store_true",
+                    help="work the watchdog's own findings instead, so the "
+                         "thing investigated is the thing that was flagged")
+    sp.add_argument("--slug", nargs="*",
+                    help="with --finding, only these IPOs")
+    sp.add_argument("--limit", type=int,
+                    help="stop after N questions — each costs ~20k tokens")
+    sp.add_argument("--budget", type=int,
+                    help="max_total_tokens per interaction (advisory; "
+                         "measured 20k against a stated 8k)")
+    sp.add_argument("--dry-run", action="store_true",
+                    help="print the questions and create no interaction")
+    sp.set_defaults(func=cmd_investigate)
 
     sp = sub.add_parser("swing", help="score the calls over several "
                                       "sessions — reel 9's data")
