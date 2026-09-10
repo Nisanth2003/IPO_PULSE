@@ -2355,8 +2355,8 @@
 
             <!-- the pivot setups, one side per scene -->
             <template x-for="grp in [
-                {id:'longs',  side:'LONG',  rows: briefing.longs.slice(0,3),  up:true},
-                {id:'shorts', side:'SHORT', rows: briefing.shorts.slice(0,3), up:false}]"
+                {id:'longs',  side:'LONG',  rows: briefing.longs.slice(0,PUBLISHED_PER_SIDE),  up:true},
+                {id:'shorts', side:'SHORT', rows: briefing.shorts.slice(0,PUBLISHED_PER_SIDE), up:false}]"
                       :key="grp.id">
               <div x-show="at(7, grp.id)" class="scene">
                 <div class="lbl">

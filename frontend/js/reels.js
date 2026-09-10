@@ -234,6 +234,18 @@ const REELS = [
  * duration down. `scriptHolds` overrides it from the narration anyway once a
  * voice exists, and the spoken sign-off is about that long.
  */
+/* How many setups a side reach the card — and therefore the published claim
+ * that reels 8 and 9 are allowed to grade.
+ *
+ * MIRRORS `outlook.PUBLISHED_PER_SIDE`. Keep the two in step: they drifted
+ * once and the scorecard spent a day grading eight calls when the card had
+ * shown six, which is credit for claims nobody saw.
+ *
+ * The voiceover names fewer than this on purpose (two a side) — see the note
+ * in output.js. A spoken summary of a visible list is fine; an invisible
+ * extra row being scored is not. */
+const PUBLISHED_PER_SIDE = 3;
+
 const OUTRO_SCENE = { id: 'outro', hold: 2.4 };
 
 function scenesFor(reel, gmpMode, ipo, briefing) {

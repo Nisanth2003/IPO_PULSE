@@ -475,7 +475,7 @@ def swing(day: str, horizon: int = SWING_HORIZON) -> dict[str, Any]:
         out["partial"] = (f"only {len(out['sessions'])} of {horizon} sessions "
                           f"have settled; positions still open are not final")
 
-    for setup in (getattr(brief, "setups", None) or []):
+    for setup in published_setups(brief):
         out["setups"].append(score_swing(setup, day, horizon))
     for row in out["setups"]:
         out["counts"][row["verdict"]] = out["counts"].get(row["verdict"], 0) + 1
@@ -821,6 +821,32 @@ def lookahead(brief: Any, day: str) -> str:
     return (f"unreadable timestamp {stamp!r} and no input record")
 
 
+def published_setups(brief: Any) -> list[Any]:
+    """Only the setups a viewer actually saw, in the reel's own order.
+
+    The store keeps every setup the ranker produced — up to `PER_SIDE` a side
+    — but the card renders `PUBLISHED_PER_SIDE` a side. Scoring the stored
+    list therefore grades calls nobody was shown, which is a scorecard taking
+    credit for claims it never made.
+
+    Filtered on `rank`, which is per-side and assigned by `outlook` in the
+    same order the card renders, so this selects exactly the visible rows. A
+    row with no rank is treated as unpublished: an unranked setup never made
+    it into either side's list.
+    """
+    from .outlook import PUBLISHED_PER_SIDE
+
+    out = []
+    for setup in (getattr(brief, "setups", None) or []):
+        try:
+            rank = int(_num(setup, "rank"))
+        except (TypeError, ValueError):
+            continue
+        if 1 <= rank <= PUBLISHED_PER_SIDE:
+            out.append(setup)
+    return out
+
+
 def previous_session(day: str) -> str:
     """The trading session before `day`, found by walking back for a bhavcopy.
 
@@ -1155,7 +1181,7 @@ def review(day: str) -> dict[str, Any]:
                           f"the session has not settled yet")
         return out
 
-    for setup in (getattr(brief, "setups", None) or []):
+    for setup in published_setups(brief):
         sym = _text(setup, "symbol").upper()
         row = tape.get(sym)
         if not row:

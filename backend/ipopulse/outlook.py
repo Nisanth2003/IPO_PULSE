@@ -173,6 +173,21 @@ def rotate_model(day: str, gem: Any = None) -> str:
 
 # How many setups of each side reach the reel. Five and five, per the spec.
 PER_SIDE = 5
+
+# How many of each side a VIEWER actually sees. The card renders three a side
+# (`index.html`, and `reels.js` mirrors this constant because the card cannot
+# import Python), so six is the published claim — and six is therefore what
+# reel 8 and reel 9 are allowed to grade.
+#
+# This exists because the two numbers had drifted: the store held eight, the
+# card showed six, and the scorecard graded eight. Two calls nobody had seen
+# were being scored, which is a scorecard taking credit for claims it never
+# made. `review.published_setups` is the one place that enforces it.
+#
+# Deliberately NOT the same as PER_SIDE. The store keeping every ranked setup
+# is right for a record; publishing all of them is a card-space and
+# attention decision, and the two should be free to differ.
+PUBLISHED_PER_SIDE = 3
 # Candidates handed to the model per side. More than PER_SIDE so it has
 # something to choose between, capped so the prompt stays about this morning.
 CANDIDATES_PER_SIDE = 10
