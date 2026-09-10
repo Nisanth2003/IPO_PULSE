@@ -2209,11 +2209,29 @@ def _cmd_facts_body(args) -> int:
         # keeps them consistent by construction rather than by luck.
         info = ig.allotment(row)
         dates = raw.setdefault("dates", {})
-        for key in ("allotment", "refund", "listing"):
-            val = info.get(key)
-            if val and dates.get(key) != val:
-                if dates.get(key):
+        # The desk owns the whole trio or none of it. Assigning only the keys
+        # it happens to supply is what broke the chain on 10 Sep 2026: `nse`
+        # got a fresh allotment (22 Sep) and listing (24 Sep) while its stale
+        # refund (10 Sep) survived, and `refund before allotment` is a
+        # calendar that cannot happen — so `write_records` correctly refused
+        # all 42 records and `job daily` stopped at step 4 of 9.
+        #
+        # A date the desk does not name is CLEARED. Blank means "unknown",
+        # which is honest; stale means "wrong" next to a sibling that moved.
+        # Guarded on the desk having a timetable at all, so a desk miss
+        # cannot wipe dates that are perfectly good.
+        timetable = [k for k in ("allotment", "refund", "listing")
+                     if info.get(k)]
+        if timetable:
+            for key in ("allotment", "refund", "listing"):
+                val = info.get(key) or None
+                if dates.get(key) == val:
+                    continue
+                if dates.get(key) and val:
                     print(f"  ~ {slug:<32} {key}: {dates[key]} -> {val} (desk)")
+                elif dates.get(key):
+                    print(f"  ~ {slug:<32} {key}: {dates[key]} -> cleared "
+                          f"(desk moved the timetable and does not carry it)")
                 dates[key] = val
                 wrote.append(key)
 
