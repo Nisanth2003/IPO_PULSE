@@ -148,6 +148,39 @@ const REELS = [
       { id: 'shorts',  hold: 7 }
     ],
   },
+
+  /* Reel 8 — the scorecard. What reel 7 said this morning, and what the
+   * market then did.
+   *
+   * `score: true` is to this reel what `market: true` is to reel 7: it
+   * selects a different data source (the Scorecard tabs, keyed by DATE) and a
+   * different card wrapper. The three wrappers in index.html are mutually
+   * exclusive on these flags for a reason - see `one card wrapper at a time`.
+   *
+   * The scene order is the user's spec, in their words: reel 7 says a stock
+   * may move this much, then at the end of the day we say "this is what we
+   * expected it happened", or "this is what we expected but that did not
+   * happend due to this", and close on prediction success over total.
+   *
+   * `right` and `wrong` are separate scenes and either can drop out. A day
+   * where everything worked has no `wrong` card and vice versa, and an empty
+   * frame reads as a mistake. Same reasoning as reel 7's longs/shorts split.
+   *
+   * `record` is last and is the only scene allowed to state a rate. Below
+   * five stored sessions the backend reports `enough: false` and the card
+   * says "too early to say" instead of a percentage - a trust channel cannot
+   * quote a hit rate computed from three trades.
+   */
+  {
+    n: 8, key: 'reel8', acc: '#FBBF24', score: true,
+    scenes: [
+      { id: 'scorehook', hold: 3 },  // the date and the headline number
+      { id: 'called',    hold: 6 },  // what we said this morning
+      { id: 'right',     hold: 8 },  // the ones that happened
+      { id: 'wrong',     hold: 8 },  // the ones that did not, and why
+      { id: 'record',    hold: 6 },  // hits over total, across sessions
+    ],
+  },
 ];
 
 /**

@@ -57,6 +57,13 @@ function studio() {
        it is four small tabs and the same fetch already pulls them. */
     briefing: null,
     briefingDays: [],
+    /* Reel 8's record: the newest scored session in the Scorecard tabs, plus
+     * the running rate across all of them. `scoreRecord.enough` is what the
+     * card gates its headline on - below five sessions the honest line is
+     * "too early to say" rather than a percentage from three trades. */
+    scored: null,
+    scoredDates: [],
+    scoreRecord: null,
     /* The sheet's Settings tab. `backend_mode` is a declaration of where this
        pipeline is meant to run; `backend_url` is only needed when the studio
        is served from a host with no backend of its own (Pages). */
@@ -847,9 +854,13 @@ function studio() {
         // the parse. `catch` rather than `Promise.all` failure — a missing
         // Market tab must not stop the six IPO reels from loading, which is
         // exactly what would happen on a sheet that predates reel 7.
-        const [idx, board, brief, cfg] = await Promise.all([
+        const [idx, board, brief, card, cfg] = await Promise.all([
           DATA.index(), DATA.board(),
           DATA.briefing().catch(() => ({ briefing: null, days: [] })),
+          // Same `catch` reasoning as the briefing above, one reel later: a
+          // sheet with no Scorecard tabs is every sheet until the first
+          // session is scored, and that must not stop the other seven reels.
+          DATA.scorecard().catch(() => ({ latest: null, dates: [], record: null })),
           DATA.settings(),
         ]);
         this.sheetSettings = cfg || {};
@@ -857,6 +868,9 @@ function studio() {
         this.boardRows = board.rows || [];
         this.briefing = brief.briefing || null;
         this.briefingDays = brief.days || [];
+        this.scored = card.latest || null;
+        this.scoredDates = card.dates || [];
+        this.scoreRecord = card.record || null;
         const saved = localStorage.getItem('ipoPulse.slug');
         const pick = this.catalogue.find((c) => c.slug === saved) || this.catalogue[0];
         if (pick) await this.select(pick.slug);
@@ -1066,13 +1080,19 @@ function studio() {
      * `ipo && d`, so a market reel rendered an empty frame no matter what was
      * in the sheet. */
     get cardReady() {
+      if (this.reel.score) return !!this.scored;
       return this.reel.market ? !!this.briefing : !!(this.ipo && this.d);
     },
     /* What the card says when it cannot draw. Named rather than inlined
        because the two reasons need different instructions. */
     get cardBlocked() {
       if (this.cardReady) return '';
-      if (!this.reel.market) return 'Pick an IPO from the dropdown.';
+      if (this.reel.score) {
+        return this.scoredDates.length
+          ? `No scorecard for today yet. The newest stored is ${this.scoredDates[this.scoredDates.length - 1]}.`
+          : 'Nothing scored yet. Score the last session with:  ipopulse score --write';
+      }
+      if (!this.reel.market && !this.reel.score) return 'Pick an IPO from the dropdown.';
       return this.briefingDays.length
         ? `No briefing for today yet. The newest stored is ${this.briefingDays[this.briefingDays.length - 1]}.`
         : 'No briefing in the sheet yet. Build one with:  ipopulse market --write';

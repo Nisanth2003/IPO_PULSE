@@ -520,7 +520,7 @@
   </div>
 
   <!-- reel tabs: each is one video -->
-  <div class="grid grid-cols-7 gap-1 px-3 pb-2">
+  <div class="grid grid-cols-8 gap-1 px-3 pb-2">
     <template x-for="(r,i) in REELS" :key="r.n">
       <button @click="go(i,0)"
               class="group relative rounded-lg border px-2 py-1.5 text-left transition"
@@ -801,7 +801,13 @@
                search walked to the 0.5 floor and gave up. x-if removes the
                wrapper rather than hiding it, which is the difference that
                matters here. -->
-          <template x-if="!reel.market && ipo && d && sceneId !== 'outro'">
+          <!-- Reels 1-6. `!reel.score` as well as `!reel.market`: the four
+               wrappers in this card MUST be mutually exclusive, because two
+               `h-full` blocks rendering together stack to twice the body
+               height and the card then reports "Scene overflows" over empty
+               structure. That was the reel 7 bug; see the note above the
+               outro wrapper. -->
+          <template x-if="!reel.market && !reel.score && ipo && d && sceneId !== 'outro'">
           <div class="h-full">
 
             <!-- ─── REEL 1 · ABOUT IPO ─────────────────────────────── -->
@@ -2422,6 +2428,138 @@
                `:fill` binding becomes an invalid namespace prefix and the
                whole graphic disappears from the PNG, and CSS sizing is lost.
                See docs and `stripBindings()` in output.js. -->
+          <!-- ── reel 8: the scorecard ─────────────────────────────────
+               What reel 7 said this morning, and what the market then did.
+               Reads `scored` (the newest stored session) and `scoreRecord`
+               (the running rate). Mutually exclusive with the three other
+               wrappers on `reel.score` and `sceneId`. -->
+          <template x-if="reel.score && scored && sceneId !== 'outro'">
+          <div class="h-full">
+
+            <!-- the date and the headline: how many calls landed -->
+            <div x-show="at(8,'scorehook')" class="scene items-center text-center">
+              <div class="pill self-center text-2xs font-black tracking-[.16em]"
+                   :style="`background:${acc}22;color:${acc};border:1px solid ${acc}66`">SCORECARD</div>
+              <div>
+                <div class="lbl">How the morning call held up</div>
+                <div class="font-black text-5xl leading-none" :style="`color:${acc}`"
+                     x-text="fmtDate(scored.date, true)"></div>
+              </div>
+              <div class="rounded-2xl px-6 py-4 self-center glass"
+                   :class="scored.direction_right * 2 >= scored.directional ? 'glass-g' : 'glass-r'">
+                <div class="font-black text-6xl leading-none"
+                     :class="scored.direction_right * 2 >= scored.directional ? 'text-emerald-400' : 'text-red-400'"
+                     x-text="scored.direction_right + ' / ' + scored.directional"></div>
+                <div class="lbl mt-1">stocks moved the way we said</div>
+              </div>
+              <div class="text-sm opacity-80" x-text="scored.note"></div>
+            </div>
+
+            <!-- what we said this morning, in one table -->
+            <div x-show="at(8,'called')" class="scene">
+              <div class="lbl">This morning we said</div>
+              <div class="mt-2 space-y-1">
+                <template x-for="c in scored.calls.slice(0, 8)" :key="c.symbol">
+                  <div class="flex items-center gap-2 rounded-xl px-3 py-2 glass">
+                    <div class="font-black text-sm w-28 truncate" x-text="c.symbol"></div>
+                    <div class="text-2xs font-black tracking-wider w-14"
+                         :class="c.side === 'short' ? 'text-red-400' : 'text-emerald-400'"
+                         x-text="c.side.toUpperCase()"></div>
+                    <div class="text-2xs opacity-70 flex-1 truncate"
+                         x-text="'entry ' + fmt(c.entry) + ' → ' + fmt(c.target)"></div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- the ones that happened -->
+            <div x-show="at(8,'right')" class="scene">
+              <div class="lbl">
+                <span x-text="scored.right.length"></span> of these happened
+              </div>
+              <div class="mt-2 space-y-1">
+                <template x-for="c in scored.right.slice(0, 5)" :key="c.symbol">
+                  <div class="rounded-xl px-3 py-2 glass glass-g">
+                    <div class="flex items-baseline gap-2">
+                      <div class="font-black text-sm" x-text="c.symbol"></div>
+                      <div class="font-black text-sm text-emerald-400"
+                           x-text="signed(c.stock_pct, 2) + '%'"></div>
+                      <div class="text-2xs opacity-60 ml-auto" x-text="c.verdict"></div>
+                    </div>
+                    <div class="text-2xs opacity-75 leading-snug mt-0.5"
+                         x-text="c.because"></div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- the ones that did not, and why -->
+            <div x-show="at(8,'wrong')" class="scene">
+              <div class="lbl">
+                <span x-text="scored.wrong.length"></span> did not, and why
+              </div>
+              <div class="mt-2 space-y-1">
+                <template x-for="c in scored.wrong.slice(0, 5)" :key="c.symbol">
+                  <div class="rounded-xl px-3 py-2 glass glass-r">
+                    <div class="flex items-baseline gap-2">
+                      <div class="font-black text-sm" x-text="c.symbol"></div>
+                      <div class="font-black text-sm text-red-400"
+                           x-text="signed(c.stock_pct, 2) + '%'"></div>
+                      <div class="text-2xs opacity-60 ml-auto" x-text="c.cause"></div>
+                    </div>
+                    <div class="text-2xs opacity-75 leading-snug mt-0.5"
+                         x-text="c.because"></div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- the running record. The ONLY scene allowed to state a rate,
+                 and only once five sessions are stored: a percentage from
+                 three trades is a number a trust channel cannot defend. -->
+            <div x-show="at(8,'record')" class="scene items-center text-center">
+              <div class="lbl">Across <span x-text="scoreRecord ? scoreRecord.sessions : 0"></span> session(s)</div>
+              <template x-if="scoreRecord && scoreRecord.enough">
+                <div class="self-stretch space-y-2">
+                  <div class="rounded-2xl px-5 py-4 glass glass-g">
+                    <div class="font-black text-5xl leading-none text-emerald-400"
+                         x-text="scoreRecord.direction_rate + '%'"></div>
+                    <div class="lbl mt-1">
+                      of calls closed as said
+                      (<span x-text="scoreRecord.direction_right"></span>/<span
+                        x-text="scoreRecord.directional"></span>)
+                    </div>
+                  </div>
+                  <div class="rounded-2xl px-5 py-3 glass">
+                    <div class="font-black text-3xl leading-none"
+                         x-text="scoreRecord.hit_rate === null ? '—' : scoreRecord.hit_rate + '%'"></div>
+                    <div class="lbl mt-1">
+                      of setups reached target
+                      (<span x-text="scoreRecord.target_hit"></span>/<span
+                        x-text="scoreRecord.resolved"></span>)
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <!-- Below the floor the card says so rather than showing a
+                   rate. This is the honest state for the first fortnight. -->
+              <template x-if="!scoreRecord || !scoreRecord.enough">
+                <div class="rounded-2xl px-5 py-4 self-stretch glass glass-a">
+                  <div class="font-black text-3xl leading-none text-amber-400">Too early to say</div>
+                  <div class="text-sm opacity-80 mt-2 leading-snug">
+                    Only <span x-text="scoreRecord ? scoreRecord.sessions : 0"></span>
+                    session(s) scored so far. A hit rate needs at least five
+                    before it means anything.
+                  </div>
+                </div>
+              </template>
+              <div class="text-2xs opacity-60"
+                   x-text="scoreRecord ? scoreRecord.voided + ' of ' + scoreRecord.setups + ' never had a tradeable entry' : ''"></div>
+            </div>
+
+          </div>
+          </template>
+
           <template x-if="sceneId === 'outro'">
           <div class="h-full scene items-center text-center" style="justify-content:center">
 

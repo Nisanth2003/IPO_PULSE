@@ -19,6 +19,10 @@ const LABELS = {
   reel5:       ['Final Verdict', 'फाइनल फैसला', 'తుది తీర్పు'],
   reel6:       ['Allotment & Listing', 'अलॉटमेंट व लिस्टिंग', 'అలాట్‌మెంట్ & లిస్టింగ్'],
   reel7:       ['Market Today', 'आज का बाज़ार', 'నేటి మార్కెట్'],
+  // Reel 8 grades reel 7. Named for the question it answers rather
+  // than for the mechanism - a viewer scrolling past does not know
+  // what a scorecard is, but they know what "did we get it right" means.
+  reel8:       ['Did We Get It Right?', 'क्या हम सही थे?', 'మేము సరిగా చెప్పామా?'],
   // The end card's own labels. Short on purpose: they sit on a card that is
   // on screen for 2.4 seconds, and a sentence there competes with the spoken
   // sign-off rather than reinforcing it.

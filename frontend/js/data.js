@@ -24,6 +24,10 @@ const TABS = ['IPOs', 'Financials', 'GMP', 'Subscription',
               // briefing is keyed by DATE, not by slug, so it cannot join the
               // record rebuild below — see `briefing()`.
               'Market', 'MarketNews', 'MarketSectors', 'MarketSetups',
+              // Reel 8's two. Keyed by date like the Market tabs, and for the
+              // same reason they cannot join the record rebuild: a scored
+              // session is not a company.
+              'Scorecard', 'ScorecardCalls',
               // Global key/value, not per-IPO: where the backend lives, and
               // which host this sheet's pipeline is meant to run on. Read at
               // runtime so it can be changed without rebuilding config.js.
@@ -278,6 +282,107 @@ const DATA = {
    * scene as 0 rather than as the string "" — the same rule `_f` enforces for
    * every IPO field.
    */
+  /* Reel 8's scorecard, keyed by date. {days, latest, record}.
+   *
+   * `direction` is decoded from the sheet's own yes/no words rather than
+   * coerced with `_f`, because THREE states matter and a boolean cast
+   * collapses two of them: true is a call that worked, false is a call that
+   * was wrong, and null is one that could not be scored either way. Writing
+   * `!!cell` here would turn every unscoreable call into a wrong one.
+   */
+  async scorecard(day) {
+    await this._load();
+    const rows = (name) => SHEET.table(this._raw.get(name));
+
+    const yesno = (v) => {
+      const t = _s(v).trim().toLowerCase();
+      if (t === 'yes' || t === 'true' || t === '1') return true;
+      if (t === 'no' || t === 'false' || t === '0') return false;
+      return null;
+    };
+
+    const days = {};
+    for (const r of rows('Scorecard')) {
+      const date = _d(r.date);
+      if (!date) continue;
+      days[date] = {
+        date,
+        scored_at: _s(r.scored_at),
+        setups: _f(r.setups),
+        directional: _f(r.directional),
+        direction_right: _f(r.direction_right),
+        direction_rate: _f(r.direction_rate),
+        resolved: _f(r.resolved),
+        target_hit: _f(r.target_hit),
+        hit_rate: _f(r.hit_rate),
+        voided: _f(r.voided), no_trade: _f(r.no_trade),
+        bias_called: _s(r.bias_called), bias_actual: _s(r.bias_actual),
+        bias_correct: yesno(r.bias_correct),
+        nifty_close: _f(r.nifty_close), nifty_pct: _f(r.nifty_pct),
+        median_stop_share: _f(r.median_stop_share),
+        median_target_share: _f(r.median_target_share),
+        causes: _s(r.causes), note: _s(r.note),
+        calls: [],
+      };
+    }
+
+    for (const r of rows('ScorecardCalls')) {
+      const date = _d(r.date);
+      const host = days[date];
+      if (!host) continue;
+      host.calls.push({
+        idx: _f(r.idx), symbol: _s(r.symbol), side: _s(r.side),
+        entry: _f(r.entry), target: _f(r.target), stop: _f(r.stop),
+        high: _f(r.high), low: _f(r.low), close: _f(r.close),
+        verdict: _s(r.verdict), why: _s(r.why),
+        direction: yesno(r.direction), stock_pct: _f(r.stock_pct),
+        cause: _s(r.cause), because: _s(r.because),
+        sector: _s(r.sector), sector_pct: _f(r.sector_pct),
+        market_pct: _f(r.market_pct),
+        stop_share: _f(r.stop_share), target_share: _f(r.target_share),
+        gap_pct: _f(r.gap_pct), entry_pos: _f(r.entry_pos),
+      });
+    }
+    for (const d of Object.values(days)) {
+      d.calls.sort((a, b) => a.idx - b.idx);
+      // Split once here rather than filtering in three places in the
+      // template: the cards need the two groups and Alpine re-evaluates an
+      // inline filter on every render pass.
+      d.right = d.calls.filter((c) => c.direction === true);
+      d.wrong = d.calls.filter((c) => c.direction === false);
+    }
+
+    const keys = Object.keys(days).sort();
+    const picked = days[_d(day)] || (keys.length ? days[keys[keys.length - 1]] : null);
+
+    /* The running rate — the only number the reel may state. Summed from the
+     * stored rows so the reel and the sheet cannot disagree about what was
+     * published. `enough` mirrors scorecard.record's five-session floor. */
+    const all = keys.map((k) => days[k]);
+    const sum = (f) => all.reduce((n, d) => n + f(d), 0);
+    const called = sum((d) => d.directional);
+    const right = sum((d) => d.direction_right);
+    const resolved = sum((d) => d.resolved);
+    const hits = sum((d) => d.target_hit);
+    const biasDays = all.filter((d) => d.bias_correct !== null);
+
+    return {
+      days, latest: picked, dates: keys,
+      record: {
+        sessions: keys.length,
+        setups: sum((d) => d.setups),
+        directional: called, direction_right: right,
+        direction_rate: called ? Math.round(1000 * right / called) / 10 : null,
+        resolved, target_hit: hits,
+        hit_rate: resolved ? Math.round(1000 * hits / resolved) / 10 : null,
+        voided: sum((d) => d.voided),
+        bias_scored: biasDays.length,
+        bias_right: biasDays.filter((d) => d.bias_correct).length,
+        enough: keys.length >= 5,
+      },
+    };
+  },
+
   async briefing(day) {
     await this._load();                 // fills this._raw
     const rows = (name) => SHEET.table(this._raw.get(name));
