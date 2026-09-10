@@ -235,12 +235,70 @@ def check(slug: str, rec: dict) -> list[Violation]:
     return out
 
 
+# Allocation fields. Each is a share count derived from ONE issue's own size
+# and price, so the same value on two companies is not a coincidence — it is
+# one record written from another's numbers.
+_ALLOCATION = ("shares_anchor", "shares_qib", "shares_nii", "shares_retail",
+               "shares_total")
+
+# Below this a collision is plausible arithmetic rather than contamination:
+# small SME issues with round lot sizes genuinely land on the same figure.
+_COLLISION_FLOOR = 100_000
+
+
+def cross_record(records: dict[str, dict]) -> list[Violation]:
+    """Allocations that appear on more than one company.
+
+    Found 11 Sep 2026 via the Antigravity agent, which traced
+    manipal-payment's wrong share count to the concurrent Purple Style Labs
+    issue; this check then found a second pair nobody had looked at
+    (rentomojo / symbiotec-pharmalab).
+
+    Invisible to every per-record rule, because a contaminated breakdown SUMS
+    correctly to its own wrong total. Only a comparison across records — or
+    against the issue size, which is what `shares_total` already flagged
+    without being able to explain — can see it.
+    """
+    from collections import defaultdict
+
+    seen: dict[tuple[str, float], list[str]] = defaultdict(list)
+    for slug, rec in records.items():
+        if not isinstance(rec, dict):
+            continue
+        issue = rec.get("issue") or {}
+        for field in _ALLOCATION:
+            try:
+                val = float(issue.get(field) or 0)
+            except (TypeError, ValueError):
+                continue
+            if val >= _COLLISION_FLOOR:
+                seen[(field, val)].append(slug)
+
+    out: list[Violation] = []
+    for (field, val), slugs in sorted(seen.items()):
+        if len(slugs) < 2:
+            continue
+        for slug in slugs:
+            others = ", ".join(s for s in slugs if s != slug)
+            out.append(Violation(
+                slug=slug, field=field, severity=WARN,
+                message=(f"{val:,.0f} is also {others}'s {field} — an "
+                         f"allocation is derived from one issue's own size "
+                         f"and price, so one of these records was written "
+                         f"from the other's numbers")))
+    return out
+
+
 def check_all(records: dict[str, dict]) -> list[Violation]:
     """Every violation across a whole snapshot, worst first."""
     out: list[Violation] = []
     for slug, rec in records.items():
         if isinstance(rec, dict):
             out.extend(check(slug, rec))
+    # Cross-record rules run after the per-record ones and cannot BLOCK: the
+    # collision proves one of the pair is wrong without saying which, and
+    # refusing the write would freeze the correct record too.
+    out.extend(cross_record(records))
     return sorted(out, key=lambda v: (v.severity != BLOCK, v.slug))
 
 

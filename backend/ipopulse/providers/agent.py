@@ -33,12 +33,22 @@ a human decides, and the existing verified paths do the writing.
 
 ── cost, measured rather than assumed ───────────────────────────────────
 
-One interaction answering a single-sentence question with search enabled
-cost **20,355 tokens** — and that was with `max_total_tokens: 8000`, so the
-budget is advisory rather than a hard cap. An interaction runs a multi-turn
-autonomous loop; it is not a chat completion and must not be called in a
-loop over 42 IPOs without thinking about it. Hence `BUDGET` below is
-conservative and every call site passes a question that is worth 20k.
+Measured twice, and the second number is the one to plan on:
+
+    a one-sentence question, search only        20,355 tokens
+    one real cross-check of a company's filings 153,374 tokens
+
+Both against a stated `max_total_tokens` of 8,000 and 60,000 respectively —
+so the budget is ADVISORY and does not cap anything. 153k for one question
+means this is not a per-IPO tool: 42 companies would be ~6.4M tokens. It is
+for the handful of questions that are actually stuck, which is what
+`investigate --finding` restricts it to.
+
+The 153k answer was worth it. It resolved a week-old finding AND named the
+mechanism — the wrong share count came from a concurrent issue — which a
+deterministic check then generalised into `invariants.cross_record`, finding
+a second contaminated pair for free. That is the shape to aim for: pay for
+the mechanism once, then encode it.
 """
 
 from __future__ import annotations
@@ -58,13 +68,16 @@ AGENT = os.getenv("IPOPULSE_AGENT_MODEL") or "antigravity-preview-05-2026"
 BUDGET = int(os.getenv("IPOPULSE_AGENT_BUDGET") or 60000)
 
 # `google_search` and `url_context` are what make this better than a plain
-# grounded call — the agent can follow a disagreement across pages. Code
-# execution earns its place on exactly the arithmetic questions below: a
-# shares-times-cap contradiction is settled by doing the multiplication
-# against the filed figures, not by a model asserting a product.
+# grounded call: the agent can follow a disagreement across pages.
+#
+# `code_execution` is NOT here, and that was measured rather than assumed.
+# The same question with it ran past nine minutes without completing; without
+# it, it completed inside `create`. It also earns less than it looks like it
+# should — the arithmetic in these questions is one multiplication, and the
+# agent got Rs 805 Cr from 23,746,313 x 339 correctly in prose. Add it back
+# only with a question that genuinely needs a program, and expect the wait.
 TOOLS = [{"type": "google_search"},
-         {"type": "url_context"},
-         {"type": "code_execution"}]
+         {"type": "url_context"}]
 
 # An interaction is ASYNCHRONOUS. `create` returns status `incomplete` with no
 # output — it has started a loop, not answered. Reading `output_text` off the
